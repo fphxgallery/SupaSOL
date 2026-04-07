@@ -44,8 +44,9 @@ export function PositionCard({
   const [expanded, setExpanded] = useState(false);
   const { data: poolInfo, isLoading: poolLoading } = usePoolInfo(position.poolAddress);
 
-  const tokenXDecimals = 9; // fallback; poolInfo doesn't expose decimals directly
-  const tokenYDecimals = 6;
+  // Read decimals from pool metadata; fall back to SOL=9 / USDC=6
+  const tokenXDecimals = poolInfo?.token_x?.decimals ?? 9;
+  const tokenYDecimals = poolInfo?.token_y?.decimals ?? 6;
 
   // Prefer symbol from token objects; fall back to parsing the pair name
   const symbolX = poolInfo?.token_x?.symbol ?? poolInfo?.name?.split('-')[0] ?? 'Token X';
@@ -105,17 +106,13 @@ export function PositionCard({
           <div className="bg-surface-2 rounded-lg p-3">
             <p className="text-xs text-text-dim mb-1">{symbolX}</p>
             <p className="text-sm font-mono text-text">
-              {hasLiquidity(position) ? (
-                parseFloat(position.totalXAmount).toLocaleString('en-US', { maximumFractionDigits: 4 })
-              ) : '0'}
+              {formatTokenAmount(position.totalXAmount, tokenXDecimals)}
             </p>
           </div>
           <div className="bg-surface-2 rounded-lg p-3">
             <p className="text-xs text-text-dim mb-1">{symbolY}</p>
             <p className="text-sm font-mono text-text">
-              {hasLiquidity(position) ? (
-                parseFloat(position.totalYAmount).toLocaleString('en-US', { maximumFractionDigits: 4 })
-              ) : '0'}
+              {formatTokenAmount(position.totalYAmount, tokenYDecimals)}
             </p>
           </div>
         </div>

@@ -252,14 +252,45 @@ export async function buildAddLiquidityTxs(
   const poolPubkey = new PublicKey(poolAddress);
   const ownerPubkey = new PublicKey(ownerAddress);
 
+  console.log('[buildAddLiquidityTxs] creating DLMM pool...', poolAddress);
   const dlmmPool = await DLMM.create(connection, poolPubkey);
+  const decimalsX = dlmmPool.tokenX.mint.decimals;
+  const decimalsY = dlmmPool.tokenY.mint.decimals;
 
-  // Convert prices to bin IDs.
+  console.log('[buildAddLiquidityTxs] pool created', {
+    activeBin: dlmmPool.lbPair.activeId,
+    binStep: dlmmPool.lbPair.binStep,
+    tokenX: dlmmPool.tokenX.publicKey.toBase58(),
+    tokenY: dlmmPool.tokenY.publicKey.toBase58(),
+    decimalsX,
+    decimalsY,
+  });
+
+  // getBinIdFromPrice expects price in per-lamport units (raw token ratio), NOT UI price.
+  // Convert: pricePerLamport = uiPrice * 10^(decimalsY - decimalsX)
+  // e.g. for SOL(9)-USDC(6): $150 SOL → 150 * 10^(6-9) = 0.15 per lamport
+  const toLamportMultiplier = Math.pow(10, decimalsY - decimalsX);
+  const minPricePerLamport = params.minPrice * toLamportMultiplier;
+  const maxPricePerLamport = params.maxPrice * toLamportMultiplier;
+
   // min=true  → round toward the lower bin (use for the lower price bound)
   // min=false → round toward the higher bin (use for the upper price bound)
-  // Mirror Meteora's own internal convention: lowerBinId = getBinIdFromPrice(min, true) - 1
-  const minBinId = dlmmPool.getBinIdFromPrice(params.minPrice, true) - 1;
-  const maxBinId = dlmmPool.getBinIdFromPrice(params.maxPrice, false) + 1;
+  const minBinId = dlmmPool.getBinIdFromPrice(minPricePerLamport, true) - 1;
+  const maxBinId = dlmmPool.getBinIdFromPrice(maxPricePerLamport, false) + 1;
+
+  console.log('[buildAddLiquidityTxs] bin IDs', {
+    minPrice: params.minPrice,
+    maxPrice: params.maxPrice,
+    toLamportMultiplier,
+    minPricePerLamport,
+    maxPricePerLamport,
+    minBinId,
+    maxBinId,
+    activeBinId: dlmmPool.lbPair.activeId,
+    totalXAmount: params.totalXAmount.toString(),
+    totalYAmount: params.totalYAmount.toString(),
+    strategyType: params.strategyType,
+  });
 
   if (minBinId >= maxBinId) {
     throw new Error('Min price bin must be less than max price bin — widen your range');
@@ -272,7 +303,9 @@ export async function buildAddLiquidityTxs(
 
   // Generate a new Keypair for this position
   const positionKeypair = Keypair.generate();
+  console.log('[buildAddLiquidityTxs] position keypair:', positionKeypair.publicKey.toBase58());
 
+  console.log('[buildAddLiquidityTxs] calling initializePositionAndAddLiquidityByStrategy...');
   const tx = await dlmmPool.initializePositionAndAddLiquidityByStrategy({
     positionPubKey: positionKeypair.publicKey,
     user: ownerPubkey,
@@ -284,6 +317,12 @@ export async function buildAddLiquidityTxs(
       strategyType,
     },
     slippage: 1,
+  });
+  console.log('[buildAddLiquidityTxs] tx built', {
+    numInstructions: tx.instructions.length,
+    feePayer: tx.feePayer?.toBase58() ?? '(not set)',
+    recentBlockhash: tx.recentBlockhash ?? '(not set)',
+    signers: tx.signatures.map((s) => s.publicKey.toBase58()),
   });
 
   // Do NOT partialSign here — the blockhash hasn't been set yet.

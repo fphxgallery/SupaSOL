@@ -161,8 +161,26 @@ export function AddLiquidityModal({
       const xBase = BigInt(Math.floor(parseFloat(amountX || '0') * 10 ** decimalsX));
       const yBase = BigInt(Math.floor(parseFloat(amountY || '0') * 10 ** decimalsY));
 
+      console.log('[AddLiquidity] params', {
+        pool: pool.address,
+        owner: ownerAddress,
+        symX, symY,
+        decimalsX, decimalsY,
+        amountX, amountY,
+        xBase: xBase.toString(),
+        yBase: yBase.toString(),
+        minPrice: min,
+        maxPrice: max,
+        strategy,
+        rpcUrl,
+        current_price: pool.current_price,
+        priceXinY,
+      });
+
       addToast({ type: 'info', message: 'Building add liquidity transactions...' });
       const connection = new Connection(rpcUrl, 'confirmed');
+
+      console.log('[AddLiquidity] calling buildAddLiquidityTxs...');
       const entries = await buildAddLiquidityTxs(connection, pool.address, ownerAddress, {
         totalXAmount: xBase,
         totalYAmount: yBase,
@@ -170,21 +188,27 @@ export function AddLiquidityModal({
         maxPrice: max,
         strategyType: strategy,
       });
+      console.log('[AddLiquidity] built', entries.length, 'tx(s)', entries.map((e) => ({
+        positionPubkey: e.positionKeypair.publicKey.toBase58(),
+        numInstructions: e.tx.instructions.length,
+        feePayer: e.tx.feePayer?.toBase58() ?? '(not set)',
+        recentBlockhash: e.tx.recentBlockhash ?? '(not set)',
+      })));
 
       // Pass position keypairs as extraSigners so they sign AFTER the blockhash is set.
-      // If signed before blockhash (as previously done), the signature covers the wrong message.
+      console.log('[AddLiquidity] signing and sending...');
       await signAndSendAllLegacy(
         entries.map((e) => e.tx),
         `Add Liquidity ${pool.name}`,
         entries.map((e) => [e.positionKeypair]),
       );
+      console.log('[AddLiquidity] success');
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
-      addToast({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Add liquidity failed',
-      });
+      console.error('[AddLiquidity] error:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      addToast({ type: 'error', message: msg || 'Add liquidity failed' });
     } finally {
       setLoading(false);
     }

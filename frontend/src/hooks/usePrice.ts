@@ -8,13 +8,13 @@ export function usePrice(mints: string[] = DEFAULT_MINTS) {
   return useQuery({
     queryKey: ['prices', mints.join(',')],
     queryFn: () => fetchPrices(mints),
-    refetchInterval: 10_000, // poll every 10s per Jupiter skill guidance
+    refetchInterval: 10_000,
     staleTime: 5_000,
     select: (data) => {
-      // Filter out tokens with unreliable pricing (null price)
+      // Keep only tokens with a valid usdPrice
       const filtered: Record<string, TokenPrice> = {};
       for (const [mint, info] of Object.entries(data)) {
-        if (info.price !== null) filtered[mint] = info;
+        if (info?.usdPrice) filtered[mint] = info;
       }
       return filtered;
     },
@@ -23,7 +23,5 @@ export function usePrice(mints: string[] = DEFAULT_MINTS) {
 
 export function useSolPrice(): number | null {
   const { data } = usePrice([MINTS.SOL]);
-  const info = data?.[MINTS.SOL];
-  if (!info?.price) return null;
-  return parseFloat(info.price);
+  return data?.[MINTS.SOL]?.usdPrice ?? null;
 }

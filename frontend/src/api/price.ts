@@ -1,23 +1,28 @@
 import { apiFetch } from './client';
 
+// Jupiter Price v3 response — returns mint addresses as top-level keys
 export interface TokenPrice {
-  id: string;
-  type: string;
-  price: string | null;
-  confidenceLevel?: string;
-  extraInfo?: Record<string, unknown>;
-}
-
-export interface PriceResponse {
-  data: Record<string, TokenPrice>;
-  timeTaken?: number;
+  usdPrice: number;
+  priceChange24h?: number;
+  liquidity?: number;
+  decimals?: number;
+  blockId?: number;
+  // Legacy alias so callers using .price still work
+  price?: string | null;
 }
 
 /** Fetch prices for up to 50 mint addresses at once. */
 export async function fetchPrices(mints: string[]): Promise<Record<string, TokenPrice>> {
   if (mints.length === 0) return {};
-  // Jupiter Price v3 enforces max 50 IDs per request
   const batch = mints.slice(0, 50);
-  const resp = await apiFetch<PriceResponse>(`/api/price?ids=${batch.join(',')}`);
-  return resp.data ?? {};
+  const resp = await apiFetch<Record<string, TokenPrice>>(`/api/price?ids=${batch.join(',')}`);
+
+  // Normalize: add a .price string alias for backwards compat
+  const result: Record<string, TokenPrice> = {};
+  for (const [mint, info] of Object.entries(resp ?? {})) {
+    if (info && typeof info.usdPrice === 'number') {
+      result[mint] = { ...info, price: String(info.usdPrice) };
+    }
+  }
+  return result;
 }

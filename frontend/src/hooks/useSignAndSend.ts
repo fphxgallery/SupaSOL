@@ -73,30 +73,11 @@ export function useSignAndSend() {
     tx.recentBlockhash = blockhash;
     tx.feePayer = keypair.publicKey;
 
-    console.log('[signAndSendLegacy]', description, {
-      blockhash,
-      feePayer: keypair.publicKey.toBase58(),
-      numInstructions: tx.instructions.length,
-      extraSigners: extraSigners.map((s) => s.publicKey.toBase58()),
-    });
-
     // Sign with extra keypairs first (e.g. position keypairs), then the user wallet
     if (extraSigners.length > 0) tx.partialSign(...extraSigners);
     tx.partialSign(keypair);
 
-    console.log('[signAndSendLegacy] signatures after signing:', tx.signatures.map((s) => ({
-      pubkey: s.publicKey.toBase58(),
-      signed: s.signature !== null,
-    })));
-
-    let serialized: Buffer;
-    try {
-      serialized = tx.serialize();
-      console.log('[signAndSendLegacy] serialized tx bytes:', serialized.length);
-    } catch (serErr) {
-      console.error('[signAndSendLegacy] serialize failed:', serErr);
-      throw serErr;
-    }
+    const serialized = tx.serialize();
 
     // Send once to get the signature, then poll + resend until confirmed or expired.
     // This "send-with-retry" pattern prevents transactions from dropping due to RPC issues.
@@ -104,7 +85,6 @@ export function useSignAndSend() {
       maxRetries: 0,
       skipPreflight: true,
     });
-    console.log('[signAndSendLegacy] submitted sig:', sig);
 
     addTx({ sig, status: 'pending', description, cluster });
     addToast({ type: 'info', message: `${description} submitted`, txSig: sig });
@@ -121,7 +101,6 @@ export function useSignAndSend() {
           clearInterval(resendInterval);
           return;
         }
-        console.log('[signAndSendLegacy] resending...', sig.slice(0, 8));
         connection.sendRawTransaction(serialized, { maxRetries: 0, skipPreflight: true }).catch(() => {});
       }, RESEND_INTERVAL_MS);
 
@@ -134,14 +113,12 @@ export function useSignAndSend() {
         clearInterval(resendInterval);
 
         if (result.value.err) {
-          console.error('[signAndSendLegacy] confirmed with error:', result.value.err);
           useTxStore.getState().updateTx(sig, 'failed');
           useUiStore.getState().addToast({
             type: 'error',
             message: `${description} failed: ${JSON.stringify(result.value.err)}`,
           });
         } else {
-          console.log('[signAndSendLegacy] confirmed:', sig);
           useTxStore.getState().updateTx(sig, 'confirmed');
           useUiStore.getState().addToast({ type: 'success', message: `${description} confirmed`, txSig: sig });
         }
@@ -149,7 +126,6 @@ export function useSignAndSend() {
         done = true;
         clearInterval(resendInterval);
         const isExpired = confErr instanceof Error && confErr.name === 'TransactionExpiredBlockheightExceededError';
-        console.error('[signAndSendLegacy] confirmation error:', confErr);
         useTxStore.getState().updateTx(sig, 'failed');
         useUiStore.getState().addToast({
           type: 'error',

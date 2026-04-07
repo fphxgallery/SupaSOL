@@ -151,36 +151,30 @@ export function AddLiquidityModal({
     }
     const min = parseFloat(minPrice);
     const max = parseFloat(maxPrice);
+    if (isNaN(min) || isNaN(max) || min <= 0) {
+      addToast({ type: 'error', message: 'Enter valid prices greater than 0' });
+      return;
+    }
     if (min >= max) {
       addToast({ type: 'error', message: 'Min price must be less than max price' });
       return;
     }
 
+    const xAmt = parseFloat(amountX || '0');
+    const yAmt = parseFloat(amountY || '0');
+    if (isNaN(xAmt) || isNaN(yAmt)) {
+      addToast({ type: 'error', message: 'Enter valid token amounts' });
+      return;
+    }
+
     setLoading(true);
     try {
-      const xBase = BigInt(Math.floor(parseFloat(amountX || '0') * 10 ** decimalsX));
-      const yBase = BigInt(Math.floor(parseFloat(amountY || '0') * 10 ** decimalsY));
-
-      console.log('[AddLiquidity] params', {
-        pool: pool.address,
-        owner: ownerAddress,
-        symX, symY,
-        decimalsX, decimalsY,
-        amountX, amountY,
-        xBase: xBase.toString(),
-        yBase: yBase.toString(),
-        minPrice: min,
-        maxPrice: max,
-        strategy,
-        rpcUrl,
-        current_price: pool.current_price,
-        priceXinY,
-      });
+      const xBase = BigInt(Math.floor(xAmt * 10 ** decimalsX));
+      const yBase = BigInt(Math.floor(yAmt * 10 ** decimalsY));
 
       addToast({ type: 'info', message: 'Building add liquidity transactions...' });
       const connection = new Connection(rpcUrl, 'confirmed');
 
-      console.log('[AddLiquidity] calling buildAddLiquidityTxs...');
       const entries = await buildAddLiquidityTxs(connection, pool.address, ownerAddress, {
         totalXAmount: xBase,
         totalYAmount: yBase,
@@ -188,25 +182,16 @@ export function AddLiquidityModal({
         maxPrice: max,
         strategyType: strategy,
       });
-      console.log('[AddLiquidity] built', entries.length, 'tx(s)', entries.map((e) => ({
-        positionPubkey: e.positionKeypair.publicKey.toBase58(),
-        numInstructions: e.tx.instructions.length,
-        feePayer: e.tx.feePayer?.toBase58() ?? '(not set)',
-        recentBlockhash: e.tx.recentBlockhash ?? '(not set)',
-      })));
 
       // Pass position keypairs as extraSigners so they sign AFTER the blockhash is set.
-      console.log('[AddLiquidity] signing and sending...');
       await signAndSendAllLegacy(
         entries.map((e) => e.tx),
         `Add Liquidity ${pool.name}`,
         entries.map((e) => [e.positionKeypair]),
       );
-      console.log('[AddLiquidity] success');
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
-      console.error('[AddLiquidity] error:', err);
       const msg = err instanceof Error ? err.message : String(err);
       addToast({ type: 'error', message: msg || 'Add liquidity failed' });
     } finally {

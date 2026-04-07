@@ -55,7 +55,7 @@ export function usePools(opts: {
   orderBy?: 'asc' | 'desc';
 } = {}) {
   return useQuery({
-    queryKey: ['dlmm-pools', opts],
+    queryKey: ['dlmm-pools', opts.page, opts.limit, opts.search, opts.sortKey, opts.orderBy],
     queryFn: () => fetchPairs(opts),
     staleTime: 2 * 60_000,
     retry: 1,

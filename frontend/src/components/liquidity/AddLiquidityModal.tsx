@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Connection } from '@solana/web3.js';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -6,6 +6,9 @@ import { TokenLogo } from '../ui/TokenLogo';
 import { useSignAndSend } from '../../hooks/useSignAndSend';
 import { useUiStore } from '../../store/uiStore';
 import { useClusterStore } from '../../store/clusterStore';
+import { useSolBalance } from '../../hooks/useSolBalance';
+import { useTokenBalances } from '../../hooks/useTokenBalances';
+import { MINTS } from '../../config/constants';
 import { buildAddLiquidityTxs, type MeteoraPairInfo } from '../../api/dlmm';
 
 interface AddLiquidityModalProps {
@@ -52,13 +55,90 @@ export function AddLiquidityModal({
   const { signAndSendAllLegacy, hasWallet } = useSignAndSend();
   const addToast = useUiStore((s) => s.addToast);
 
+  // Wallet balances for the two pool tokens
+  const { data: solLamports } = useSolBalance(ownerAddress);
+  const { data: splBalances } = useTokenBalances(ownerAddress);
+
   const symX = pool.token_x?.symbol ?? pool.name?.split('-')[0] ?? 'X';
   const symY = pool.token_y?.symbol ?? pool.name?.split('-')[1] ?? 'Y';
   const mintX = pool.token_x?.address;
   const mintY = pool.token_y?.address;
   // Use decimals from token metadata, fall back to SOL=9 / USDC=6
-  const decimalsX = pool.token_x?.decimals ?? (mintX === 'So11111111111111111111111111111111111111112' ? 9 : 6);
+  const decimalsX = pool.token_x?.decimals ?? (mintX === MINTS.SOL ? 9 : 6);
   const decimalsY = pool.token_y?.decimals ?? 6;
+
+  // DLMM position creation requires ~0.112 SOL in rent for new accounts
+  // (position account + bin array + ATA). Reserve 0.15 SOL to be safe.
+  const DLMM_RENT_RESERVE_LAMPORTS = 150_000_000; // 0.15 SOL
+
+  // Resolve available wallet balance (in UI units) for each pool token
+  const balanceX = useMemo(() => {
+    if (!mintX) return null;
+    if (mintX === MINTS.SOL) {
+      return solLamports != null
+        ? Math.max(0, (solLamports as number) - DLMM_RENT_RESERVE_LAMPORTS) / 1e9
+        : null;
+    }
+    return splBalances?.find((b) => b.mint === mintX)?.uiAmount ?? null;
+  }, [mintX, solLamports, splBalances]);
+
+  const balanceY = useMemo(() => {
+    if (!mintY) return null;
+    if (mintY === MINTS.SOL) {
+      return solLamports != null
+        ? Math.max(0, (solLamports as number) - DLMM_RENT_RESERVE_LAMPORTS) / 1e9
+        : null;
+    }
+    return splBalances?.find((b) => b.mint === mintY)?.uiAmount ?? null;
+  }, [mintY, solLamports, splBalances]);
+
+  // Show a SOL rent warning if SOL is one of the pool tokens
+  const hasSolToken = mintX === MINTS.SOL || mintY === MINTS.SOL;
+
+  // Derive the current X-per-Y price for pairing calculations.
+  // Prefer pool.current_price (X denominated in Y, e.g. SOL in USDC).
+  // Fall back to deriving from individual token USD prices if available.
+  const priceXinY = useMemo(() => {
+    if (pool.current_price && pool.current_price > 0) return pool.current_price;
+    const px = pool.token_x?.price;
+    const py = pool.token_y?.price;
+    if (px && py && py > 0) return px / py;
+    return null;
+  }, [pool.current_price, pool.token_x?.price, pool.token_y?.price]);
+
+  function handleChangeX(val: string) {
+    setAmountX(val);
+    if (priceXinY && val && !isNaN(parseFloat(val))) {
+      const paired = parseFloat(val) * priceXinY;
+      setAmountY(paired.toFixed(6).replace(/\.?0+$/, ''));
+    } else if (!val) {
+      setAmountY('');
+    }
+  }
+
+  function handleChangeY(val: string) {
+    setAmountY(val);
+    if (priceXinY && val && !isNaN(parseFloat(val))) {
+      const paired = parseFloat(val) / priceXinY;
+      setAmountX(paired.toFixed(6).replace(/\.?0+$/, ''));
+    } else if (!val) {
+      setAmountX('');
+    }
+  }
+
+  function handleSetX(val: string) {
+    setAmountX(val);
+    if (priceXinY && val && !isNaN(parseFloat(val))) {
+      setAmountY((parseFloat(val) * priceXinY).toFixed(6).replace(/\.?0+$/, ''));
+    }
+  }
+
+  function handleSetY(val: string) {
+    setAmountY(val);
+    if (priceXinY && val && !isNaN(parseFloat(val))) {
+      setAmountX((parseFloat(val) / priceXinY).toFixed(6).replace(/\.?0+$/, ''));
+    }
+  }
 
   async function handleAdd() {
     if (!amountX && !amountY) {
@@ -162,21 +242,53 @@ export function AddLiquidityModal({
         ))}
       </div>
 
+      {/* SOL rent warning */}
+      {hasSolToken && (
+        <div className="flex items-start gap-2 bg-orange/10 border border-orange/20 rounded-lg px-3 py-2 mb-3">
+          <span className="text-orange text-xs mt-0.5 shrink-0">⚠</span>
+          <p className="text-xs text-orange">
+            New DLMM positions reserve ~0.15 SOL for on-chain account rent (position, bin array, token accounts).
+            This SOL is locked but recoverable when you close the position.
+          </p>
+        </div>
+      )}
+
       {/* Amounts */}
       <p className="text-xs text-text-dim font-medium uppercase tracking-wide mb-2">Deposit Amounts</p>
       <div className="flex flex-col gap-2 mb-5">
-        {[
-          { label: symX, value: amountX, set: setAmountX },
-          { label: symY, value: amountY, set: setAmountY },
-        ].map(({ label, value, set }) => (
-          <div key={label} className="flex items-center gap-3 bg-surface-2 border border-border rounded-xl px-3 py-2.5 focus-within:border-green/50 transition-colors">
-            <span className="text-sm font-medium text-text-dim w-12 shrink-0">{label}</span>
+        {([
+          { label: symX, value: amountX, onChange: handleChangeX, onSet: handleSetX, balance: balanceX },
+          { label: symY, value: amountY, onChange: handleChangeY, onSet: handleSetY, balance: balanceY },
+        ] as const).map(({ label, value, onChange, onSet, balance }) => (
+          <div key={label} className="bg-surface-2 border border-border rounded-xl px-3 py-2.5 focus-within:border-green/50 transition-colors">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-text-dim">{label}</span>
+              {balance !== null && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-text-dim">
+                    Bal: {balance.toLocaleString('en-US', { maximumFractionDigits: 6 })}
+                  </span>
+                  <button
+                    onClick={() => onSet((balance / 2).toFixed(6).replace(/\.?0+$/, ''))}
+                    className="text-xs text-blue hover:underline cursor-pointer"
+                  >
+                    50%
+                  </button>
+                  <button
+                    onClick={() => onSet(balance.toFixed(6).replace(/\.?0+$/, ''))}
+                    className="text-xs text-blue hover:underline cursor-pointer"
+                  >
+                    Max
+                  </button>
+                </div>
+              )}
+            </div>
             <input
               type="number"
               value={value}
-              onChange={(e) => set(e.target.value)}
+              onChange={(e) => onChange(e.target.value)}
               placeholder="0.00"
-              className="flex-1 bg-transparent text-sm font-mono text-text outline-none text-right"
+              className="w-full bg-transparent text-sm font-mono text-text outline-none text-right"
             />
           </div>
         ))}

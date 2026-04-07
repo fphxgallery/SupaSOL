@@ -223,7 +223,7 @@ export function DashboardPage() {
                       <span className="text-sm font-medium text-text">{label}</span>
                     </div>
                     <span className="text-sm text-text font-mono">
-                      {p ? formatUsd(parseFloat(p)) : <span className="text-text-dim">—</span>}
+                      {p ? formatUsd(p) : <span className="text-text-dim">—</span>}
                     </span>
                   </div>
                 );

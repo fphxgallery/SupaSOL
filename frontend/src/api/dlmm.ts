@@ -7,38 +7,63 @@ import { apiFetch } from './client';
 // Types
 // ---------------------------------------------------------------------------
 
+interface DlmmToken {
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  is_verified?: boolean;
+  price?: number;
+}
+
+interface TimeWindowed {
+  '30m'?: number;
+  '1h'?: number;
+  '2h'?: number;
+  '4h'?: number;
+  '12h'?: number;
+  '24h'?: number;
+}
+
+interface PoolConfig {
+  bin_step?: number;
+  base_fee_pct?: number;
+  max_fee_pct?: number;
+  protocol_fee_pct?: number;
+  dynamic_fee_pct?: number;
+}
+
 export interface MeteoraPairInfo {
   address: string;
   name: string;
-  mint_x: string;
-  mint_y: string;
-  reserve_x: string;
-  reserve_y: string;
-  reserve_x_amount: number;
-  reserve_y_amount: number;
-  bin_step: number;
-  base_fee_percentage: string;
-  max_fee_percentage: string;
-  protocol_fee_percentage: string;
-  liquidity: string;
-  reward_mint_x: string;
-  reward_mint_y: string;
-  fees_24h: number;
-  today_fees: number;
-  trade_volume_24h: number;
-  cumulative_trade_volume: string;
-  cumulative_fee_volume: string;
-  current_price: number;
-  apr: number;
-  apy: number;
-  farm_apr: number;
-  farm_apy: number;
-  hide: boolean;
+  token_x: DlmmToken;
+  token_y: DlmmToken;
+  reserve_x?: string;
+  reserve_y?: string;
+  token_x_amount?: number;
+  token_y_amount?: number;
+  tvl?: number;
+  current_price?: number;
+  apr?: number;
+  apy?: number;
+  farm_apr?: number;
+  farm_apy?: number;
+  has_farm?: boolean;
+  dynamic_fee_pct?: number;
+  pool_config?: PoolConfig;
+  volume?: TimeWindowed;
+  fees?: TimeWindowed;
+  fee_tvl_ratio?: TimeWindowed;
+  reward_mint_x?: string;
+  reward_mint_y?: string;
 }
 
 export interface MeteoraPairsResponse {
-  pairs: MeteoraPairInfo[];
   total: number;
+  pages: number;
+  current_page: number;
+  page_size: number;
+  data: MeteoraPairInfo[];
 }
 
 export interface UserPosition {
@@ -71,6 +96,13 @@ export async function fetchPairInfo(poolAddress: string): Promise<MeteoraPairInf
   return apiFetch<MeteoraPairInfo>(`/api/dlmm/pair/${poolAddress}`);
 }
 
+// Map our internal sort key names to the Meteora API's sort_by field names
+const SORT_KEY_MAP: Record<string, string> = {
+  feetvl:  'fee_tvl_ratio_24h',
+  volume:  'volume_24h',
+  apr:     'apr',
+};
+
 export async function fetchPairs(opts: {
   page?: number;
   limit?: number;
@@ -79,11 +111,12 @@ export async function fetchPairs(opts: {
   orderBy?: 'asc' | 'desc';
 } = {}): Promise<MeteoraPairsResponse> {
   const qs = new URLSearchParams();
-  if (opts.page !== undefined) qs.set('page', String(opts.page));
-  if (opts.limit !== undefined) qs.set('limit', String(opts.limit));
-  if (opts.search) qs.set('search_term', opts.search);
-  if (opts.sortKey) qs.set('sort_key', opts.sortKey);
-  if (opts.orderBy) qs.set('order_by', opts.orderBy);
+  // Meteora API is 1-based; our UI passes 0-based pages
+  qs.set('page', String((opts.page ?? 0) + 1));
+  if (opts.limit !== undefined) qs.set('page_size', String(opts.limit));
+  if (opts.search) qs.set('query', opts.search);
+  const sortField = SORT_KEY_MAP[opts.sortKey ?? 'feetvl'] ?? 'fee_tvl_ratio_24h';
+  qs.set('sort_by', `${sortField}:${opts.orderBy ?? 'desc'}`);
   return apiFetch<MeteoraPairsResponse>(`/api/dlmm/pairs?${qs}`);
 }
 

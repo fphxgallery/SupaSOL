@@ -47,8 +47,9 @@ export function PositionCard({
   const tokenXDecimals = 9; // fallback; poolInfo doesn't expose decimals directly
   const tokenYDecimals = 6;
 
-  // Try to parse pair name into symbols (e.g. "SOL-USDC")
-  const [symbolX, symbolY] = poolInfo?.name?.split('-') ?? ['Token X', 'Token Y'];
+  // Prefer symbol from token objects; fall back to parsing the pair name
+  const symbolX = poolInfo?.token_x?.symbol ?? poolInfo?.name?.split('-')[0] ?? 'Token X';
+  const symbolY = poolInfo?.token_y?.symbol ?? poolInfo?.name?.split('-')[1] ?? 'Token Y';
 
   const claimableX = hasFees(position) || hasRewards(position);
   const binRange = `${position.lowerBinId} – ${position.upperBinId}`;
@@ -65,8 +66,8 @@ export function PositionCard({
               <div className="w-10 h-10 rounded-full bg-surface-2 animate-pulse" />
             ) : (
               <div className="flex -space-x-2">
-                <TokenLogo mint={poolInfo?.mint_x} symbol={symbolX} size="md" />
-                <TokenLogo mint={poolInfo?.mint_y} symbol={symbolY} size="md" />
+                <TokenLogo mint={poolInfo?.token_x?.address ?? position.mintX} symbol={symbolX} size="md" />
+                <TokenLogo mint={poolInfo?.token_y?.address ?? position.mintY} symbol={symbolY} size="md" />
               </div>
             )}
             <div className="min-w-0">
@@ -78,8 +79,8 @@ export function PositionCard({
                     poolInfo?.name ?? shortenPubkey(position.poolAddress, 4)
                   )}
                 </p>
-                {poolInfo && (
-                  <Badge variant="muted">{poolInfo.bin_step} bps</Badge>
+                {poolInfo?.pool_config?.bin_step !== undefined && (
+                  <Badge variant="muted">{poolInfo.pool_config.bin_step} bps</Badge>
                 )}
               </div>
               <p className="text-xs text-text-dim font-mono mt-0.5">
@@ -93,7 +94,7 @@ export function PositionCard({
             <div className="text-right shrink-0">
               <p className="text-xs text-text-dim">APR</p>
               <p className="text-sm font-bold text-green">
-                {(poolInfo.apr + poolInfo.farm_apr).toFixed(2)}%
+                {((poolInfo.apr ?? 0) + (poolInfo.farm_apr ?? 0)).toFixed(2)}%
               </p>
             </div>
           )}
@@ -159,13 +160,17 @@ export function PositionCard({
             {poolInfo && (
               <>
                 <span className="text-text-dim">24h fees</span>
-                <span className="text-text text-right">${poolInfo.fees_24h?.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+                <span className="text-text text-right">${(poolInfo.fees?.['24h'] ?? 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
 
                 <span className="text-text-dim">24h volume</span>
-                <span className="text-text text-right">${poolInfo.trade_volume_24h?.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                <span className="text-text text-right">${(poolInfo.volume?.['24h'] ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
 
-                <span className="text-text-dim">Base fee</span>
-                <span className="text-text text-right">{poolInfo.base_fee_percentage}%</span>
+                {poolInfo.pool_config?.base_fee_pct !== undefined && (
+                  <>
+                    <span className="text-text-dim">Base fee</span>
+                    <span className="text-text text-right">{poolInfo.pool_config.base_fee_pct}%</span>
+                  </>
+                )}
               </>
             )}
           </div>

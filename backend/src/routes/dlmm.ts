@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 
 const router = Router();
-const METEORA_API = 'https://dlmm-api.meteora.ag';
+const METEORA_API = 'https://dlmm.datapi.meteora.ag';
 
 async function proxyToMeteora(req: Request, res: Response, meteoraPath: string) {
   const url = new URL(`${METEORA_API}${meteoraPath}`);
@@ -21,17 +21,13 @@ async function proxyToMeteora(req: Request, res: Response, meteoraPath: string) 
   res.status(upstream.status).set('Content-Type', 'application/json').send(text);
 }
 
-// GET /api/dlmm/pairs?page=0&limit=10&search_term=SOL&sort_key=feetvl&order_by=desc
-router.get('/pairs', (req, res) => proxyToMeteora(req, res, '/pair/all_with_pagination'));
+// GET /api/dlmm/pairs — paginated pool list
+// Accepts: page (1-based), page_size, query (search), sort_by (e.g. "volume_24h:desc")
+router.get('/pairs', (req, res) => proxyToMeteora(req, res, '/pools'));
 
-// GET /api/dlmm/pair/:address
+// GET /api/dlmm/pair/:address — single pool metadata
 router.get('/pair/:address', (req, res) =>
-  proxyToMeteora(req, res, `/pair/${req.params.address}`)
-);
-
-// GET /api/dlmm/pairs/by_groups — popular/featured pools
-router.get('/pairs/by_groups', (req, res) =>
-  proxyToMeteora(req, res, '/pair/all_by_groups')
+  proxyToMeteora(req, res, `/pools/${req.params.address}`)
 );
 
 export default router;

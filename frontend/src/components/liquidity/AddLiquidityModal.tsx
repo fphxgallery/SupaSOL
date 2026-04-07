@@ -52,10 +52,13 @@ export function AddLiquidityModal({
   const { signAndSendAllLegacy, hasWallet } = useSignAndSend();
   const addToast = useUiStore((s) => s.addToast);
 
-  const [symX, symY] = pool.name?.split('-') ?? ['X', 'Y'];
-  // Estimate decimals from known tokens or default
-  const decimalsX = pool.mint_x === 'So11111111111111111111111111111111111111112' ? 9 : 6;
-  const decimalsY = pool.mint_y === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' ? 6 : 6;
+  const symX = pool.token_x?.symbol ?? pool.name?.split('-')[0] ?? 'X';
+  const symY = pool.token_y?.symbol ?? pool.name?.split('-')[1] ?? 'Y';
+  const mintX = pool.token_x?.address;
+  const mintY = pool.token_y?.address;
+  // Use decimals from token metadata, fall back to SOL=9 / USDC=6
+  const decimalsX = pool.token_x?.decimals ?? (mintX === 'So11111111111111111111111111111111111111112' ? 9 : 6);
+  const decimalsY = pool.token_y?.decimals ?? 6;
 
   async function handleAdd() {
     if (!amountX && !amountY) {
@@ -108,13 +111,14 @@ export function AddLiquidityModal({
       {/* Token pair header */}
       <div className="flex items-center gap-3 bg-surface-2 rounded-xl p-3 mb-4">
         <div className="flex -space-x-2">
-          <TokenLogo mint={pool.mint_x} symbol={symX} size="md" />
-          <TokenLogo mint={pool.mint_y} symbol={symY} size="md" />
+          <TokenLogo mint={mintX} symbol={symX} size="md" />
+          <TokenLogo mint={mintY} symbol={symY} size="md" />
         </div>
         <div>
           <p className="text-sm font-bold text-text">{pool.name}</p>
           <p className="text-xs text-text-dim">
-            Bin step: {pool.bin_step} bps · APR: {(pool.apr + pool.farm_apr).toFixed(2)}%
+            {pool.pool_config?.bin_step !== undefined && `Bin step: ${pool.pool_config.bin_step} bps · `}
+            APR: {((pool.apr ?? 0) + (pool.farm_apr ?? 0)).toFixed(2)}%
           </p>
         </div>
       </div>

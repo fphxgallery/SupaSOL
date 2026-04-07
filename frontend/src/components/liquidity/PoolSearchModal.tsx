@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Modal } from '../ui/Modal';
-import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { TokenLogo } from '../ui/TokenLogo';
 import { usePools } from '../../hooks/useDlmm';
@@ -23,6 +22,9 @@ export function PoolSearchModal({ open, onClose, onSelect }: PoolSearchModalProp
     sortKey,
     orderBy: 'desc',
   });
+
+  // API returns { data: MeteoraPairInfo[] }
+  const pools = data?.data ?? [];
 
   return (
     <Modal open={open} onClose={onClose} title="Select Pool" maxWidth="max-w-lg">
@@ -66,11 +68,18 @@ export function PoolSearchModal({ open, onClose, onSelect }: PoolSearchModalProp
               <div key={i} className="h-16 bg-surface-2 rounded-xl animate-pulse" />
             ))}
           </div>
-        ) : !data?.pairs.length ? (
+        ) : pools.length === 0 ? (
           <p className="text-sm text-text-dim text-center py-8">No pools found</p>
         ) : (
-          data.pairs.map((pool) => {
-            const [symX, symY] = pool.name?.split('-') ?? ['X', 'Y'];
+          pools.map((pool) => {
+            const symX = pool.token_x?.symbol ?? pool.name?.split('-')[0] ?? 'X';
+            const symY = pool.token_y?.symbol ?? pool.name?.split('-')[1] ?? 'Y';
+            const mintX = pool.token_x?.address;
+            const mintY = pool.token_y?.address;
+            const binStep = pool.pool_config?.bin_step;
+            const tvl = pool.tvl ?? 0;
+            const apr = (pool.apr ?? 0) + (pool.farm_apr ?? 0);
+
             return (
               <button
                 key={pool.address}
@@ -79,18 +88,20 @@ export function PoolSearchModal({ open, onClose, onSelect }: PoolSearchModalProp
               >
                 {/* Token logos */}
                 <div className="flex -space-x-2 shrink-0">
-                  <TokenLogo mint={pool.mint_x} symbol={symX} size="sm" />
-                  <TokenLogo mint={pool.mint_y} symbol={symY} size="sm" />
+                  <TokenLogo mint={mintX} symbol={symX} size="sm" />
+                  <TokenLogo mint={mintY} symbol={symY} size="sm" />
                 </div>
 
                 {/* Name + bin step */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-text">{pool.name}</span>
-                    <Badge variant="muted">{pool.bin_step} bps</Badge>
+                    {binStep !== undefined && (
+                      <Badge variant="muted">{binStep} bps</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-text-dim mt-0.5">
-                    TVL: ${Number(pool.liquidity ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    TVL: ${tvl.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                   </p>
                 </div>
 
@@ -98,7 +109,7 @@ export function PoolSearchModal({ open, onClose, onSelect }: PoolSearchModalProp
                 <div className="text-right shrink-0">
                   <p className="text-xs text-text-dim">APR</p>
                   <p className="text-sm font-bold text-green">
-                    {(pool.apr + pool.farm_apr).toFixed(1)}%
+                    {apr.toFixed(1)}%
                   </p>
                 </div>
               </button>

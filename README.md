@@ -1,0 +1,226 @@
+# ⚡ SupaSOL
+
+A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Swap tokens, earn yield, place limit orders, run DCA strategies, send tokens via invite codes, and create SPL tokens — all from a single self-hosted app.
+
+![SupaSOL Dashboard](https://img.shields.io/badge/Solana-mainnet-9945FF?style=flat&logo=solana)
+![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
+![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| **Swap** | Best-route token swaps via Jupiter Ultra v2 (DEX + RFQ) |
+| **Lend / Earn** | Deposit & withdraw into Jupiter lending products |
+| **Limit Orders** | Place and cancel trigger-based limit orders |
+| **DCA** | Set up recurring dollar-cost-averaging purchases |
+| **Portfolio** | View all token balances and Jupiter platform positions |
+| **Predictions** | Access Jupiter prediction markets |
+| **Send** | Send tokens via claimable invite codes (clawback supported) |
+| **Studio** | Launch new SPL tokens with a 3-step wizard |
+| **History** | Browse past transaction history |
+| **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via CoinGecko |
+| **Token Search** | Global search bar to find any Solana token instantly |
+
+---
+
+## Tech Stack
+
+### Frontend
+- **React 18** + **Vite** + **TypeScript**
+- **Tailwind CSS v4** — dark theme UI
+- **Zustand** — wallet, settings, and UI state
+- **TanStack Query** — server state + caching
+- **lightweight-charts** — TradingView-style price charts
+- **@solana/web3.js** + **@solana/spl-token** — on-chain interactions
+
+### Backend
+- **Express.js** + **TypeScript** — Jupiter API proxy
+- **express-rate-limit** — 200 req / 10s global limit
+- **CORS** — configurable frontend origin whitelist
+- In-memory cache for CoinGecko price history (2-min TTL)
+
+---
+
+## Project Structure
+
+```
+SupaSOL/
+├── frontend/                  # React + Vite SPA
+│   ├── src/
+│   │   ├── pages/             # 11 route pages
+│   │   ├── components/        # UI, charts, layout, wallet modals
+│   │   ├── hooks/             # 14 custom React hooks
+│   │   ├── api/               # Jupiter API client functions
+│   │   ├── store/             # Zustand stores
+│   │   └── config/            # Constants & token mints
+│   ├── Dockerfile             # Multi-stage: Node builder → nginx
+│   └── nginx.conf             # SPA routing + asset caching
+│
+├── backend/                   # Express API proxy
+│   ├── src/
+│   │   ├── routes/            # 10 route modules (swap, lend, trigger…)
+│   │   └── lib/               # Jupiter client + trigger JWT auth
+│   └── Dockerfile             # Multi-stage: Node builder → slim runtime
+│
+├── docker-compose.yml         # Frontend + backend services
+├── install.sh                 # Bare-metal Ubuntu deployment script
+└── .env.example               # Environment variable template
+```
+
+---
+
+## Quick Start
+
+### Prerequisites
+- **Node.js 20+**
+- **npm 10+**
+- A **Jupiter API key** — get one at [portal.jup.ag](https://portal.jup.ag)
+
+### 1. Clone & install
+
+```bash
+git clone https://github.com/fphxgallery/SupaSOL.git
+cd SupaSOL
+npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set your API key:
+
+```env
+JUPITER_API_KEY=your_key_here
+VITE_API_BASE=http://localhost:4000
+VITE_RPC_URL=https://api.mainnet-beta.solana.com
+VITE_CLUSTER=mainnet-beta
+FRONTEND_ORIGIN=http://localhost:5173
+PORT=4000
+```
+
+### 3. Run in development
+
+```bash
+npm run dev
+```
+
+- Frontend: http://localhost:5173
+- Backend: http://localhost:4000
+
+---
+
+## Docker Deployment
+
+### Using Docker Compose
+
+```bash
+cp .env.example .env
+# Edit .env with your JUPITER_API_KEY and production URLs
+
+docker compose up --build -d
+```
+
+- Frontend (nginx): http://localhost:3000
+- Backend (API): http://localhost:4000
+
+The frontend container waits for the backend health check before starting.
+
+### Build args (frontend)
+
+| Arg | Default | Description |
+|---|---|---|
+| `VITE_API_BASE` | `http://localhost:4000` | Backend API URL |
+| `VITE_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana RPC endpoint |
+| `VITE_CLUSTER` | `mainnet-beta` | Solana cluster |
+
+---
+
+## Bare-Metal (Ubuntu)
+
+For VPS/dedicated server deployment with systemd + nginx:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+This script will:
+1. Install Node.js 20 and nginx (if not present)
+2. Build the frontend and copy to `/var/www/flashtradebot`
+3. Configure nginx with SPA routing and `/api/` proxy
+4. Create and enable a `flashtradebot-backend` systemd service
+
+After install:
+- Frontend: `http://your-server-ip`
+- Backend health: `http://your-server-ip/api/health`
+- Logs: `sudo journalctl -u flashtradebot-backend -f`
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `JUPITER_API_KEY` | ✅ | — | Jupiter API key from portal.jup.ag |
+| `PORT` | — | `4000` | Backend server port |
+| `NODE_ENV` | — | `development` | `development` or `production` |
+| `FRONTEND_ORIGIN` | — | `http://localhost:5173` | CORS allowed origin |
+| `VITE_API_BASE` | ✅ | — | Backend URL (used at build time) |
+| `VITE_RPC_URL` | — | mainnet-beta RPC | Solana RPC endpoint |
+| `VITE_CLUSTER` | — | `mainnet-beta` | Solana cluster name |
+
+---
+
+## Wallet Support
+
+SupaSOL includes a built-in non-custodial wallet:
+- **Create** — generates a new keypair with a 12-word mnemonic
+- **Import** — paste an existing mnemonic or base58 private key
+
+> ⚠️ Your private key is stored only in your browser's `localStorage`. Never share your mnemonic. This app does not transmit private keys to any server.
+
+---
+
+## API Routes
+
+All backend routes proxy to the Jupiter API with your API key injected server-side.
+
+| Path | Description |
+|---|---|
+| `GET /health` | Health check |
+| `GET /api/swap/*` | Quote + execute token swaps |
+| `GET /api/lend/*` | Lending positions, deposit, withdraw |
+| `GET /api/trigger/*` | Limit orders (create, cancel, list) |
+| `GET /api/recurring/*` | DCA orders |
+| `GET /api/tokens/*` | Token search & metadata |
+| `GET /api/price/*` | Live prices + OHLCV history |
+| `GET /api/portfolio/*` | Portfolio positions |
+| `GET /api/prediction/*` | Prediction markets |
+| `POST /api/send/*` | Craft send / clawback invite |
+| `GET /api/studio/*` | Token creation transactions |
+
+---
+
+## Scripts
+
+```bash
+npm run dev        # Start frontend + backend in watch mode
+npm run build      # Build both frontend and backend
+npm run start      # Start production build
+```
+
+---
+
+## License
+
+MIT — use freely, build on top, ship your own terminal.
+
+---
+
+<p align="center">Built with ⚡ on <a href="https://solana.com">Solana</a> · Powered by <a href="https://jup.ag">Jupiter</a></p>

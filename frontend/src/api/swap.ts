@@ -15,9 +15,13 @@ export interface SwapOrderResponse {
   requestId: string;
   inputMint: string;
   outputMint: string;
-  inputAmount: string;
-  outputAmount: string;
+  /** Jupiter v2 field name for quoted input amount in base units */
+  inAmount: string;
+  /** Jupiter v2 field name for quoted output amount in base units */
+  outAmount: string;
   priceImpactPct: string;
+  otherAmountThreshold?: string;
+  swapMode?: string;
   routePlan?: unknown[];
   swapType?: string;
   mode?: 'ultra' | 'manual';

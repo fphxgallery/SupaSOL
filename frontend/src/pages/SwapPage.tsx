@@ -102,7 +102,7 @@ export function SwapPage() {
 
   const priceImpact = quote ? parseFloat(quote.priceImpactPct) : null;
   const highImpact = priceImpact !== null && priceImpact > 1;
-  const outputAmount = quote ? formatOutput(quote.outputAmount, outputToken.decimals) : null;
+  const outputAmount = quote ? formatOutput(quote.outAmount, outputToken.decimals) : null;
 
   const showChart = CHARTABLE_MINTS.has(inputToken.address);
 

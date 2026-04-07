@@ -41,7 +41,7 @@ export async function getSwapOrder(params: SwapOrderParams): Promise<SwapOrderRe
     inputMint: params.inputMint,
     outputMint: params.outputMint,
     amount: params.amount.toString(),
-    userPublicKey: params.userPublicKey,
+    taker: params.userPublicKey, // Jupiter v2 uses "taker" (not "userPublicKey") — required to get a transaction back
     ...(params.slippageBps !== undefined && { slippageBps: params.slippageBps.toString() }),
     ...(params.swapMode && { swapMode: params.swapMode }),
   });

@@ -6,6 +6,7 @@ import { useSolBalance } from '../hooks/useSolBalance';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { usePrice, useSolPrice } from '../hooks/usePrice';
 import { usePortfolio } from '../hooks/usePortfolio';
+import { useTokenMetadata } from '../hooks/useTokenMetadata';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -41,11 +42,12 @@ function StatCard({ label, value, sub, accent, error, onRetry }: {
   );
 }
 
-function TokenBalanceRow({ mint, uiAmount, prices }: {
+function TokenBalanceRow({ mint, uiAmount, prices, logoURI }: {
   mint: string;
   uiAmount: number | null;
   decimals: number;
   prices: Record<string, { usdPrice?: number }>;
+  logoURI?: string;
 }) {
   const price = prices[mint]?.usdPrice ?? null;
   const usdValue = price && uiAmount ? price * uiAmount : null;
@@ -57,7 +59,7 @@ function TokenBalanceRow({ mint, uiAmount, prices }: {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
       <div className="flex items-center gap-3">
-        <TokenLogo mint={mint} symbol={symbol} />
+        <TokenLogo mint={mint} symbol={symbol} logoURI={logoURI} />
         <div>
           <p className="text-sm font-medium text-text">{symbol}</p>
           <p className="text-xs text-text-dim font-mono">{shortenPubkey(mint, 4)}</p>
@@ -95,6 +97,10 @@ export function DashboardPage() {
   const solPrice = useSolPrice();
   const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
   const { data: portfolio } = usePortfolio(pubkey);
+
+  // Fetch logos for all held SPL tokens (IPFS / CDN URLs from Jupiter metadata)
+  const splMints = (tokenBalances ?? []).map((b) => b.mint);
+  const tokenLogos = useTokenMetadata(splMints);
 
   const isLoadingBalances = solLoading || tokensLoading;
   const isUsingPublicRpc = rpcUrl === RPC_URL; // default public endpoint
@@ -272,7 +278,7 @@ export function DashboardPage() {
               <p className="text-sm text-text-dim py-4 text-center">No tokens found</p>
             ) : (
               (tokenBalances ?? []).map((b) => (
-                <TokenBalanceRow key={b.mint} {...b} prices={prices ?? {}} />
+                <TokenBalanceRow key={b.mint} {...b} prices={prices ?? {}} logoURI={tokenLogos[b.mint]} />
               ))
             )}
           </CardBody>

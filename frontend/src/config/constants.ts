@@ -13,6 +13,16 @@ export const MINTS = {
   JUPMOBILE: 'MoB9LrWCmYMFEhcKtRiLZfEFdcU3TonJwHwBa5A9Eqk',
 } as const;
 
+// Static logo URIs for well-known tokens (used as fallback before CDN)
+const _RAW = 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet';
+export const TOKEN_LOGOS: Record<string, string> = {
+  [MINTS.SOL]:     `${_RAW}/So11111111111111111111111111111111111111112/logo.png`,
+  [MINTS.USDC]:    `${_RAW}/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png`,
+  [MINTS.USDT]:    `${_RAW}/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png`,
+  [MINTS.JUP]:     'https://static.jup.ag/jup/icon.png',
+  [MINTS.JUPSOL]:  'https://static.jup.ag/jupSOL/icon.png',
+};
+
 export const LEND_PROGRAMS = {
   EARN: 'jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9',
   BORROW: 'jupr81YtYssSyPt8jbnGuiWon5f6x9TcDEFxYe3Bdzi',

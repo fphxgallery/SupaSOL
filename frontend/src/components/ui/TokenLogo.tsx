@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TOKEN_LOGOS } from '../../config/constants';
 
 interface TokenLogoProps {
   mint?: string;
@@ -16,9 +17,9 @@ const SIZE_CLASS = {
 export function TokenLogo({ mint, symbol, logoURI, size = 'md' }: TokenLogoProps) {
   const [errored, setErrored] = useState(false);
 
-  // Priority: explicit logoURI → Jupiter CDN by mint → letter fallback
+  // Priority: explicit logoURI → known static map → Jupiter CDN by mint → letter fallback
   const src = !errored
-    ? (logoURI || (mint ? `https://img.jup.ag/tokens/${mint}` : undefined))
+    ? (logoURI || (mint ? (TOKEN_LOGOS[mint] ?? `https://img.jup.ag/tokens/${mint}`) : undefined))
     : undefined;
 
   const sizeClass = SIZE_CLASS[size];

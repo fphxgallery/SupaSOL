@@ -1,9 +1,10 @@
 # ⚡ SupaSOL
 
-A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Swap tokens, earn yield, place limit orders, run DCA strategies, send tokens via invite codes, and create SPL tokens — all from a single self-hosted app.
+A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Swap tokens, earn yield, place limit orders, run DCA strategies, and send tokens via invite codes — all from a single self-hosted app.
 
 ![SupaSOL Dashboard](https://img.shields.io/badge/Solana-mainnet-9945FF?style=flat&logo=solana)
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
+![Release](https://img.shields.io/badge/release-v1.0.1-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -16,13 +17,12 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Sw
 | **Lend / Earn** | Deposit & withdraw into Jupiter lending products |
 | **Limit Orders** | Place and cancel trigger-based limit orders |
 | **DCA** | Set up recurring dollar-cost-averaging purchases |
-| **Portfolio** | View all token balances and Jupiter platform positions |
-| **Predictions** | Access Jupiter prediction markets |
+| **Portfolio** | Token balances + Jupiter DeFi positions across all platforms |
 | **Send** | Send tokens via claimable invite codes (clawback supported) |
-| **Studio** | Launch new SPL tokens with a 3-step wizard |
-| **History** | Browse past transaction history |
+| **History** | App transactions + live on-chain signature history via Solana RPC |
 | **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via CoinGecko |
-| **Token Search** | Global search bar to find any Solana token instantly |
+| **Token Search** | Global search bar — find any Solana token, click to swap |
+| **Settings** | RPC endpoint, cluster, slippage tolerance, priority fee |
 
 ---
 
@@ -50,9 +50,9 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Sw
 SupaSOL/
 ├── frontend/                  # React + Vite SPA
 │   ├── src/
-│   │   ├── pages/             # 11 route pages
+│   │   ├── pages/             # 9 route pages
 │   │   ├── components/        # UI, charts, layout, wallet modals
-│   │   ├── hooks/             # 14 custom React hooks
+│   │   ├── hooks/             # Custom React hooks
 │   │   ├── api/               # Jupiter API client functions
 │   │   ├── store/             # Zustand stores
 │   │   └── config/            # Constants & token mints
@@ -61,7 +61,7 @@ SupaSOL/
 │
 ├── backend/                   # Express API proxy
 │   ├── src/
-│   │   ├── routes/            # 10 route modules (swap, lend, trigger…)
+│   │   ├── routes/            # Route modules (swap, lend, trigger…)
 │   │   └── lib/               # Jupiter client + trigger JWT auth
 │   └── Dockerfile             # Multi-stage: Node builder → slim runtime
 │
@@ -177,13 +177,13 @@ After install:
 
 ---
 
-## Wallet Support
+## Wallet
 
 SupaSOL includes a built-in non-custodial wallet:
-- **Create** — generates a new keypair with a 12-word mnemonic
+- **Create** — generates a new keypair with a 24-word seed phrase. The backup screen locks until you confirm you've saved the phrase.
 - **Import** — paste an existing mnemonic or base58 private key
 
-> ⚠️ Your private key is stored only in your browser's `localStorage`. Never share your mnemonic. This app does not transmit private keys to any server.
+> ⚠️ Your private key is stored only in your browser's `localStorage`. Never share your seed phrase. This app does not transmit private keys to any server.
 
 ---
 
@@ -201,9 +201,7 @@ All backend routes proxy to the Jupiter API with your API key injected server-si
 | `GET /api/tokens/*` | Token search & metadata |
 | `GET /api/price/*` | Live prices + OHLCV history |
 | `GET /api/portfolio/*` | Portfolio positions |
-| `GET /api/prediction/*` | Prediction markets |
 | `POST /api/send/*` | Craft send / clawback invite |
-| `GET /api/studio/*` | Token creation transactions |
 
 ---
 
@@ -214,6 +212,24 @@ npm run dev        # Start frontend + backend in watch mode
 npm run build      # Build both frontend and backend
 npm run start      # Start production build
 ```
+
+---
+
+## Changelog
+
+### v1.0.1
+- Token search icons now display correctly (mapped Jupiter v2 API `icon` → `logoURI`, `id` → `address`)
+- SOL price display fixed for both Jupiter Price v3 response formats (with/without API key)
+- Real token logos in dashboard via Jupiter CDN with letter-initial fallback
+- Mobile layout: slide-over sidebar, hamburger in top nav, auto-close on navigation
+- Wallet backup: locked backdrop during seed phrase step, "Copy all words" button, regenerate confirmation
+- Swap transaction feedback: "Submitting…" toast + confirmed sigs recorded in History
+- On-chain history: last 50 signatures from Solana RPC with skeleton loaders and retry
+- Error states: Lend and Portfolio show Retry button on network failure
+- Removed geo-restricted Predictions page
+
+### v1.0.0
+- Initial release
 
 ---
 

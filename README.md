@@ -1,10 +1,11 @@
 # ⚡ SupaSOL
 
-A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Swap tokens, earn yield, place limit orders, run DCA strategies, and send tokens via invite codes — all from a single self-hosted app.
+A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag) and [Meteora](https://meteora.ag). Swap tokens, earn yield, place limit orders, run DCA strategies, provide liquidity, and send tokens via invite codes — all from a single self-hosted app.
 
 ![SupaSOL Dashboard](https://img.shields.io/badge/Solana-mainnet-9945FF?style=flat&logo=solana)
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
-![Release](https://img.shields.io/badge/release-v1.0.1-green?style=flat)
+![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
+![Release](https://img.shields.io/badge/release-v1.1.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -17,6 +18,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Sw
 | **Lend / Earn** | Deposit & withdraw into Jupiter lending products |
 | **Limit Orders** | Place and cancel trigger-based limit orders |
 | **DCA** | Set up recurring dollar-cost-averaging purchases |
+| **Liquidity** | Provide liquidity to Meteora DLMM pools — Spot, Curve, and Bid-Ask strategies |
 | **Portfolio** | Token balances + Jupiter DeFi positions across all platforms |
 | **Send** | Send tokens via claimable invite codes (clawback supported) |
 | **History** | App transactions + live on-chain signature history via Solana RPC |
@@ -35,9 +37,10 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Sw
 - **TanStack Query** — server state + caching
 - **lightweight-charts** — TradingView-style price charts
 - **@solana/web3.js** + **@solana/spl-token** — on-chain interactions
+- **@meteora-ag/dlmm** + **@coral-xyz/anchor** — Meteora DLMM liquidity SDK
 
 ### Backend
-- **Express.js** + **TypeScript** — Jupiter API proxy
+- **Express.js** + **TypeScript** — Jupiter & Meteora API proxy
 - **express-rate-limit** — 200 req / 10s global limit
 - **CORS** — configurable frontend origin whitelist
 - In-memory cache for CoinGecko price history (2-min TTL)
@@ -50,10 +53,10 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag). Sw
 SupaSOL/
 ├── frontend/                  # React + Vite SPA
 │   ├── src/
-│   │   ├── pages/             # 9 route pages
-│   │   ├── components/        # UI, charts, layout, wallet modals
+│   │   ├── pages/             # 10 route pages
+│   │   ├── components/        # UI, charts, layout, liquidity, wallet modals
 │   │   ├── hooks/             # Custom React hooks
-│   │   ├── api/               # Jupiter API client functions
+│   │   ├── api/               # Jupiter + Meteora API client functions
 │   │   ├── store/             # Zustand stores
 │   │   └── config/            # Constants & token mints
 │   ├── Dockerfile             # Multi-stage: Node builder → nginx
@@ -61,7 +64,7 @@ SupaSOL/
 │
 ├── backend/                   # Express API proxy
 │   ├── src/
-│   │   ├── routes/            # Route modules (swap, lend, trigger…)
+│   │   ├── routes/            # Route modules (swap, lend, trigger, dlmm…)
 │   │   └── lib/               # Jupiter client + trigger JWT auth
 │   └── Dockerfile             # Multi-stage: Node builder → slim runtime
 │
@@ -189,7 +192,7 @@ SupaSOL includes a built-in non-custodial wallet:
 
 ## API Routes
 
-All backend routes proxy to the Jupiter API with your API key injected server-side.
+All backend routes proxy to Jupiter or Meteora with your API key injected server-side.
 
 | Path | Description |
 |---|---|
@@ -202,6 +205,8 @@ All backend routes proxy to the Jupiter API with your API key injected server-si
 | `GET /api/price/*` | Live prices + OHLCV history |
 | `GET /api/portfolio/*` | Portfolio positions |
 | `POST /api/send/*` | Craft send / clawback invite |
+| `GET /api/dlmm/pairs` | Meteora DLMM pool list |
+| `GET /api/dlmm/pair/:address` | Meteora pool metadata |
 
 ---
 
@@ -216,6 +221,18 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.1.0
+- **Meteora DLMM Liquidity** — full integration with the Meteora DLMM SDK
+  - View all active positions across every pool with live APR, bin range, and claimable fees
+  - Claim swap fees and LM rewards per position or all at once
+  - Remove 100% of liquidity and close a position in one action
+  - Pool browser with search, sorted by Fee/TVL, Volume, or APR
+  - Add liquidity with **Spot**, **Curve**, and **Bid-Ask** strategy selection
+  - Price range inputs auto-convert to bin IDs via SDK
+- Backend proxy for Meteora REST API (`dlmm-api.meteora.ag`)
+- `signAndSendLegacy` + `signAndSendAllLegacy` for legacy Transaction objects
+- Meteora SDK isolated in its own Vite chunk (417 kB / 108 kB gzip)
 
 ### v1.0.1
 - Token search icons now display correctly (mapped Jupiter v2 API `icon` → `logoURI`, `id` → `address`)
@@ -239,4 +256,4 @@ MIT — use freely, build on top, ship your own terminal.
 
 ---
 
-<p align="center">Built with ⚡ on <a href="https://solana.com">Solana</a> · Powered by <a href="https://jup.ag">Jupiter</a></p>
+<p align="center">Built with ⚡ on <a href="https://solana.com">Solana</a> · Powered by <a href="https://jup.ag">Jupiter</a> & <a href="https://meteora.ag">Meteora</a></p>

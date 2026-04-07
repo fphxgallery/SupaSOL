@@ -9,7 +9,6 @@ const navItems = [
   { to: '/recurring',  label: 'DCA',          icon: '↺' },
   { to: '/portfolio',  label: 'Portfolio',    icon: '◎' },
   { to: '/send',       label: 'Send',         icon: '➤' },
-  { to: '/studio',     label: 'Studio',       icon: '✦' },
   { to: '/history',    label: 'History',      icon: '◷' },
   { to: '/settings',   label: 'Settings',     icon: '⚙' },
 ];

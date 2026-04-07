@@ -95,11 +95,15 @@ export function DashboardPage() {
   } = useTokenBalances(pubkey);
 
   const solPrice = useSolPrice();
-  const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
+
+  // Fetch prices for all held tokens, not just the 4 hardcoded defaults
+  const splMints = (tokenBalances ?? []).map((b) => b.mint);
+  const allPriceMints = [MINTS.SOL, ...splMints.filter((m) => m !== MINTS.SOL)];
+  const { data: prices } = usePrice(allPriceMints);
+
   const { data: portfolio } = usePortfolio(pubkey);
 
   // Fetch metadata (symbol, name, logoURI) for all held SPL tokens
-  const splMints = (tokenBalances ?? []).map((b) => b.mint);
   const tokenMeta = useTokenMetadata(splMints);
 
   const isLoadingBalances = solLoading || tokensLoading;

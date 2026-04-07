@@ -24,9 +24,12 @@ export function PortfolioPage() {
   const { data: portfolio, isLoading: portfolioLoading, isError: portfolioError, refetch: refetchPortfolio } = usePortfolio(pubkey);
   const { data: solBalance } = useSolBalance(pubkey);
   const { data: tokenBalances } = useTokenBalances(pubkey);
-  const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
 
+  // Derive mint lists before price/metadata fetches
   const splMints = (tokenBalances ?? []).map((b) => b.mint);
+  const allPriceMints = [MINTS.SOL, ...splMints.filter((m) => m !== MINTS.SOL)];
+
+  const { data: prices } = usePrice(allPriceMints);
   const tokenMeta = useTokenMetadata(splMints);
 
   const solPrice = prices?.[MINTS.SOL]?.usdPrice ?? null;

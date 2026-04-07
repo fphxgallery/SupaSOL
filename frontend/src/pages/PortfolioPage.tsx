@@ -5,6 +5,7 @@ import { useSolBalance } from '../hooks/useSolBalance';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 import { formatUsd, formatUsdCompact, shortenPubkey } from '../utils/format';
 import { MINTS } from '../config/constants';
 
@@ -18,7 +19,7 @@ const TYPE_VARIANT: Record<string, 'green' | 'blue' | 'orange' | 'purple' | 'mut
 
 export function PortfolioPage() {
   const pubkey = useActivePublicKey();
-  const { data: portfolio, isLoading: portfolioLoading } = usePortfolio(pubkey);
+  const { data: portfolio, isLoading: portfolioLoading, isError: portfolioError, refetch: refetchPortfolio } = usePortfolio(pubkey);
   const { data: solBalance } = useSolBalance(pubkey);
   const { data: tokenBalances } = useTokenBalances(pubkey);
   const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
@@ -132,6 +133,11 @@ export function PortfolioPage() {
               {portfolioLoading ? (
                 <div className="flex items-center justify-center py-8 text-text-dim text-sm">
                   <span className="animate-spin mr-2">⟳</span> Fetching positions...
+                </div>
+              ) : portfolioError ? (
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <p className="text-sm text-text-dim">Failed to load portfolio positions.</p>
+                  <Button variant="secondary" size="sm" onClick={() => refetchPortfolio()}>Retry</Button>
                 </div>
               ) : !portfolio?.positions.length ? (
                 <p className="text-sm text-text-dim text-center py-8">No Jupiter DeFi positions found</p>

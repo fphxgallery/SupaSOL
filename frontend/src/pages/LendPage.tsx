@@ -82,7 +82,7 @@ function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
 export function LendPage() {
   const pubkey = useActivePublicKey();
   const { hasWallet } = useSignAndSend();
-  const { data: tokens, isLoading: tokensLoading } = useLendTokens();
+  const { data: tokens, isLoading: tokensLoading, isError: tokensError, refetch: refetchTokens } = useLendTokens();
   const { data: positions } = useLendPositions(pubkey);
   const { data: earnings } = useLendEarnings(pubkey);
 
@@ -121,6 +121,11 @@ export function LendPage() {
             {tokensLoading ? (
               <div className="flex items-center justify-center py-8 text-text-dim text-sm">
                 <span className="animate-spin mr-2">⟳</span> Loading markets...
+              </div>
+            ) : tokensError ? (
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <p className="text-sm text-text-dim">Failed to load lending markets.</p>
+                <Button variant="secondary" size="sm" onClick={() => refetchTokens()}>Retry</Button>
               </div>
             ) : !tokens?.length ? (
               <p className="text-sm text-text-dim py-4 text-center">No lending markets available</p>

@@ -119,9 +119,10 @@ function TokenSearchBar() {
 }
 
 export function TopNav() {
-  const pubkey         = useActivePublicKey();
-  const clearKeypair   = useWalletStore((s) => s.clearKeypair);
-  const addToast       = useUiStore((s) => s.addToast);
+  const pubkey              = useActivePublicKey();
+  const clearKeypair        = useWalletStore((s) => s.clearKeypair);
+  const addToast            = useUiStore((s) => s.addToast);
+  const openMobileSidebar   = useUiStore((s) => s.openMobileSidebar);
   const [showCreate, setShowCreate]         = useState(false);
   const [showImport, setShowImport]         = useState(false);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
@@ -134,7 +135,18 @@ export function TopNav() {
 
   return (
     <>
-      <header className="flex items-center gap-4 px-4 h-14 border-b border-border bg-surface shrink-0">
+      <header className="flex items-center gap-3 px-4 h-14 border-b border-border bg-surface shrink-0">
+
+        {/* Mobile hamburger — only visible below md */}
+        <button
+          onClick={openMobileSidebar}
+          className="md:hidden text-text-dim hover:text-text transition-colors p-1.5 rounded-md hover:bg-surface-2 shrink-0"
+          aria-label="Open menu"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
 
         {/* Token search — takes up remaining center space */}
         <TokenSearchBar />

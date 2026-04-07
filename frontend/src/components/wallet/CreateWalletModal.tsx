@@ -17,11 +17,17 @@ export function CreateWalletModal({ open, onClose }: Props) {
   const [keypair, setKeypair] = useState<Keypair | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const setStoreKeypair = useWalletStore((s) => s.setKeypair);
   const addToast = useUiStore((s) => s.addToast);
 
-  async function handleGenerate() {
+  async function handleGenerate(warnIfShowing = false) {
+    if (warnIfShowing && mnemonic) {
+      if (!window.confirm('This will replace your current phrase. Are you sure?')) return;
+    }
     setLoading(true);
+    setCopied(false);
+    setConfirmed(false);
     try {
       const wallet = await generateWallet();
       setMnemonic(wallet.mnemonic);
@@ -32,6 +38,13 @@ export function CreateWalletModal({ open, onClose }: Props) {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleCopyAll() {
+    navigator.clipboard.writeText(mnemonic).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   function handleConfirm() {
@@ -46,13 +59,14 @@ export function CreateWalletModal({ open, onClose }: Props) {
     setMnemonic('');
     setKeypair(null);
     setConfirmed(false);
+    setCopied(false);
     onClose();
   }
 
   const words = mnemonic.split(' ');
 
   return (
-    <Modal open={open} onClose={handleClose} title="Create New Wallet" maxWidth="max-w-lg">
+    <Modal open={open} onClose={handleClose} title="Create New Wallet" maxWidth="max-w-lg" disableBackdropClose={step === 'confirm'}>
       {step === 'generate' ? (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-dim">
@@ -63,15 +77,26 @@ export function CreateWalletModal({ open, onClose }: Props) {
               ⚠ Never share your seed phrase. It gives full access to your wallet.
             </p>
           </div>
-          <Button onClick={handleGenerate} loading={loading} className="w-full">
+          <Button onClick={() => handleGenerate(false)} loading={loading} className="w-full">
             Generate Wallet
           </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-dim">
-            Save these 24 words in order. This is your only backup.
-          </p>
+          <div className="bg-red/10 border border-red/20 rounded-lg p-3">
+            <p className="text-xs text-red font-medium">
+              ⚠ Write these words down now. If you close this window without saving them, they are gone forever.
+            </p>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-text-dim">Save these 24 words in order.</p>
+            <button
+              onClick={handleCopyAll}
+              className="text-xs text-green hover:text-green/80 transition-colors font-medium"
+            >
+              {copied ? '✓ Copied!' : 'Copy all words'}
+            </button>
+          </div>
           <div className="grid grid-cols-3 gap-2 bg-surface-2 rounded-xl p-4 border border-border">
             {words.map((word, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -96,7 +121,7 @@ export function CreateWalletModal({ open, onClose }: Props) {
             <span className="text-sm text-text">I have saved my seed phrase securely</span>
           </label>
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={handleGenerate} loading={loading} className="flex-1">
+            <Button variant="secondary" onClick={() => handleGenerate(true)} loading={loading} className="flex-1">
               Regenerate
             </Button>
             <Button onClick={handleConfirm} disabled={!confirmed} className="flex-1">

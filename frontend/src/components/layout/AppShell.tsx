@@ -1,9 +1,19 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
 import { ToastContainer } from '../ui/Toast';
+import { useUiStore } from '../../store/uiStore';
 
 export function AppShell() {
+  const location = useLocation();
+  const closeMobileSidebar = useUiStore((s) => s.closeMobileSidebar);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    closeMobileSidebar();
+  }, [location.pathname, closeMobileSidebar]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
       <Sidebar />

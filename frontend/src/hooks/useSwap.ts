@@ -4,6 +4,8 @@ import { getSwapOrder, executeSwap, type SwapOrderResponse } from '../api/swap';
 import { useSignAndSend } from './useSignAndSend';
 import { useSettingsStore } from '../store/settingsStore';
 import { useUiStore } from '../store/uiStore';
+import { useTxStore } from '../store/txStore';
+import { useClusterStore } from '../store/clusterStore';
 import { withRetry } from '../api/client';
 
 interface SwapParams {
@@ -35,11 +37,15 @@ export function useSwapQuote(params: Partial<SwapParams>) {
 export function useSwapExecute() {
   const { signTransaction, hasWallet } = useSignAndSend();
   const addToast = useUiStore((s) => s.addToast);
+  const addTx = useTxStore((s) => s.addTx);
+  const cluster = useClusterStore((s) => s.cluster);
   const [lastOrder, setLastOrder] = useState<SwapOrderResponse | null>(null);
 
   const mutation = useMutation({
     mutationFn: async (order: SwapOrderResponse) => {
       setLastOrder(order);
+
+      addToast({ type: 'info', message: 'Submitting swap...' });
 
       // Sign the transaction client-side
       const signedTx = await signTransaction(order.transaction);
@@ -60,6 +66,9 @@ export function useSwapExecute() {
         message: 'Swap confirmed!',
         txSig: result.signature,
       });
+      if (result.signature) {
+        addTx({ sig: result.signature, status: 'confirmed', description: 'Swap', cluster });
+      }
     },
     onError: (err: Error & { code?: number }) => {
       addToast({ type: 'error', message: err.message || 'Swap failed' });

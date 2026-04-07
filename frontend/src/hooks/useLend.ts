@@ -6,7 +6,8 @@ export function useLendTokens() {
   return useQuery({
     queryKey: ['lend-tokens'],
     queryFn: fetchLendTokens,
-    staleTime: 5 * 60_000, // token list is stable
+    staleTime: 5 * 60_000,
+    retry: 2,
   });
 }
 
@@ -16,6 +17,7 @@ export function useLendPositions(wallet: string | null) {
     queryFn: () => fetchLendPositions(wallet!),
     enabled: !!wallet,
     refetchInterval: 30_000,
+    retry: 1,
   });
 }
 
@@ -25,6 +27,7 @@ export function useLendEarnings(wallet: string | null) {
     queryFn: () => fetchLendEarnings(wallet!),
     enabled: !!wallet,
     refetchInterval: 30_000,
+    retry: 1,
   });
 }
 

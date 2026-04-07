@@ -11,6 +11,7 @@ import { PortfolioPage } from './pages/PortfolioPage';
 import { SendPage } from './pages/SendPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LiquidityPage } from './pages/LiquidityPage';
 
 function PageBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary>{children}</ErrorBoundary>;
@@ -28,6 +29,7 @@ export function App() {
         <Route path="portfolio" element={<PageBoundary><PortfolioPage /></PageBoundary>} />
         <Route path="send" element={<PageBoundary><SendPage /></PageBoundary>} />
         <Route path="history" element={<PageBoundary><HistoryPage /></PageBoundary>} />
+        <Route path="liquidity" element={<PageBoundary><LiquidityPage /></PageBoundary>} />
         <Route path="settings" element={<PageBoundary><SettingsPage /></PageBoundary>} />
       </Route>
     </Routes>

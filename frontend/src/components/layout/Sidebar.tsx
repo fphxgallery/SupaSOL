@@ -8,6 +8,7 @@ const navItems = [
   { to: '/trigger',    label: 'Limit Orders', icon: '⊕' },
   { to: '/recurring',  label: 'DCA',          icon: '↺' },
   { to: '/portfolio',  label: 'Portfolio',    icon: '◎' },
+  { to: '/liquidity',  label: 'Liquidity',    icon: '◈' },
   { to: '/send',       label: 'Send',         icon: '➤' },
   { to: '/history',    label: 'History',      icon: '◷' },
   { to: '/settings',   label: 'Settings',     icon: '⚙' },

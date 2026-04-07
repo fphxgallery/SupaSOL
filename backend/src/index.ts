@@ -10,6 +10,7 @@ import tokensRouter from './routes/tokens';
 import priceRouter from './routes/price';
 import portfolioRouter from './routes/portfolio';
 import sendRouter from './routes/send';
+import dlmmRouter from './routes/dlmm';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/tokens', tokensRouter);
 app.use('/api/price', priceRouter);
 app.use('/api/portfolio', portfolioRouter);
 app.use('/api/send', sendRouter);
+app.use('/api/dlmm', dlmmRouter);
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

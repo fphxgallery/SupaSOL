@@ -15,5 +15,6 @@ export function useSolBalance(publicKey: string | null) {
     enabled: !!publicKey,
     refetchInterval: 15_000,
     staleTime: 10_000,
+    retry: 2,
   });
 }

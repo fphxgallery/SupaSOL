@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useActivePublicKey } from '../store/walletStore';
 import { useClusterStore } from '../store/clusterStore';
 import { useSolBalance } from '../hooks/useSolBalance';
@@ -14,21 +15,33 @@ import { TokenLogo } from '../components/ui/TokenLogo';
 import { CreateWalletModal } from '../components/wallet/CreateWalletModal';
 import { ImportWalletModal } from '../components/wallet/ImportWalletModal';
 import { formatSol, formatUsd, formatUsdCompact, shortenPubkey } from '../utils/format';
-import { MINTS, EXPLORER_BASE } from '../config/constants';
+import { MINTS, EXPLORER_BASE, RPC_URL } from '../config/constants';
 
-function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+function StatCard({ label, value, sub, accent, error, onRetry }: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: string;
+  error?: boolean;
+  onRetry?: () => void;
+}) {
   return (
     <Card>
       <CardBody>
         <p className="text-xs text-text-dim mb-1">{label}</p>
-        <p className={`text-2xl font-bold ${accent ?? 'text-text'}`}>{value}</p>
-        {sub && <p className="text-xs text-text-dim mt-1">{sub}</p>}
+        <p className={`text-2xl font-bold ${error ? 'text-text-dim' : (accent ?? 'text-text')}`}>{value}</p>
+        {sub && !error && <p className="text-xs text-text-dim mt-1">{sub}</p>}
+        {error && onRetry && (
+          <button onClick={onRetry} className="text-xs text-blue hover:underline mt-1">
+            Retry ↺
+          </button>
+        )}
       </CardBody>
     </Card>
   );
 }
 
-function TokenBalanceRow({ mint, uiAmount, decimals, prices }: {
+function TokenBalanceRow({ mint, uiAmount, prices }: {
   mint: string;
   uiAmount: number | null;
   decimals: number;
@@ -61,18 +74,32 @@ function TokenBalanceRow({ mint, uiAmount, decimals, prices }: {
 export function DashboardPage() {
   const pubkey = useActivePublicKey();
   const cluster = useClusterStore((s) => s.cluster);
+  const rpcUrl = useClusterStore((s) => s.rpcUrl);
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
-  const { data: solBalance, isLoading: solLoading } = useSolBalance(pubkey);
-  const { data: tokenBalances, isLoading: tokensLoading } = useTokenBalances(pubkey);
+  const {
+    data: solBalance,
+    isLoading: solLoading,
+    isError: solError,
+    refetch: refetchSol,
+  } = useSolBalance(pubkey);
+
+  const {
+    data: tokenBalances,
+    isLoading: tokensLoading,
+    isError: tokensError,
+    refetch: refetchTokens,
+  } = useTokenBalances(pubkey);
+
   const solPrice = useSolPrice();
   const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
   const { data: portfolio } = usePortfolio(pubkey);
 
   const isLoadingBalances = solLoading || tokensLoading;
+  const isUsingPublicRpc = rpcUrl === RPC_URL; // default public endpoint
 
-  const solUi = solBalance !== null && solBalance !== undefined ? solBalance / 1e9 : null;
+  const solUi = typeof solBalance === 'number' ? solBalance / 1e9 : null;
   const solUsd = solUi !== null && solPrice ? solUi * solPrice : null;
 
   // Total portfolio value
@@ -114,9 +141,28 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* RPC warning banner — shown when using the default public endpoint */}
+      {isUsingPublicRpc && (solError || tokensError) && (
+        <div className="flex items-center justify-between gap-3 bg-orange/10 border border-orange/30 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-orange text-sm shrink-0">⚠</span>
+            <p className="text-xs text-text-dim">
+              The public Solana RPC is rate-limited. Balances may fail to load.{' '}
+              <Link to="/settings" className="text-blue hover:underline">Set a custom RPC ↗</Link>
+            </p>
+          </div>
+          <button
+            onClick={() => { refetchSol(); refetchTokens(); }}
+            className="text-xs text-blue hover:underline shrink-0"
+          >
+            Retry ↺
+          </button>
+        </div>
+      )}
+
       {/* Stat row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {isLoadingBalances && solBalance === undefined ? (
+        {isLoadingBalances && solBalance === undefined && !solError ? (
           <>
             <SkeletonCard />
             <SkeletonCard />
@@ -127,14 +173,24 @@ export function DashboardPage() {
           <>
             <StatCard
               label="Total Value"
-              value={totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'}
-              sub="All tokens"
+              value={solError ? '—' : totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'}
+              sub={solError ? undefined : 'All tokens'}
+              error={solError}
+              onRetry={() => { refetchSol(); refetchTokens(); }}
             />
             <StatCard
               label="SOL Balance"
               value={solUi !== null ? formatSol(solBalance!) : '—'}
-              sub={solUsd !== null ? formatUsd(solUsd) : 'Loading price...'}
+              sub={
+                solError ? undefined :
+                solUsd !== null ? formatUsd(solUsd) :
+                solLoading ? 'Loading...' :
+                solUi !== null && solPrice === null ? 'Price unavailable' :
+                undefined
+              }
               accent="text-green"
+              error={solError}
+              onRetry={refetchSol}
             />
             <StatCard
               label="SOL Price"
@@ -157,14 +213,25 @@ export function DashboardPage() {
           <CardHeader
             title="Token Balances"
             action={
-              <a
-                href={`${EXPLORER_BASE}/account/${pubkey}?cluster=${cluster}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue hover:underline"
-              >
-                View on Solscan ↗
-              </a>
+              <div className="flex items-center gap-3">
+                {(solError || tokensError) && (
+                  <button
+                    onClick={() => { refetchSol(); refetchTokens(); }}
+                    className="text-xs text-orange hover:text-text transition-colors"
+                    title="Refresh balances"
+                  >
+                    ↺ Retry
+                  </button>
+                )}
+                <a
+                  href={`${EXPLORER_BASE}/account/${pubkey}?cluster=${cluster}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue hover:underline"
+                >
+                  View on Solscan ↗
+                </a>
+              </div>
             }
           />
           <CardBody className="p-0 px-4">
@@ -178,15 +245,31 @@ export function DashboardPage() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm text-text">{solUi !== null ? solUi.toFixed(4) : '—'}</p>
-                {solUsd !== null && <p className="text-xs text-text-dim">{formatUsd(solUsd)}</p>}
+                {solLoading && solBalance === undefined ? (
+                  <div className="w-16 h-4 bg-surface-2 rounded animate-pulse" />
+                ) : solError ? (
+                  <p className="text-xs text-text-dim">Unavailable</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-text">{solUi !== null ? solUi.toFixed(4) : '—'}</p>
+                    {solUsd !== null && <p className="text-xs text-text-dim">{formatUsd(solUsd)}</p>}
+                  </>
+                )}
               </div>
             </div>
-            {/* SPL tokens */}
+
+            {/* SPL + Token-2022 tokens */}
             {tokensLoading && !tokenBalances ? (
               <SkeletonTable rows={3} />
+            ) : tokensError ? (
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <p className="text-sm text-text-dim">Failed to load token balances.</p>
+                <button onClick={() => refetchTokens()} className="text-xs text-blue hover:underline">
+                  Retry ↺
+                </button>
+              </div>
             ) : (tokenBalances ?? []).length === 0 ? (
-              <p className="text-sm text-text-dim py-4 text-center">No SPL tokens found</p>
+              <p className="text-sm text-text-dim py-4 text-center">No tokens found</p>
             ) : (
               (tokenBalances ?? []).map((b) => (
                 <TokenBalanceRow key={b.mint} {...b} prices={prices ?? {}} />

@@ -1,0 +1,30 @@
+## Dependencies — rebuilt inside Docker
+node_modules
+*/node_modules
+
+## Build outputs — rebuilt inside Docker
+*/dist
+frontend/.vite
+
+## Version control
+.git
+.gitignore
+
+## OS junk
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+## Env files (secrets) — use docker-compose env vars instead
+.env
+.env.local
+.env.*.local
+
+## Logs
+*.log
+npm-debug.log*
+
+## IDE
+.vscode
+.idea
+*.swp

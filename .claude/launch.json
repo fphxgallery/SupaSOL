@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/node_modules/.bin/vite", "--config", "/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/frontend/vite.config.ts", "/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/frontend"],
+      "port": 5173
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+import { API_BASE } from '../config/constants';
+
+export interface ApiError {
+  status?: number;
+  code: string | number;
+  message: string;
+  retryable: boolean;
+}
+
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    ...init,
+  });
+
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After')) || 10;
+    throw { status: 429, code: 'RATE_LIMITED', message: `Rate limited — retry in ${retryAfter}s`, retryable: true } as ApiError;
+  }
+
+  const text = await res.text();
+  let body: Record<string, unknown> = {};
+  try { body = text ? JSON.parse(text) : {}; } catch { body = { message: text }; }
+
+  if (!res.ok) {
+    throw {
+      status: res.status,
+      code: body['code'] ?? `HTTP_${res.status}`,
+      message: (body['message'] as string) ?? `HTTP ${res.status}`,
+      retryable: res.status >= 500,
+    } as ApiError;
+  }
+
+  return body as T;
+}
+
+export async function withRetry<T>(action: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await action();
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      if (!apiErr.retryable || attempt === maxRetries) throw err;
+      const delay = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 500, 10_000);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('Retry exhausted');
+}

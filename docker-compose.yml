@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - JUPITER_API_KEY=${JUPITER_API_KEY}
+      - PORT=4000
+      - FRONTEND_ORIGIN=http://localhost:3000
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE: http://localhost:4000
+        VITE_RPC_URL: ${VITE_RPC_URL:-https://api.mainnet-beta.solana.com}
+        VITE_CLUSTER: ${VITE_CLUSTER:-mainnet-beta}
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

@@ -87,7 +87,7 @@ export function LiquidityPage() {
   if (!pubkey) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-bold text-text">Liquidity</h1>
+        <h1 className="text-lg font-bold text-text">DLMM</h1>
         <Card>
           <CardBody>
             <p className="text-sm text-text-dim text-center py-4">
@@ -104,7 +104,7 @@ export function LiquidityPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-text">Liquidity</h1>
+          <h1 className="text-lg font-bold text-text">DLMM</h1>
           <p className="text-xs text-text-dim mt-0.5">Meteora DLMM · Dynamic fee market making</p>
         </div>
         <div className="flex items-center gap-2">

@@ -3,10 +3,12 @@ import { usePortfolio } from '../hooks/usePortfolio';
 import { usePrice } from '../hooks/usePrice';
 import { useSolBalance } from '../hooks/useSolBalance';
 import { useTokenBalances } from '../hooks/useTokenBalances';
+import { useTokenMetadata } from '../hooks/useTokenMetadata';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { formatUsd, formatUsdCompact, shortenPubkey } from '../utils/format';
+import { TokenLogo } from '../components/ui/TokenLogo';
+import { formatUsd, formatUsdCompact } from '../utils/format';
 import { MINTS } from '../config/constants';
 
 const TYPE_VARIANT: Record<string, 'green' | 'blue' | 'orange' | 'purple' | 'muted'> = {
@@ -23,6 +25,9 @@ export function PortfolioPage() {
   const { data: solBalance } = useSolBalance(pubkey);
   const { data: tokenBalances } = useTokenBalances(pubkey);
   const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
+
+  const splMints = (tokenBalances ?? []).map((b) => b.mint);
+  const tokenMeta = useTokenMetadata(splMints);
 
   const solPrice = prices?.[MINTS.SOL]?.usdPrice ?? null;
   const solUi = solBalance != null ? (solBalance as number) / 1e9 : null;
@@ -100,21 +105,22 @@ export function PortfolioPage() {
               </div>
               {/* SPL tokens */}
               {(tokenBalances ?? []).map((b) => {
+                const meta = tokenMeta[b.mint];
                 const p = prices?.[b.mint]?.usdPrice ?? null;
                 const usd = p && b.uiAmount ? p * b.uiAmount : null;
+                const displaySymbol = meta?.symbol ?? b.mint.slice(0, 4) + '…';
+                const displayName = meta?.name ?? b.mint.slice(0, 8) + '…';
                 return (
                   <div key={b.mint} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-surface-2 border border-border flex items-center justify-center">
-                        <span className="text-xs text-text-dim font-mono">{b.mint[0]}</span>
-                      </div>
+                      <TokenLogo mint={b.mint} symbol={displaySymbol} logoURI={meta?.logoURI} size="lg" />
                       <div>
-                        <p className="text-sm font-medium text-text font-mono">{shortenPubkey(b.mint, 4)}</p>
-                        <p className="text-xs text-text-dim">{b.decimals} decimals</p>
+                        <p className="text-sm font-medium text-text">{displaySymbol}</p>
+                        <p className="text-xs text-text-dim">{displayName}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-text">{b.uiAmount?.toLocaleString('en-US', { maximumFractionDigits: 4 })}</p>
+                      <p className="text-sm text-text">{b.uiAmount?.toLocaleString('en-US', { maximumFractionDigits: 4 })} {displaySymbol}</p>
                       {usd !== null && <p className="text-xs text-text-dim">{formatUsd(usd)}</p>}
                     </div>
                   </div>

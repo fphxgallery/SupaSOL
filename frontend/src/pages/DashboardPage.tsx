@@ -42,27 +42,27 @@ function StatCard({ label, value, sub, accent, error, onRetry }: {
   );
 }
 
-function TokenBalanceRow({ mint, uiAmount, prices, logoURI }: {
+function TokenBalanceRow({ mint, uiAmount, prices, symbol, name, logoURI }: {
   mint: string;
   uiAmount: number | null;
   decimals: number;
   prices: Record<string, { usdPrice?: number }>;
+  symbol?: string;
+  name?: string;
   logoURI?: string;
 }) {
   const price = prices[mint]?.usdPrice ?? null;
   const usdValue = price && uiAmount ? price * uiAmount : null;
-  const symbols: Record<string, string> = {
-    [MINTS.USDC]: 'USDC', [MINTS.USDT]: 'USDT', [MINTS.JUP]: 'JUP',
-  };
-  const symbol = symbols[mint] ?? mint.slice(0, 4) + '…';
+  const displaySymbol = symbol ?? mint.slice(0, 4) + '…';
+  const displayName = name ?? shortenPubkey(mint, 4);
 
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
       <div className="flex items-center gap-3">
-        <TokenLogo mint={mint} symbol={symbol} logoURI={logoURI} />
+        <TokenLogo mint={mint} symbol={displaySymbol} logoURI={logoURI} />
         <div>
-          <p className="text-sm font-medium text-text">{symbol}</p>
-          <p className="text-xs text-text-dim font-mono">{shortenPubkey(mint, 4)}</p>
+          <p className="text-sm font-medium text-text">{displaySymbol}</p>
+          <p className="text-xs text-text-dim">{displayName}</p>
         </div>
       </div>
       <div className="text-right">
@@ -98,9 +98,9 @@ export function DashboardPage() {
   const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
   const { data: portfolio } = usePortfolio(pubkey);
 
-  // Fetch logos for all held SPL tokens (IPFS / CDN URLs from Jupiter metadata)
+  // Fetch metadata (symbol, name, logoURI) for all held SPL tokens
   const splMints = (tokenBalances ?? []).map((b) => b.mint);
-  const tokenLogos = useTokenMetadata(splMints);
+  const tokenMeta = useTokenMetadata(splMints);
 
   const isLoadingBalances = solLoading || tokensLoading;
   const isUsingPublicRpc = rpcUrl === RPC_URL; // default public endpoint
@@ -278,7 +278,14 @@ export function DashboardPage() {
               <p className="text-sm text-text-dim py-4 text-center">No tokens found</p>
             ) : (
               (tokenBalances ?? []).map((b) => (
-                <TokenBalanceRow key={b.mint} {...b} prices={prices ?? {}} logoURI={tokenLogos[b.mint]} />
+                <TokenBalanceRow
+                  key={b.mint}
+                  {...b}
+                  prices={prices ?? {}}
+                  symbol={tokenMeta[b.mint]?.symbol}
+                  name={tokenMeta[b.mint]?.name}
+                  logoURI={tokenMeta[b.mint]?.logoURI}
+                />
               ))
             )}
           </CardBody>

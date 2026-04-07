@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { VersionedTransaction, Transaction, Connection } from '@solana/web3.js';
+import { VersionedTransaction, Transaction, Connection, Signer } from '@solana/web3.js';
 import { useWalletStore } from '../store/walletStore';
 import { useClusterStore } from '../store/clusterStore';
 import { useTxStore } from '../store/txStore';
@@ -55,10 +55,15 @@ export function useSignAndSend() {
   /**
    * Sign and send a legacy (non-versioned) Transaction.
    * Used for Meteora DLMM SDK which returns legacy Transaction objects.
+   *
+   * extraSigners — additional Keypairs (e.g. DLMM position keypairs) that must co-sign.
+   * They are signed AFTER the blockhash is set so the signatures cover the correct message.
+   * Do NOT pre-sign with these keypairs before calling this function.
    */
   const signAndSendLegacy = useCallback(async (
     tx: Transaction,
-    description: string = 'Transaction'
+    description: string = 'Transaction',
+    extraSigners: Signer[] = []
   ): Promise<string> => {
     if (!keypair) throw new Error('No wallet connected');
 
@@ -67,7 +72,8 @@ export function useSignAndSend() {
 
     tx.recentBlockhash = blockhash;
     tx.feePayer = keypair.publicKey;
-    // Use partialSign so any pre-existing partial signatures (e.g. position keypairs) are preserved
+    // Sign with extra keypairs first (e.g. position keypairs), then the user wallet
+    if (extraSigners.length > 0) tx.partialSign(...extraSigners);
     tx.partialSign(keypair);
 
     const sig = await connection.sendRawTransaction(tx.serialize(), {
@@ -92,15 +98,18 @@ export function useSignAndSend() {
   /**
    * Sign and send multiple legacy transactions sequentially.
    * Shows (1/N), (2/N) in toasts.
+   *
+   * extraSignersPerTx — optional array of extra Signer arrays, one per transaction.
    */
   const signAndSendAllLegacy = useCallback(async (
     txs: Transaction[],
-    description: string = 'Transaction'
+    description: string = 'Transaction',
+    extraSignersPerTx: Signer[][] = []
   ): Promise<string[]> => {
     const sigs: string[] = [];
     for (let i = 0; i < txs.length; i++) {
       const label = txs.length > 1 ? `${description} (${i + 1}/${txs.length})` : description;
-      const sig = await signAndSendLegacy(txs[i], label);
+      const sig = await signAndSendLegacy(txs[i], label, extraSignersPerTx[i] ?? []);
       sigs.push(sig);
     }
     return sigs;

@@ -171,9 +171,13 @@ export function AddLiquidityModal({
         strategyType: strategy,
       });
 
-      // buildAddLiquidityTxs returns { tx, positionKeypair }[] — extract just the transactions
-      // each tx is already partially signed by the position keypair; signAndSendLegacy adds the user sig
-      await signAndSendAllLegacy(entries.map((e) => e.tx), `Add Liquidity ${pool.name}`);
+      // Pass position keypairs as extraSigners so they sign AFTER the blockhash is set.
+      // If signed before blockhash (as previously done), the signature covers the wrong message.
+      await signAndSendAllLegacy(
+        entries.map((e) => e.tx),
+        `Add Liquidity ${pool.name}`,
+        entries.map((e) => [e.positionKeypair]),
+      );
       onSuccess?.();
       onClose();
     } catch (err: unknown) {

@@ -254,9 +254,12 @@ export async function buildAddLiquidityTxs(
 
   const dlmmPool = await DLMM.create(connection, poolPubkey);
 
-  // Convert prices to bin IDs
-  const minBinId = dlmmPool.getBinIdFromPrice(params.minPrice, false);
-  const maxBinId = dlmmPool.getBinIdFromPrice(params.maxPrice, true);
+  // Convert prices to bin IDs.
+  // min=true  → round toward the lower bin (use for the lower price bound)
+  // min=false → round toward the higher bin (use for the upper price bound)
+  // Mirror Meteora's own internal convention: lowerBinId = getBinIdFromPrice(min, true) - 1
+  const minBinId = dlmmPool.getBinIdFromPrice(params.minPrice, true) - 1;
+  const maxBinId = dlmmPool.getBinIdFromPrice(params.maxPrice, false) + 1;
 
   if (minBinId >= maxBinId) {
     throw new Error('Min price bin must be less than max price bin — widen your range');
@@ -283,8 +286,7 @@ export async function buildAddLiquidityTxs(
     slippage: 1,
   });
 
-  // Position keypair must be a signer — partialSign so user can sign separately
-  tx.partialSign(positionKeypair);
-
+  // Do NOT partialSign here — the blockhash hasn't been set yet.
+  // The caller must sign with positionKeypair AFTER setting recentBlockhash.
   return [{ tx, positionKeypair }];
 }

@@ -31,9 +31,9 @@ function TokenBalanceRow({ mint, uiAmount, decimals, prices }: {
   mint: string;
   uiAmount: number | null;
   decimals: number;
-  prices: Record<string, { price: string | null }>;
+  prices: Record<string, { usdPrice?: number }>;
 }) {
-  const price = prices[mint]?.price ? parseFloat(prices[mint].price!) : null;
+  const price = prices[mint]?.usdPrice ?? null;
   const usdValue = price && uiAmount ? price * uiAmount : null;
   const symbols: Record<string, string> = {
     [MINTS.USDC]: 'USDC', [MINTS.USDT]: 'USDT', [MINTS.JUP]: 'JUP',
@@ -78,7 +78,7 @@ export function DashboardPage() {
 
   // Total portfolio value
   const tokenUsd = (tokenBalances ?? []).reduce((acc, b) => {
-    const p = prices?.[b.mint]?.price ? parseFloat(prices[b.mint].price!) : null;
+    const p = prices?.[b.mint]?.usdPrice ?? null;
     return acc + (p && b.uiAmount ? p * b.uiAmount : 0);
   }, 0);
   const totalUsd = (solUsd ?? 0) + tokenUsd;
@@ -218,7 +218,7 @@ export function DashboardPage() {
                 { label: 'USDT', mint: MINTS.USDT, accent: 'text-green' },
                 { label: 'JUP', mint: MINTS.JUP, accent: 'text-orange' },
               ].map(({ label, mint, accent }) => {
-                const p = prices?.[mint]?.price;
+                const p = prices?.[mint]?.usdPrice;
                 return (
                   <div key={mint} className="flex items-center justify-between py-1.5">
                     <div className="flex items-center gap-2">

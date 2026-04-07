@@ -24,12 +24,12 @@ export function PortfolioPage() {
   const { data: tokenBalances } = useTokenBalances(pubkey);
   const { data: prices } = usePrice([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
 
-  const solPrice = prices?.[MINTS.SOL]?.price ? parseFloat(prices[MINTS.SOL]!.price!) : null;
+  const solPrice = prices?.[MINTS.SOL]?.usdPrice ?? null;
   const solUi = solBalance != null ? (solBalance as number) / 1e9 : null;
   const solUsd = solUi !== null && solPrice ? solUi * solPrice : null;
 
   const splUsd = (tokenBalances ?? []).reduce((acc, b) => {
-    const p = prices?.[b.mint]?.price ? parseFloat(prices[b.mint]!.price!) : null;
+    const p = prices?.[b.mint]?.usdPrice ?? null;
     return acc + (p && b.uiAmount ? p * b.uiAmount : 0);
   }, 0);
 
@@ -100,7 +100,7 @@ export function PortfolioPage() {
               </div>
               {/* SPL tokens */}
               {(tokenBalances ?? []).map((b) => {
-                const p = prices?.[b.mint]?.price ? parseFloat(prices[b.mint]!.price!) : null;
+                const p = prices?.[b.mint]?.usdPrice ?? null;
                 const usd = p && b.uiAmount ? p * b.uiAmount : null;
                 return (
                   <div key={b.mint} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0">

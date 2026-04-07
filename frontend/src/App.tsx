@@ -8,7 +8,6 @@ import { LendPage } from './pages/LendPage';
 import { TriggerPage } from './pages/TriggerPage';
 import { RecurringPage } from './pages/RecurringPage';
 import { PortfolioPage } from './pages/PortfolioPage';
-import { PredictionPage } from './pages/PredictionPage';
 import { SendPage } from './pages/SendPage';
 import { StudioPage } from './pages/StudioPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -28,7 +27,6 @@ export function App() {
         <Route path="trigger" element={<PageBoundary><TriggerPage /></PageBoundary>} />
         <Route path="recurring" element={<PageBoundary><RecurringPage /></PageBoundary>} />
         <Route path="portfolio" element={<PageBoundary><PortfolioPage /></PageBoundary>} />
-        <Route path="prediction" element={<PageBoundary><PredictionPage /></PageBoundary>} />
         <Route path="send" element={<PageBoundary><SendPage /></PageBoundary>} />
         <Route path="studio" element={<PageBoundary><StudioPage /></PageBoundary>} />
         <Route path="history" element={<PageBoundary><HistoryPage /></PageBoundary>} />

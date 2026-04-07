@@ -9,7 +9,6 @@ import recurringRouter from './routes/recurring';
 import tokensRouter from './routes/tokens';
 import priceRouter from './routes/price';
 import portfolioRouter from './routes/portfolio';
-import predictionRouter from './routes/prediction';
 import sendRouter from './routes/send';
 import studioRouter from './routes/studio';
 
@@ -46,7 +45,6 @@ app.use('/api/recurring', recurringRouter);
 app.use('/api/tokens', tokensRouter);
 app.use('/api/price', priceRouter);
 app.use('/api/portfolio', portfolioRouter);
-app.use('/api/prediction', predictionRouter);
 app.use('/api/send', sendRouter);
 app.use('/api/studio', studioRouter);
 

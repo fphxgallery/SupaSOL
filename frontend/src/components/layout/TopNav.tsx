@@ -8,6 +8,27 @@ import { Button } from '../ui/Button';
 import { CreateWalletModal } from '../wallet/CreateWalletModal';
 import { ImportWalletModal } from '../wallet/ImportWalletModal';
 
+function TokenLogo({ logoURI, symbol }: { logoURI?: string; symbol: string }) {
+  const [errored, setErrored] = useState(false);
+
+  if (logoURI && !errored) {
+    return (
+      <img
+        src={logoURI}
+        alt={symbol}
+        className="w-7 h-7 rounded-full shrink-0 bg-surface-2 object-cover"
+        onError={() => setErrored(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="w-7 h-7 rounded-full bg-surface-2 border border-border flex items-center justify-center shrink-0">
+      <span className="text-xs font-bold text-text-dim">{symbol[0]?.toUpperCase()}</span>
+    </div>
+  );
+}
+
 function TokenSearchBar() {
   const navigate = useNavigate();
   const [open, setOpen]         = useState(false);
@@ -76,18 +97,7 @@ function TokenSearchBar() {
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left border-b border-border last:border-0"
               >
                 {/* Logo */}
-                {token.logoURI ? (
-                  <img
-                    src={token.logoURI}
-                    alt={token.symbol}
-                    className="w-7 h-7 rounded-full shrink-0 bg-surface-2"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-surface-2 border border-border flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-text-dim">{token.symbol[0]}</span>
-                  </div>
-                )}
+                <TokenLogo logoURI={token.logoURI} symbol={token.symbol} />
 
                 {/* Name + symbol */}
                 <div className="flex-1 min-w-0">

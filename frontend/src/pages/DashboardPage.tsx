@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { PriceChart } from '../components/charts/PriceChart';
 import { SkeletonCard, SkeletonTable } from '../components/ui/Skeleton';
+import { TokenLogo } from '../components/ui/TokenLogo';
 import { CreateWalletModal } from '../components/wallet/CreateWalletModal';
 import { ImportWalletModal } from '../components/wallet/ImportWalletModal';
 import { formatSol, formatUsd, formatUsdCompact, shortenPubkey } from '../utils/format';
@@ -43,9 +44,7 @@ function TokenBalanceRow({ mint, uiAmount, decimals, prices }: {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-surface-2 border border-border flex items-center justify-center">
-          <span className="text-xs text-text-dim font-mono">{symbol[0]}</span>
-        </div>
+        <TokenLogo mint={mint} symbol={symbol} />
         <div>
           <p className="text-sm font-medium text-text">{symbol}</p>
           <p className="text-xs text-text-dim font-mono">{shortenPubkey(mint, 4)}</p>
@@ -172,9 +171,7 @@ export function DashboardPage() {
             {/* SOL row */}
             <div className="flex items-center justify-between py-2.5 border-b border-border">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center">
-                  <span className="text-xs text-purple font-bold">◎</span>
-                </div>
+                <TokenLogo mint={MINTS.SOL} symbol="SOL" />
                 <div>
                   <p className="text-sm font-medium text-text">SOL</p>
                   <p className="text-xs text-text-dim">Native</p>

@@ -35,7 +35,9 @@ interface RawPriceEntry {
   name?: string;
   symbol?: string;
   price?: number;
-  price_ui?: number;
+  priceUi?: number;    // camelCase — Flash Trade /prices field name
+  price_ui?: number;   // snake_case fallback
+  exponent?: number;
   marketPubkey?: string;
   pubkey?: string;
 }
@@ -180,15 +182,18 @@ export async function fetchPerpsPrices(): Promise<Record<string, number>> {
   if (Array.isArray(resp)) {
     for (const entry of resp as RawPriceEntry[]) {
       const key = entry.marketPubkey ?? entry.pubkey ?? entry.name ?? entry.symbol ?? '';
-      const price = entry.price_ui ?? entry.price ?? 0;
+      // Prefer priceUi (camelCase) or price_ui (snake_case) over raw oracle price
+      const price = entry.priceUi ?? entry.price_ui ?? entry.price ?? 0;
       if (key && price) result[key] = typeof price === 'number' ? price : parseFloat(String(price));
     }
   } else if (resp && typeof resp === 'object') {
+    // Flash Trade /prices: { SOL: { priceUi: 84.57, price: 8457268000, exponent: -8 }, ... }
     for (const [k, v] of Object.entries(resp as Record<string, unknown>)) {
-      if (typeof v === 'number') result[k] = v;
-      else if (v && typeof v === 'object') {
+      if (typeof v === 'number') {
+        result[k] = v;
+      } else if (v && typeof v === 'object') {
         const e = v as RawPriceEntry;
-        result[k] = e.price_ui ?? e.price ?? 0;
+        result[k] = e.priceUi ?? e.price_ui ?? e.price ?? 0;
       }
     }
   }

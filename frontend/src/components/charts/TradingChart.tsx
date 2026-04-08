@@ -278,12 +278,15 @@ export function TradingChart({
     }
 
     // Sync sub-chart time scales with main chart
-    const unsub = mainChart.current.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    const syncHandler = (range: import('lightweight-charts').LogicalRange | null) => {
       if (!range) return;
       rsiChart.current?.timeScale().setVisibleLogicalRange(range);
       macdChart.current?.timeScale().setVisibleLogicalRange(range);
-    });
-    return () => { unsub(); };
+    };
+    mainChart.current.timeScale().subscribeVisibleLogicalRangeChange(syncHandler);
+    return () => {
+      mainChart.current?.timeScale().unsubscribeVisibleLogicalRangeChange(syncHandler);
+    };
   }, [ohlcv]);
 
   // ── Show/hide series based on active toggles ──────────────────────────────

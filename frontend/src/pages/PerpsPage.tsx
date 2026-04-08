@@ -15,7 +15,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { PriceChart } from '../components/charts/PriceChart';
+import { TradingChart } from '../components/charts/TradingChart';
 import { formatUsd, formatPct, shortenPubkey } from '../utils/format';
 import { SYMBOL_TO_MINT, type PerpsMarket, type PerpsPosition, type PerpSide } from '../api/perps';
 
@@ -274,10 +274,8 @@ export function PerpsPage() {
   }, [selectedMarket, prices]);
 
   // Chart mint — use selected market's symbol, fall back to SOL.
-  // Always green: changing color destroys and recreates the lightweight-charts instance.
   const chartSymbol = selectedMarket?.symbol ?? DEFAULT_SYMBOL;
   const chartMint = SYMBOL_TO_MINT[chartSymbol] ?? SYMBOL_TO_MINT[DEFAULT_SYMBOL];
-  const chartColor = '#22c55e';
 
   // Live preview params
   const previewParams = useMemo(() => {
@@ -369,14 +367,12 @@ export function PerpsPage() {
         </CardBody>
       </Card>
 
-      {/* Full-width price chart */}
+      {/* Full-width trading chart with indicators */}
       <Card>
         <CardBody>
-          <PriceChart
+          <TradingChart
             mint={chartMint}
             symbol={chartSymbol}
-            color={chartColor}
-            height={260}
           />
         </CardBody>
       </Card>

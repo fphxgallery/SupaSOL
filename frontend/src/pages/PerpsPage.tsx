@@ -121,7 +121,7 @@ function PositionCard({
         isStopLoss: true,
         marketSymbol: position.symbol,
         side: position.side,
-        sizeUsdUi: position.size,
+        sizeUsdUi: position.sizeAmount,
         symbol: position.symbol,
       });
     } catch { /* surfaced via toast */ }
@@ -138,7 +138,7 @@ function PositionCard({
         isStopLoss: false,
         marketSymbol: position.symbol,
         side: position.side,
-        sizeUsdUi: position.size,
+        sizeUsdUi: position.sizeAmount,
         symbol: position.symbol,
       });
     } catch { /* surfaced via toast */ }

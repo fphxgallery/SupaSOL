@@ -23,10 +23,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   try { body = text ? JSON.parse(text) : {}; } catch { body = { message: text }; }
 
   if (!res.ok) {
+    // Flash Trade and some other APIs return error details in an 'err' field
     throw {
       status: res.status,
       code: body['code'] ?? `HTTP_${res.status}`,
-      message: (body['message'] as string) ?? `HTTP ${res.status}`,
+      message: (body['err'] as string) ?? (body['message'] as string) ?? `HTTP ${res.status}`,
       retryable: res.status >= 500,
     } as ApiError;
   }

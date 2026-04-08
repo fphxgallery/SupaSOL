@@ -18,7 +18,12 @@ import { useUiStore } from '../store/uiStore';
 
 function onMutationError(label: string) {
   return (err: unknown) => {
-    const msg = err instanceof Error ? err.message : 'Transaction failed';
+    let msg = 'Transaction failed';
+    if (err instanceof Error) {
+      msg = err.message;
+    } else if (err && typeof err === 'object' && 'message' in err) {
+      msg = String((err as { message: unknown }).message);
+    }
     useUiStore.getState().addToast({ type: 'error', message: `${label}: ${msg}` });
   };
 }

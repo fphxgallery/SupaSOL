@@ -48,6 +48,7 @@ interface RawPosition {
   sideUi?: string;           // "Long" | "Short" (title case)
   collateralUsdUi?: string | number;
   sizeUsdUi?: string | number;
+  sizeAmountUi?: string | number;  // asset units (e.g. 0.2361 SOL)
   entryPriceUi?: string | number;
   liquidationPriceUi?: string | number;
   leverageUi?: string | number;
@@ -91,6 +92,7 @@ export interface PerpsPosition {
   side: PerpSide;
   collateral: number;       // USD
   size: number;             // USD
+  sizeAmount: number;       // asset units (e.g. SOL) — used for trigger orders
   entryPrice: number;
   liquidationPrice: number;
   leverage: number;
@@ -223,6 +225,7 @@ export async function fetchPerpsPositions(
         side: rawSide === 'short' ? 'short' : 'long',
         collateral: toNum(p.collateralUsdUi),
         size: toNum(p.sizeUsdUi),
+        sizeAmount: toNum(p.sizeAmountUi),
         entryPrice: toNum(p.entryPriceUi),
         liquidationPrice: toNum(p.liquidationPriceUi),
         leverage: toNum(p.leverageUi),

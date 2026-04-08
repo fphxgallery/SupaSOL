@@ -43,22 +43,16 @@ interface RawPriceEntry {
 }
 
 interface RawPosition {
-  positionPubkey?: string;
-  marketPubkey?: string;
-  custodyAccount?: string;  // Flash Trade uses this instead of marketPubkey
-  ownerPubkey?: string;
-  side?: string;
-  collateral?: string | number;
-  collateralUsd?: string | number;
-  size?: string | number;
-  sizeUsd?: string | number;
-  entryPrice?: string | number;
-  liquidationPrice?: string | number;
-  leverage?: string | number;
-  unrealizedPnl?: string | number;
-  unrealizedPnlPercent?: string | number;
-  pnlUi?: string | number;
-  pnlPercent?: string | number;
+  key?: string;              // position pubkey
+  marketSymbol?: string;     // e.g. "SOL"
+  sideUi?: string;           // "Long" | "Short" (title case)
+  collateralUsdUi?: string | number;
+  sizeUsdUi?: string | number;
+  entryPriceUi?: string | number;
+  liquidationPriceUi?: string | number;
+  leverageUi?: string | number;
+  pnlWithFeeUsdUi?: string | number;
+  pnlPercentageWithFee?: string | number;
   stopLossPrice?: string | number;
   takeProfitPrice?: string | number;
 }
@@ -67,11 +61,12 @@ interface RawTxResponse {
   transactionBase64?: string;
   transaction?: string;
   err?: string | null;
-  entryPrice?: string | number;
-  liquidationPrice?: string | number;
-  leverage?: string | number;
-  size?: string | number;
-  fee?: string | number;
+  // Preview response fields (Flash Trade API uses "new" prefix)
+  newEntryPrice?: string | number;
+  newLiquidationPrice?: string | number;
+  newLeverage?: string | number;
+  youRecieveUsdUi?: string | number;  // position size in USD
+  entryFee?: string | number;
 }
 
 // ─── Public interfaces ────────────────────────────────────────────────────────
@@ -116,6 +111,7 @@ export interface OpenPositionPreview {
 export interface OpenPositionParams {
   owner?: string;
   marketPubkey: string;
+  marketSymbol: string;         // e.g. "SOL" — sent as outputTokenSymbol
   side: PerpSide;
   collateralUi: number;
   collateralDecimals: number;
@@ -205,31 +201,33 @@ export async function fetchPerpsPositions(
   markets: PerpsMarket[],
 ): Promise<PerpsPosition[]> {
   const resp = await apiFetch<unknown>(`/api/perps/positions/${wallet}`);
-  const marketsByPubkey = new Map(markets.map((m) => [m.pubkey, m]));
   const arr: RawPosition[] = Array.isArray(resp)
     ? (resp as RawPosition[])
     : Array.isArray((resp as { positions?: RawPosition[] }).positions)
     ? (resp as { positions: RawPosition[] }).positions
     : [];
 
+  // Build a symbol → market map for lookup (positions response uses marketSymbol, not pubkey)
+  const marketsBySymbol = new Map(markets.map((m) => [m.symbol, m]));
+
   return arr
     .map((p): PerpsPosition | null => {
-      const positionPubkey = p.positionPubkey ?? '';
-      const marketPubkey = p.custodyAccount ?? p.marketPubkey ?? '';
+      const positionPubkey = p.key ?? '';
       if (!positionPubkey) return null;
-      const market = marketsByPubkey.get(marketPubkey);
+      const market = marketsBySymbol.get(p.marketSymbol ?? '');
+      const rawSide = (p.sideUi ?? '').toLowerCase(); // "Long" → "long"
       return {
         positionPubkey,
-        marketPubkey,
-        symbol: market?.symbol ?? marketPubkey.slice(0, 4),
-        side: p.side === 'short' ? 'short' : 'long',
-        collateral: toNum(p.collateralUsd ?? p.collateral),
-        size: toNum(p.sizeUsd ?? p.size),
-        entryPrice: toNum(p.entryPrice),
-        liquidationPrice: toNum(p.liquidationPrice),
-        leverage: toNum(p.leverage),
-        unrealizedPnl: toNum(p.pnlUi ?? p.unrealizedPnl),
-        unrealizedPnlPercent: toNum(p.pnlPercent ?? p.unrealizedPnlPercent),
+        marketPubkey: market?.pubkey ?? '',
+        symbol: p.marketSymbol ?? market?.symbol ?? '???',
+        side: rawSide === 'short' ? 'short' : 'long',
+        collateral: toNum(p.collateralUsdUi),
+        size: toNum(p.sizeUsdUi),
+        entryPrice: toNum(p.entryPriceUi),
+        liquidationPrice: toNum(p.liquidationPriceUi),
+        leverage: toNum(p.leverageUi),
+        unrealizedPnl: toNum(p.pnlWithFeeUsdUi),
+        unrealizedPnlPercent: toNum(p.pnlPercentageWithFee),
         stopLossPrice: p.stopLossPrice != null ? toNum(p.stopLossPrice) : undefined,
         takeProfitPrice: p.takeProfitPrice != null ? toNum(p.takeProfitPrice) : undefined,
       };
@@ -256,6 +254,12 @@ function buildOpenBody(params: OpenPositionParams, includeOwner: boolean) {
     collateral: collateralBase,
     size: sizeBase,
     priceWithSlippage,
+    // Additional fields required by Flash Trade API
+    inputTokenSymbol: 'USDC',
+    outputTokenSymbol: params.marketSymbol,
+    inputAmountUi: String(params.collateralUi),
+    leverage: params.leverage,
+    tradeType: params.side === 'long' ? 'LONG' : 'SHORT',
   };
 }
 
@@ -269,11 +273,11 @@ export async function previewOpenPosition(
   });
   if (resp.err) throw new Error(resp.err);
   return {
-    entryPrice: toNum(resp.entryPrice),
-    liquidationPrice: toNum(resp.liquidationPrice),
-    leverage: toNum(resp.leverage),
-    size: toNum(resp.size),
-    fee: toNum(resp.fee),
+    entryPrice: toNum(resp.newEntryPrice),
+    liquidationPrice: toNum(resp.newLiquidationPrice),
+    leverage: toNum(resp.newLeverage),
+    size: toNum(resp.youRecieveUsdUi),
+    fee: toNum(resp.entryFee),
   };
 }
 
@@ -295,10 +299,16 @@ export async function buildOpenPosition(
 export async function buildClosePosition(
   owner: string,
   positionPubkey: string,
+  sizeUsd: number,
 ): Promise<{ transaction: string }> {
   const resp = await apiFetch<RawTxResponse>('/api/perps/close', {
     method: 'POST',
-    body: JSON.stringify({ owner, positionIndex: positionPubkey }),
+    body: JSON.stringify({
+      owner,
+      positionKey: positionPubkey,
+      inputUsdUi: String(sizeUsd),
+      withdrawTokenSymbol: 'USDC',
+    }),
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
@@ -309,11 +319,16 @@ export async function buildClosePosition(
 export async function buildAddCollateral(
   owner: string,
   positionPubkey: string,
-  amountBase: number,
+  amountUi: number,   // USDC UI amount (e.g. 10 for $10)
 ): Promise<{ transaction: string }> {
   const resp = await apiFetch<RawTxResponse>('/api/perps/add-collateral', {
     method: 'POST',
-    body: JSON.stringify({ owner, positionIndex: positionPubkey, collateralDelta: amountBase }),
+    body: JSON.stringify({
+      owner,
+      positionKey: positionPubkey,
+      depositAmountUi: String(amountUi),
+      depositTokenSymbol: 'USDC',
+    }),
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
@@ -324,11 +339,16 @@ export async function buildAddCollateral(
 export async function buildRemoveCollateral(
   owner: string,
   positionPubkey: string,
-  amountBase: number,
+  amountUsdUi: number,  // USD amount to withdraw (e.g. 5 for $5)
 ): Promise<{ transaction: string }> {
   const resp = await apiFetch<RawTxResponse>('/api/perps/remove-collateral', {
     method: 'POST',
-    body: JSON.stringify({ owner, positionIndex: positionPubkey, collateralDelta: amountBase }),
+    body: JSON.stringify({
+      owner,
+      positionKey: positionPubkey,
+      withdrawAmountUsdUi: String(amountUsdUi),
+      withdrawTokenSymbol: 'USDC',
+    }),
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
@@ -341,11 +361,21 @@ export async function buildPlaceTriggerOrder(
   positionPubkey: string,
   triggerPriceUi: number,
   isStopLoss: boolean,
+  marketSymbol: string,
+  side: PerpSide,
+  sizeUsdUi: number,
 ): Promise<{ transaction: string }> {
-  const triggerPrice = toPriceWithSlippage(triggerPriceUi, isStopLoss ? 'short' : 'long', 0);
   const resp = await apiFetch<RawTxResponse>('/api/perps/trigger', {
     method: 'POST',
-    body: JSON.stringify({ owner, positionIndex: positionPubkey, triggerPrice, isStopLoss }),
+    body: JSON.stringify({
+      owner,
+      positionKey: positionPubkey,
+      marketSymbol,
+      side: side === 'long' ? 'LONG' : 'SHORT',
+      triggerPriceUi: String(triggerPriceUi),
+      sizeAmountUi: String(sizeUsdUi),
+      isStopLoss,
+    }),
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
@@ -355,11 +385,21 @@ export async function buildPlaceTriggerOrder(
 
 export async function buildCancelTriggerOrder(
   owner: string,
-  orderPubkey: string,
+  positionPubkey: string,
+  isStopLoss: boolean,
+  marketSymbol: string,
+  side: PerpSide,
 ): Promise<{ transaction: string }> {
   const resp = await apiFetch<RawTxResponse>('/api/perps/cancel-trigger', {
     method: 'POST',
-    body: JSON.stringify({ owner, orderIndex: orderPubkey }),
+    body: JSON.stringify({
+      owner,
+      orderIndex: positionPubkey,
+      marketSymbol,
+      side: side === 'long' ? 'LONG' : 'SHORT',
+      orderId: isStopLoss ? 0 : 1,
+      isStopLoss,
+    }),
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';

@@ -75,11 +75,10 @@ function PositionCard({
   const addCollateral = usePerpsAddCollateral();
   const removeCollateral = usePerpsRemoveCollateral();
   const setTrigger = usePerpsTrigger();
-  const collateralDecimals = 6;
 
   async function handleClose() {
     try {
-      await close.mutateAsync({ wallet, positionPubkey: position.positionPubkey, symbol: position.symbol });
+      await close.mutateAsync({ wallet, positionPubkey: position.positionPubkey, sizeUsd: position.size, symbol: position.symbol });
     } catch { /* surfaced via toast */ }
   }
 
@@ -90,7 +89,7 @@ function PositionCard({
       await addCollateral.mutateAsync({
         wallet,
         positionPubkey: position.positionPubkey,
-        amountBase: Math.floor(ui * Math.pow(10, collateralDecimals)),
+        amountUi: ui,
         symbol: position.symbol,
       });
       setAddAmount('');
@@ -104,7 +103,7 @@ function PositionCard({
       await removeCollateral.mutateAsync({
         wallet,
         positionPubkey: position.positionPubkey,
-        amountBase: Math.floor(ui * Math.pow(10, collateralDecimals)),
+        amountUsdUi: ui,
         symbol: position.symbol,
       });
       setRemoveAmount('');
@@ -115,7 +114,16 @@ function PositionCard({
     const price = parseFloat(slPrice);
     if (isNaN(price) || price <= 0) return;
     try {
-      await setTrigger.mutateAsync({ wallet, positionPubkey: position.positionPubkey, triggerPriceUi: price, isStopLoss: true, symbol: position.symbol });
+      await setTrigger.mutateAsync({
+        wallet,
+        positionPubkey: position.positionPubkey,
+        triggerPriceUi: price,
+        isStopLoss: true,
+        marketSymbol: position.symbol,
+        side: position.side,
+        sizeUsdUi: position.size,
+        symbol: position.symbol,
+      });
     } catch { /* surfaced via toast */ }
   }
 
@@ -123,7 +131,16 @@ function PositionCard({
     const price = parseFloat(tpPrice);
     if (isNaN(price) || price <= 0) return;
     try {
-      await setTrigger.mutateAsync({ wallet, positionPubkey: position.positionPubkey, triggerPriceUi: price, isStopLoss: false, symbol: position.symbol });
+      await setTrigger.mutateAsync({
+        wallet,
+        positionPubkey: position.positionPubkey,
+        triggerPriceUi: price,
+        isStopLoss: false,
+        marketSymbol: position.symbol,
+        side: position.side,
+        sizeUsdUi: position.size,
+        symbol: position.symbol,
+      });
     } catch { /* surfaced via toast */ }
   }
 
@@ -256,16 +273,18 @@ export function PerpsPage() {
     return prices[selectedMarket.pubkey] ?? prices[selectedMarket.symbol] ?? selectedMarket.currentPrice ?? null;
   }, [selectedMarket, prices]);
 
-  // Chart mint — use selected market's symbol, fall back to SOL
+  // Chart mint — use selected market's symbol, fall back to SOL.
+  // Always green: changing color destroys and recreates the lightweight-charts instance.
   const chartSymbol = selectedMarket?.symbol ?? DEFAULT_SYMBOL;
   const chartMint = SYMBOL_TO_MINT[chartSymbol] ?? SYMBOL_TO_MINT[DEFAULT_SYMBOL];
-  const chartColor = side === 'long' ? '#22c55e' : '#f87171';
+  const chartColor = '#22c55e';
 
   // Live preview params
   const previewParams = useMemo(() => {
     if (!selectedMarket || !markPrice || !collateral || parseFloat(collateral) <= 0) return null;
     return {
       marketPubkey: selectedMarket.pubkey,
+      marketSymbol: selectedMarket.symbol,
       side,
       collateralUi: parseFloat(collateral),
       collateralDecimals: selectedMarket.collateralDecimals,
@@ -285,6 +304,7 @@ export function PerpsPage() {
         wallet: pubkey,
         owner: pubkey,
         marketPubkey: selectedMarket.pubkey,
+        marketSymbol: selectedMarket.symbol,
         side,
         collateralUi,
         collateralDecimals: selectedMarket.collateralDecimals,
@@ -292,7 +312,9 @@ export function PerpsPage() {
         markPriceUi: markPrice,
       });
       setCollateral('');
-    } catch { /* surfaced via toast */ }
+    } catch {
+      // onError in usePerpsOpen handles the toast
+    }
   }
 
   const canOpen = !!pubkey && !!selectedMarket && !!collateral && parseFloat(collateral) > 0 && !open.isPending;
@@ -423,31 +445,45 @@ export function PerpsPage() {
               </div>
             </div>
 
-            {/* Live preview */}
-            {previewParams && (
-              <div className="rounded-lg border border-border bg-surface p-3 text-xs flex flex-col gap-2">
-                <p className="text-text-dim font-semibold uppercase tracking-wide text-xs">Preview</p>
-                {previewing ? (
-                  <p className="text-text-dim animate-pulse">Calculating…</p>
-                ) : preview ? (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                    {([
-                      ['Entry Price', formatUsd(preview.entryPrice)],
-                      ['Liq. Price', formatUsd(preview.liquidationPrice)],
-                      ['Position Size', formatUsd(preview.size)],
-                      ['Est. Fee', preview.fee > 0 ? formatUsd(preview.fee) : '—'],
-                    ] as [string, string][]).map(([label, value]) => (
-                      <div key={label}>
-                        <p className="text-text-dim">{label}</p>
-                        <p className="text-text font-medium">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-text-dim">Enter collateral to preview</p>
-                )}
-              </div>
-            )}
+            {/* Preview — uses API data when available, falls back to local estimate */}
+            {previewParams && (() => {
+              const collateralUi = parseFloat(collateral);
+              const posSize = collateralUi * leverage;
+              // Local liquidation estimate: long liq ≈ entry × (1 - 0.9/leverage), short ≈ entry × (1 + 0.9/leverage)
+              const mp = markPrice ?? 0;
+              const liqFactor = side === 'long' ? 1 - 0.9 / leverage : 1 + 0.9 / leverage;
+              const localLiq = mp * liqFactor;
+
+              const displayEntryPrice = preview?.entryPrice || mp;
+              const displayLiqPrice = preview?.liquidationPrice || localLiq;
+              const displaySize = preview?.size || posSize;
+              const displayFee = preview?.fee;
+
+              return (
+                <div className="rounded-lg border border-border bg-surface p-3 text-xs flex flex-col gap-2">
+                  <p className="text-text-dim font-semibold uppercase tracking-wide text-xs">
+                    Preview {!preview && !previewing && <span className="text-xs font-normal opacity-60">(estimate)</span>}
+                  </p>
+                  {previewing ? (
+                    <p className="text-text-dim animate-pulse">Calculating…</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                      {([
+                        ['Entry Price', formatUsd(displayEntryPrice)],
+                        ['Liq. Price', formatUsd(displayLiqPrice)],
+                        ['Position Size', formatUsd(displaySize)],
+                        ['Est. Fee', displayFee && displayFee > 0 ? formatUsd(displayFee) : '—'],
+                      ] as [string, string][]).map(([label, value]) => (
+                        <div key={label}>
+                          <p className="text-text-dim">{label}</p>
+                          <p className="text-text font-medium">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* SL/TP note */}
             <button

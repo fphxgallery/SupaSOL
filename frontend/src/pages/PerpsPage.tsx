@@ -333,6 +333,42 @@ export function PerpsPage() {
         )}
       </div>
 
+      {/* Full-width markets card */}
+      <Card>
+        <CardBody>
+          {marketsLoading ? (
+            <div className="h-10 bg-surface rounded-lg animate-pulse" />
+          ) : markets.length === 0 ? (
+            <p className="text-xs text-text-dim">No markets available</p>
+          ) : (
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+              {markets.map((m) => {
+                const mp = prices[m.pubkey] ?? prices[m.symbol] ?? m.currentPrice;
+                const isSelected = selectedMarket?.pubkey === m.pubkey;
+                return (
+                  <button
+                    key={m.pubkey}
+                    onClick={() => setSelectedMarket(m)}
+                    className={`flex flex-col items-start px-3 py-2 rounded-lg border text-left transition-colors shrink-0 min-w-[72px] ${
+                      isSelected
+                        ? 'border-green/50 bg-green/5 text-text'
+                        : 'border-border bg-surface hover:bg-surface-2 text-text-dim hover:text-text'
+                    }`}
+                  >
+                    <span className="text-xs font-semibold">{m.symbol}</span>
+                    {mp > 0 && (
+                      <span className="text-xs opacity-60 tabular-nums">
+                        {mp >= 1000 ? `$${(mp / 1000).toFixed(1)}k` : `$${mp.toFixed(mp < 1 ? 4 : 2)}`}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
       {/* Full-width price chart */}
       <Card>
         <CardBody>
@@ -351,41 +387,6 @@ export function PerpsPage() {
         <Card>
           <CardHeader title="Open Position" />
           <CardBody className="flex flex-col gap-4">
-            {/* Market selector */}
-            <div>
-              <label className="text-xs text-text-dim mb-1.5 block">Market</label>
-              {marketsLoading ? (
-                <div className="h-10 bg-surface rounded-lg animate-pulse" />
-              ) : markets.length === 0 ? (
-                <p className="text-xs text-text-dim">No markets available</p>
-              ) : (
-                <div className="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto pr-1">
-                  {markets.map((m) => {
-                    const mp = prices[m.pubkey] ?? prices[m.symbol] ?? m.currentPrice;
-                    const isSelected = selectedMarket?.pubkey === m.pubkey;
-                    return (
-                      <button
-                        key={m.pubkey}
-                        onClick={() => setSelectedMarket(m)}
-                        className={`flex flex-col items-start px-2.5 py-2 rounded-lg border text-left transition-colors ${
-                          isSelected
-                            ? 'border-green/50 bg-green/5 text-text'
-                            : 'border-border bg-surface hover:bg-surface-2 text-text-dim hover:text-text'
-                        }`}
-                      >
-                        <span className="text-xs font-semibold">{m.symbol}</span>
-                        {mp > 0 && (
-                          <span className="text-xs opacity-60 tabular-nums">
-                            {mp >= 1000 ? `$${(mp / 1000).toFixed(1)}k` : `$${mp.toFixed(mp < 1 ? 4 : 2)}`}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* Long / Short */}
             <div>
               <label className="text-xs text-text-dim mb-1.5 block">Direction</label>

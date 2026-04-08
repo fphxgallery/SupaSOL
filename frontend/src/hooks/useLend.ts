@@ -35,7 +35,11 @@ export function useLendDeposit() {
   const { signAndSend } = useSignAndSend();
   return useMutation({
     mutationFn: async (params: { wallet: string; mint: string; amount: number; symbol: string }) => {
-      const { transaction } = await buildLendDeposit({ wallet: params.wallet, mint: params.mint, amount: params.amount });
+      const { transaction } = await buildLendDeposit({
+        wallet: params.wallet,
+        mint: params.mint,
+        amount: params.amount,
+      });
       return signAndSend(transaction, `Deposit ${params.symbol}`);
     },
   });
@@ -45,7 +49,11 @@ export function useLendWithdraw() {
   const { signAndSend } = useSignAndSend();
   return useMutation({
     mutationFn: async (params: { wallet: string; mint: string; amount: number; symbol: string }) => {
-      const { transaction } = await buildLendWithdraw({ wallet: params.wallet, mint: params.mint, amount: params.amount });
+      const { transaction } = await buildLendWithdraw({
+        wallet: params.wallet,
+        mint: params.mint,
+        amount: params.amount,
+      });
       return signAndSend(transaction, `Withdraw ${params.symbol}`);
     },
   });

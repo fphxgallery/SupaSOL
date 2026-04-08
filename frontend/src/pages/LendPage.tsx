@@ -21,14 +21,19 @@ function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
   const withdraw = useLendWithdraw();
 
   async function handleAction() {
-    if (!amount || parseFloat(amount) <= 0) return;
-    const baseAmount = Math.floor(parseFloat(amount) * Math.pow(10, token.decimals));
-    if (mode === 'deposit') {
-      await deposit.mutateAsync({ wallet, mint: token.mint, amount: baseAmount, symbol: token.symbol });
-    } else {
-      await withdraw.mutateAsync({ wallet, mint: token.mint, amount: baseAmount, symbol: token.symbol });
+    const parsed = parseFloat(amount);
+    if (!amount || isNaN(parsed) || parsed <= 0) return;
+    const baseAmount = Math.floor(parsed * Math.pow(10, token.decimals));
+    try {
+      if (mode === 'deposit') {
+        await deposit.mutateAsync({ wallet, mint: token.mint, amount: baseAmount, symbol: token.symbol });
+      } else {
+        await withdraw.mutateAsync({ wallet, mint: token.mint, amount: baseAmount, symbol: token.symbol });
+      }
+      setAmount('');
+    } catch {
+      // errors are surfaced via toast in useSignAndSend
     }
-    setAmount('');
   }
 
   const isLoading = deposit.isPending || withdraw.isPending;
@@ -38,7 +43,12 @@ function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {token.logoURI && (
-            <img src={token.logoURI} alt={token.symbol} className="w-8 h-8 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <img
+              src={token.logoURI}
+              alt={token.symbol}
+              className="w-8 h-8 rounded-full"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
           )}
           <div>
             <p className="text-sm font-semibold text-text">{token.symbol}</p>
@@ -46,23 +56,29 @@ function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
           </div>
         </div>
         <div className="text-right">
-          <APYBadge apy={token.supplyApy ?? token.apy} />
+          <APYBadge apy={token.supplyApy} />
           {token.tvl !== undefined && (
             <p className="text-xs text-text-dim mt-0.5">TVL: {formatUsd(token.tvl)}</p>
           )}
         </div>
       </div>
+
       <div className="flex gap-1.5">
         {(['deposit', 'withdraw'] as const).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
-            className={`flex-1 py-1.5 text-xs rounded-md capitalize cursor-pointer transition-colors ${mode === m ? 'bg-green/10 text-green border border-green/20' : 'text-text-dim hover:text-text bg-surface border border-border'}`}
+            className={`flex-1 py-1.5 text-xs rounded-md capitalize cursor-pointer transition-colors ${
+              mode === m
+                ? 'bg-green/10 text-green border border-green/20'
+                : 'text-text-dim hover:text-text bg-surface border border-border'
+            }`}
           >
             {m}
           </button>
         ))}
       </div>
+
       <div className="flex gap-2">
         <Input
           value={amount}
@@ -71,7 +87,7 @@ function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
           placeholder={`Amount (${token.symbol})`}
           className="flex-1"
         />
-        <Button onClick={handleAction} loading={isLoading} disabled={!amount} size="sm">
+        <Button onClick={handleAction} loading={isLoading} disabled={!amount || isLoading} size="sm">
           {mode === 'deposit' ? 'Deposit' : 'Withdraw'}
         </Button>
       </div>
@@ -86,6 +102,8 @@ export function LendPage() {
   const { data: positions } = useLendPositions(pubkey);
   const { data: earnings } = useLendEarnings(pubkey);
 
+  const totalDeposited = earnings?.totalDeposited ?? 0;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
@@ -93,14 +111,14 @@ export function LendPage() {
         <Badge variant="blue">Jupiter Lend</Badge>
       </div>
 
-      {/* Earnings summary */}
-      {pubkey && earnings && (
+      {/* Summary cards */}
+      {pubkey && (
         <div className="grid grid-cols-2 gap-3">
           <Card>
             <CardBody>
-              <p className="text-xs text-text-dim mb-1">Total Earned</p>
+              <p className="text-xs text-text-dim mb-1">Total Deposited</p>
               <p className="text-xl font-bold text-green">
-                {earnings.totalEarned !== undefined ? formatUsd(earnings.totalEarned) : '—'}
+                {totalDeposited > 0 ? formatUsd(totalDeposited) : '—'}
               </p>
             </CardBody>
           </Card>
@@ -133,7 +151,7 @@ export function LendPage() {
               <p className="text-sm text-text-dim py-4 text-center">Connect a wallet to deposit</p>
             ) : (
               tokens.map((token) => (
-                <LendTokenRow key={token.mint} token={token} wallet={pubkey!} />
+                <LendTokenRow key={token.jlMint} token={token} wallet={pubkey!} />
               ))
             )}
           </CardBody>
@@ -149,18 +167,25 @@ export function LendPage() {
               <p className="text-sm text-text-dim py-4 text-center">No active lending positions</p>
             ) : (
               <div className="flex flex-col gap-3">
-                {positions.map((pos, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg border border-border">
+                {positions.map((pos) => (
+                  <div
+                    key={pos.jlMint}
+                    className="flex items-center justify-between p-3 bg-surface-2 rounded-lg border border-border"
+                  >
                     <div>
                       <p className="text-sm font-medium text-text">{pos.symbol ?? pos.mint.slice(0, 8)}</p>
-                      {pos.apy !== undefined && <p className="text-xs text-green">{pos.apy.toFixed(2)}% APY</p>}
+                      {pos.apy !== undefined && (
+                        <p className="text-xs text-green">{pos.apy.toFixed(2)}% APY</p>
+                      )}
                     </div>
                     <div className="text-right">
                       {pos.depositedValue !== undefined && (
                         <p className="text-sm text-text">{formatUsd(pos.depositedValue)}</p>
                       )}
-                      {pos.earnedAmount !== undefined && (
-                        <p className="text-xs text-green">+{pos.earnedAmount.toFixed(6)} earned</p>
+                      {pos.depositedAmount !== undefined && pos.symbol && (
+                        <p className="text-xs text-text-dim">
+                          {pos.depositedAmount.toLocaleString('en-US', { maximumFractionDigits: 6 })} {pos.symbol}
+                        </p>
                       )}
                     </div>
                   </div>

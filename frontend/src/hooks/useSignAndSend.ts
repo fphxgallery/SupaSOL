@@ -27,12 +27,17 @@ export function useSignAndSend() {
   ): Promise<string> => {
     if (!keypair) throw new Error('No wallet connected');
 
+    const connection = new Connection(rpcUrl, 'confirmed');
+    // Fetch blockhash for TTL — we keep the tx's own embedded blockhash but use
+    // lastValidBlockHeight from a fresh fetch as the confirmation deadline.
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
     const txBytes = Buffer.from(txBase64, 'base64');
     const tx = VersionedTransaction.deserialize(txBytes);
     tx.sign([keypair]);
 
-    const connection = new Connection(rpcUrl, 'confirmed');
-    const sig = await connection.sendRawTransaction(tx.serialize(), {
+    const serialized = tx.serialize();
+    const sig = await connection.sendRawTransaction(serialized, {
       maxRetries: 0,
       skipPreflight: true,
     });
@@ -40,14 +45,53 @@ export function useSignAndSend() {
     addTx({ sig, status: 'pending', description, cluster });
     addToast({ type: 'info', message: `${description} submitted`, txSig: sig });
 
-    // Confirm in background
-    connection.confirmTransaction(sig, 'confirmed').then(() => {
-      useTxStore.getState().updateTx(sig, 'confirmed');
-      useUiStore.getState().addToast({ type: 'success', message: `${description} confirmed`, txSig: sig });
-    }).catch(() => {
-      useTxStore.getState().updateTx(sig, 'failed');
-      useUiStore.getState().addToast({ type: 'error', message: `${description} failed` });
-    });
+    // Poll for confirmation every 2s, resending the tx each time until block height is exceeded.
+    // This "send-with-retry" pattern prevents transactions from dropping due to RPC instability.
+    (async () => {
+      const RESEND_INTERVAL_MS = 2_000;
+      let done = false;
+
+      const resendInterval = setInterval(async () => {
+        if (done) return;
+        const blockHeight = await connection.getBlockHeight('confirmed').catch(() => 0);
+        if (blockHeight > lastValidBlockHeight) {
+          clearInterval(resendInterval);
+          return;
+        }
+        connection.sendRawTransaction(serialized, { maxRetries: 0, skipPreflight: true }).catch(() => {});
+      }, RESEND_INTERVAL_MS);
+
+      try {
+        const result = await connection.confirmTransaction(
+          { signature: sig, blockhash, lastValidBlockHeight },
+          'confirmed'
+        );
+        done = true;
+        clearInterval(resendInterval);
+
+        if (result.value.err) {
+          useTxStore.getState().updateTx(sig, 'failed');
+          useUiStore.getState().addToast({
+            type: 'error',
+            message: `${description} failed: ${JSON.stringify(result.value.err)}`,
+          });
+        } else {
+          useTxStore.getState().updateTx(sig, 'confirmed');
+          useUiStore.getState().addToast({ type: 'success', message: `${description} confirmed`, txSig: sig });
+        }
+      } catch (confErr) {
+        done = true;
+        clearInterval(resendInterval);
+        const isExpired = confErr instanceof Error && confErr.name === 'TransactionExpiredBlockheightExceededError';
+        useTxStore.getState().updateTx(sig, 'failed');
+        useUiStore.getState().addToast({
+          type: 'error',
+          message: isExpired
+            ? `${description} expired — transaction not landed. Please try again.`
+            : `${description} failed`,
+        });
+      }
+    })();
 
     return sig;
   }, [keypair, rpcUrl, cluster, addTx, addToast]);

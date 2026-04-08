@@ -8,13 +8,10 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { TokenSearchPanel } from '../components/panels/TokenSearchPanel';
-import { PriceChart } from '../components/charts/PriceChart';
+import { TradingChart } from '../components/charts/TradingChart';
 import type { TokenInfo } from '../hooks/useTokenSearch';
 import { formatUsd } from '../utils/format';
 import { MINTS } from '../config/constants';
-
-// Mints we have CoinGecko IDs for — only show chart for those
-const CHARTABLE_MINTS = new Set<string>([MINTS.SOL, MINTS.USDC, MINTS.USDT, MINTS.JUP]);
 
 const SOL_TOKEN: TokenInfo = {
   address: MINTS.SOL,
@@ -104,31 +101,27 @@ export function SwapPage() {
   const highImpact = priceImpact !== null && priceImpact > 1;
   const outputAmount = quote ? formatOutput(quote.outAmount, outputToken.decimals) : null;
 
-  const showChart = CHARTABLE_MINTS.has(inputToken.address);
-
   return (
-    <div className="flex flex-col gap-4 max-w-lg mx-auto">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <h1 className="text-lg font-bold text-text">Swap</h1>
         <Badge variant="green">Jupiter Ultra v2</Badge>
         {quote?.mode && <Badge variant="muted">{quote.mode}</Badge>}
       </div>
 
-      {/* Price chart for input token */}
-      {showChart && (
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_440px] gap-4 items-start">
+        {/* Left: price chart */}
         <Card>
           <CardBody>
-            <PriceChart
+            <TradingChart
               mint={inputToken.address}
               symbol={inputToken.symbol}
-              color={inputToken.address === MINTS.SOL ? '#a855f7' : '#22c55e'}
-              height={160}
             />
           </CardBody>
         </Card>
-      )}
 
-      <Card>
+        {/* Right: swap card */}
+        <Card>
         <CardHeader title="Token Swap" subtitle="Best route across all DEXes + RFQ" />
         <CardBody className="flex flex-col gap-3">
 
@@ -242,7 +235,8 @@ export function SwapPage() {
             </Button>
           )}
         </CardBody>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

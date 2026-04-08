@@ -38,14 +38,15 @@ async function proxyToFlashTrade(
 }
 
 // Market & price data
-router.get('/markets', (req, res) => proxyToFlashTrade(req, res, '/markets'));
+router.get('/pool-data', (req, res) => proxyToFlashTrade(req, res, '/pool-data'));
 router.get('/prices', (req, res) => proxyToFlashTrade(req, res, '/prices'));
 
-// Open positions — always request PnL + liquidation price
+// Open positions — required params per Flash Trade API
 router.get('/positions/:wallet', (req, res) =>
   proxyToFlashTrade(req, res, `/positions/owner/${req.params.wallet}`, {
     includePnl: 'true',
     includeLiquidationPrice: 'true',
+    includePnlInLeverageDisplay: 'true',
   }),
 );
 

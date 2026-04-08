@@ -1,19 +1,34 @@
 import { apiFetch } from './client';
 
+// ─── Symbol → Solana mint map (for PriceChart integration) ───────────────────
+
+export const SYMBOL_TO_MINT: Record<string, string> = {
+  SOL:     'So11111111111111111111111111111111111111112',
+  BTC:     '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh',
+  ETH:     '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
+  JitoSOL: 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn',
+  JUP:     'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+  BONK:    'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+  WIF:     'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+  PYTH:    'HZ1JovNiVvGqSmqAwards3DHW9u29RatKHHyEMqVFxBdg',
+  JTO:     'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL',
+  RAY:     '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+};
+
 // ─── Raw Flash Trade API shapes ───────────────────────────────────────────────
 
-interface RawMarket {
-  marketPubkey?: string;
-  pubkey?: string;
-  name?: string;
-  symbol?: string;
-  pair?: string;
-  assetMint?: string;
-  collateralMint?: string;
-  collateralDecimals?: number;
-  maxLeverage?: number;
-  price?: string | number;
-  currentPrice?: string | number;
+interface RawCustody {
+  custodyAccount: string;
+  symbol: string;
+  priceUi?: string | number;
+  maxLeverage?: string | number;
+  openPositionFeeRate?: string | number;
+}
+
+interface RawPool {
+  poolAddress: string;
+  poolName: string;
+  custodyStats: RawCustody[];
 }
 
 interface RawPriceEntry {
@@ -21,8 +36,6 @@ interface RawPriceEntry {
   symbol?: string;
   price?: number;
   price_ui?: number;
-  expo?: number;
-  exponent?: number;
   marketPubkey?: string;
   pubkey?: string;
 }
@@ -30,15 +43,20 @@ interface RawPriceEntry {
 interface RawPosition {
   positionPubkey?: string;
   marketPubkey?: string;
+  custodyAccount?: string;  // Flash Trade uses this instead of marketPubkey
   ownerPubkey?: string;
   side?: string;
   collateral?: string | number;
+  collateralUsd?: string | number;
   size?: string | number;
+  sizeUsd?: string | number;
   entryPrice?: string | number;
   liquidationPrice?: string | number;
   leverage?: string | number;
   unrealizedPnl?: string | number;
   unrealizedPnlPercent?: string | number;
+  pnlUi?: string | number;
+  pnlPercent?: string | number;
   stopLossPrice?: string | number;
   takeProfitPrice?: string | number;
 }
@@ -57,10 +75,11 @@ interface RawTxResponse {
 // ─── Public interfaces ────────────────────────────────────────────────────────
 
 export interface PerpsMarket {
-  pubkey: string;
+  pubkey: string;           // custodyAccount (positionIndex for open)
+  poolPubkey: string;       // parent pool address
   symbol: string;           // e.g. "SOL"
   name: string;             // e.g. "SOL/USD"
-  collateralMint: string;
+  collateralCustody: string; // USDC custody account in same pool
   collateralDecimals: number;
   maxLeverage: number;
   currentPrice: number;     // UI price
@@ -70,11 +89,11 @@ export type PerpSide = 'long' | 'short';
 
 export interface PerpsPosition {
   positionPubkey: string;
-  marketPubkey: string;
+  marketPubkey: string;     // custody account
   symbol: string;
   side: PerpSide;
-  collateral: number;         // UI amount (USD)
-  size: number;               // UI amount (USD)
+  collateral: number;       // USD
+  size: number;             // USD
   entryPrice: number;
   liquidationPrice: number;
   leverage: number;
@@ -93,97 +112,71 @@ export interface OpenPositionPreview {
 }
 
 export interface OpenPositionParams {
-  owner?: string;               // omit for preview mode
+  owner?: string;
   marketPubkey: string;
   side: PerpSide;
-  collateralUi: number;         // UI amount (e.g. 100 for $100 USDC)
+  collateralUi: number;
   collateralDecimals: number;
   leverage: number;
-  markPriceUi: number;          // current mark price for slippage calc
-  slippagePct?: number;         // default 0.5%
+  markPriceUi: number;
+  slippagePct?: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Convert a UI price to Flash Trade's { price, exponent } oracle format. */
 function toPriceWithSlippage(
   priceUi: number,
   side: PerpSide,
   slippagePct = 0.005,
 ): { price: number; exponent: number } {
   const factor = side === 'long' ? 1 + slippagePct : 1 - slippagePct;
-  const adjusted = priceUi * factor;
-  // 9-decimal precision representation
-  return { price: Math.round(adjusted * 1_000_000_000), exponent: -9 };
+  return { price: Math.round(priceUi * factor * 1_000_000_000), exponent: -9 };
 }
 
-function toNum(v: string | number | undefined): number {
+function toNum(v: string | number | undefined | null): number {
   if (v == null) return 0;
-  return typeof v === 'number' ? v : parseFloat(v) || 0;
-}
-
-// ─── Normalizers ──────────────────────────────────────────────────────────────
-
-function normalizeMarket(raw: RawMarket): PerpsMarket | null {
-  const pubkey = raw.marketPubkey ?? raw.pubkey ?? '';
-  if (!pubkey) return null;
-  const symbol =
-    raw.symbol ??
-    (raw.name ?? raw.pair ?? '').split('/')[0] ??
-    pubkey.slice(0, 4);
-  const currentPrice = toNum(raw.currentPrice ?? raw.price);
-  return {
-    pubkey,
-    symbol,
-    name: raw.name ?? raw.pair ?? `${symbol}/USD`,
-    collateralMint: raw.collateralMint ?? '',
-    collateralDecimals: raw.collateralDecimals ?? 6,
-    maxLeverage: raw.maxLeverage ?? 100,
-    currentPrice,
-  };
-}
-
-function normalizePosition(raw: RawPosition, marketsByPubkey: Map<string, PerpsMarket>): PerpsPosition | null {
-  const positionPubkey = raw.positionPubkey ?? '';
-  const marketPubkey = raw.marketPubkey ?? '';
-  if (!positionPubkey) return null;
-  const market = marketsByPubkey.get(marketPubkey);
-  const symbol = market?.symbol ?? marketPubkey.slice(0, 4);
-  const side: PerpSide = raw.side === 'short' ? 'short' : 'long';
-  return {
-    positionPubkey,
-    marketPubkey,
-    symbol,
-    side,
-    collateral: toNum(raw.collateral),
-    size: toNum(raw.size),
-    entryPrice: toNum(raw.entryPrice),
-    liquidationPrice: toNum(raw.liquidationPrice),
-    leverage: toNum(raw.leverage),
-    unrealizedPnl: toNum(raw.unrealizedPnl),
-    unrealizedPnlPercent: toNum(raw.unrealizedPnlPercent),
-    stopLossPrice: raw.stopLossPrice != null ? toNum(raw.stopLossPrice) : undefined,
-    takeProfitPrice: raw.takeProfitPrice != null ? toNum(raw.takeProfitPrice) : undefined,
-  };
+  return typeof v === 'number' ? v : parseFloat(String(v)) || 0;
 }
 
 // ─── API functions ────────────────────────────────────────────────────────────
 
 export async function fetchPerpsMarkets(): Promise<PerpsMarket[]> {
-  const resp = await apiFetch<unknown>('/api/perps/markets');
-  // Handle both array and { markets: [...] } envelope
-  const arr: RawMarket[] = Array.isArray(resp)
-    ? (resp as RawMarket[])
-    : Array.isArray((resp as { markets?: RawMarket[] }).markets)
-    ? (resp as { markets: RawMarket[] }).markets
-    : [];
-  return arr.map(normalizeMarket).filter((m): m is PerpsMarket => m !== null);
+  const resp = await apiFetch<{ pools?: RawPool[] } | RawPool[]>('/api/perps/pool-data');
+  const pools: RawPool[] = Array.isArray(resp)
+    ? (resp as RawPool[])
+    : (resp as { pools?: RawPool[] }).pools ?? [];
+
+  const markets: PerpsMarket[] = [];
+  for (const pool of pools) {
+    const custodies = pool.custodyStats ?? [];
+    // USDC custody = the collateral token for this pool
+    const usdcCustody = custodies.find((c) => c.symbol === 'USDC');
+    const collateralCustody = usdcCustody?.custodyAccount ?? '';
+
+    for (const c of custodies) {
+      if (c.symbol === 'USDC') continue; // skip collateral token
+      if (!c.custodyAccount) continue;
+      const currentPrice = toNum(c.priceUi);
+      // maxLeverage comes as a string like "1000.00" meaning 1000x — cap at UI limit
+      const maxLeverage = Math.min(toNum(c.maxLeverage), 100);
+      markets.push({
+        pubkey: c.custodyAccount,
+        poolPubkey: pool.poolAddress,
+        symbol: c.symbol,
+        name: `${c.symbol}/USD`,
+        collateralCustody,
+        collateralDecimals: 6,
+        maxLeverage: maxLeverage || 100,
+        currentPrice,
+      });
+    }
+  }
+  return markets;
 }
 
 export async function fetchPerpsPrices(): Promise<Record<string, number>> {
   const resp = await apiFetch<unknown>('/api/perps/prices');
   const result: Record<string, number> = {};
-  // Handle array of price entries
   if (Array.isArray(resp)) {
     for (const entry of resp as RawPriceEntry[]) {
       const key = entry.marketPubkey ?? entry.pubkey ?? entry.name ?? entry.symbol ?? '';
@@ -191,13 +184,11 @@ export async function fetchPerpsPrices(): Promise<Record<string, number>> {
       if (key && price) result[key] = typeof price === 'number' ? price : parseFloat(String(price));
     }
   } else if (resp && typeof resp === 'object') {
-    // Handle { SOL: { price_ui: 150 }, ... } or { pubkey: price, ... }
     for (const [k, v] of Object.entries(resp as Record<string, unknown>)) {
-      if (typeof v === 'number') {
-        result[k] = v;
-      } else if (v && typeof v === 'object') {
-        const entry = v as RawPriceEntry;
-        result[k] = entry.price_ui ?? entry.price ?? 0;
+      if (typeof v === 'number') result[k] = v;
+      else if (v && typeof v === 'object') {
+        const e = v as RawPriceEntry;
+        result[k] = e.price_ui ?? e.price ?? 0;
       }
     }
   }
@@ -215,8 +206,29 @@ export async function fetchPerpsPositions(
     : Array.isArray((resp as { positions?: RawPosition[] }).positions)
     ? (resp as { positions: RawPosition[] }).positions
     : [];
+
   return arr
-    .map((p) => normalizePosition(p, marketsByPubkey))
+    .map((p): PerpsPosition | null => {
+      const positionPubkey = p.positionPubkey ?? '';
+      const marketPubkey = p.custodyAccount ?? p.marketPubkey ?? '';
+      if (!positionPubkey) return null;
+      const market = marketsByPubkey.get(marketPubkey);
+      return {
+        positionPubkey,
+        marketPubkey,
+        symbol: market?.symbol ?? marketPubkey.slice(0, 4),
+        side: p.side === 'short' ? 'short' : 'long',
+        collateral: toNum(p.collateralUsd ?? p.collateral),
+        size: toNum(p.sizeUsd ?? p.size),
+        entryPrice: toNum(p.entryPrice),
+        liquidationPrice: toNum(p.liquidationPrice),
+        leverage: toNum(p.leverage),
+        unrealizedPnl: toNum(p.pnlUi ?? p.unrealizedPnl),
+        unrealizedPnlPercent: toNum(p.pnlPercent ?? p.unrealizedPnlPercent),
+        stopLossPrice: p.stopLossPrice != null ? toNum(p.stopLossPrice) : undefined,
+        takeProfitPrice: p.takeProfitPrice != null ? toNum(p.takeProfitPrice) : undefined,
+      };
+    })
     .filter((p): p is PerpsPosition => p !== null);
 }
 
@@ -263,7 +275,7 @@ export async function previewOpenPosition(
 export async function buildOpenPosition(
   params: OpenPositionParams,
 ): Promise<{ transaction: string }> {
-  if (!params.owner) throw new Error('wallet required to build transaction');
+  if (!params.owner) throw new Error('wallet required');
   const body = buildOpenBody(params, true);
   const resp = await apiFetch<RawTxResponse>('/api/perps/open', {
     method: 'POST',
@@ -285,7 +297,7 @@ export async function buildClosePosition(
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
-  if (!tx) throw new Error('No transaction returned from Flash Trade');
+  if (!tx) throw new Error('No transaction returned');
   return { transaction: tx };
 }
 
@@ -300,7 +312,7 @@ export async function buildAddCollateral(
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
-  if (!tx) throw new Error('No transaction returned from Flash Trade');
+  if (!tx) throw new Error('No transaction returned');
   return { transaction: tx };
 }
 
@@ -315,7 +327,7 @@ export async function buildRemoveCollateral(
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
-  if (!tx) throw new Error('No transaction returned from Flash Trade');
+  if (!tx) throw new Error('No transaction returned');
   return { transaction: tx };
 }
 
@@ -328,16 +340,11 @@ export async function buildPlaceTriggerOrder(
   const triggerPrice = toPriceWithSlippage(triggerPriceUi, isStopLoss ? 'short' : 'long', 0);
   const resp = await apiFetch<RawTxResponse>('/api/perps/trigger', {
     method: 'POST',
-    body: JSON.stringify({
-      owner,
-      positionIndex: positionPubkey,
-      triggerPrice,
-      isStopLoss,
-    }),
+    body: JSON.stringify({ owner, positionIndex: positionPubkey, triggerPrice, isStopLoss }),
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
-  if (!tx) throw new Error('No transaction returned from Flash Trade');
+  if (!tx) throw new Error('No transaction returned');
   return { transaction: tx };
 }
 
@@ -351,6 +358,6 @@ export async function buildCancelTriggerOrder(
   });
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
-  if (!tx) throw new Error('No transaction returned from Flash Trade');
+  if (!tx) throw new Error('No transaction returned');
   return { transaction: tx };
 }

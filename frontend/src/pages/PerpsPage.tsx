@@ -15,12 +15,14 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { PriceChart } from '../components/charts/PriceChart';
 import { formatUsd, formatPct, shortenPubkey } from '../utils/format';
-import type { PerpsMarket, PerpsPosition, PerpSide } from '../api/perps';
+import { SYMBOL_TO_MINT, type PerpsMarket, type PerpsPosition, type PerpSide } from '../api/perps';
 
 // ─── Leverage presets ─────────────────────────────────────────────────────────
 
 const LEVERAGE_PRESETS = [2, 5, 10];
+const DEFAULT_SYMBOL = 'SOL';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -48,18 +50,16 @@ function SideBadge({ side }: { side: PerpSide }) {
   );
 }
 
-// ─── Position card with expandable details ────────────────────────────────────
+// ─── Position card ────────────────────────────────────────────────────────────
 
 function PositionCard({
   position,
   wallet,
   markPrice,
-  onClosed,
 }: {
   position: PerpsPosition;
   wallet: string;
   markPrice?: number;
-  onClosed?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [addAmount, setAddAmount] = useState('');
@@ -75,14 +75,12 @@ function PositionCard({
   const addCollateral = usePerpsAddCollateral();
   const removeCollateral = usePerpsRemoveCollateral();
   const setTrigger = usePerpsTrigger();
-
-  const collateralDecimals = 6; // USDC default
+  const collateralDecimals = 6;
 
   async function handleClose() {
     try {
       await close.mutateAsync({ wallet, positionPubkey: position.positionPubkey, symbol: position.symbol });
-      onClosed?.();
-    } catch { /* errors surfaced via toast */ }
+    } catch { /* surfaced via toast */ }
   }
 
   async function handleAddCollateral() {
@@ -96,7 +94,7 @@ function PositionCard({
         symbol: position.symbol,
       });
       setAddAmount('');
-    } catch { /* errors surfaced via toast */ }
+    } catch { /* surfaced via toast */ }
   }
 
   async function handleRemoveCollateral() {
@@ -110,46 +108,30 @@ function PositionCard({
         symbol: position.symbol,
       });
       setRemoveAmount('');
-    } catch { /* errors surfaced via toast */ }
+    } catch { /* surfaced via toast */ }
   }
 
   async function handleSetSL() {
     const price = parseFloat(slPrice);
     if (isNaN(price) || price <= 0) return;
     try {
-      await setTrigger.mutateAsync({
-        wallet,
-        positionPubkey: position.positionPubkey,
-        triggerPriceUi: price,
-        isStopLoss: true,
-        symbol: position.symbol,
-      });
-    } catch { /* errors surfaced via toast */ }
+      await setTrigger.mutateAsync({ wallet, positionPubkey: position.positionPubkey, triggerPriceUi: price, isStopLoss: true, symbol: position.symbol });
+    } catch { /* surfaced via toast */ }
   }
 
   async function handleSetTP() {
     const price = parseFloat(tpPrice);
     if (isNaN(price) || price <= 0) return;
     try {
-      await setTrigger.mutateAsync({
-        wallet,
-        positionPubkey: position.positionPubkey,
-        triggerPriceUi: price,
-        isStopLoss: false,
-        symbol: position.symbol,
-      });
-    } catch { /* errors surfaced via toast */ }
+      await setTrigger.mutateAsync({ wallet, positionPubkey: position.positionPubkey, triggerPriceUi: price, isStopLoss: false, symbol: position.symbol });
+    } catch { /* surfaced via toast */ }
   }
 
-  const isBusy =
-    close.isPending ||
-    addCollateral.isPending ||
-    removeCollateral.isPending ||
-    setTrigger.isPending;
+  const isBusy = close.isPending || addCollateral.isPending || removeCollateral.isPending || setTrigger.isPending;
 
   return (
     <div className="border border-border rounded-xl bg-surface-2 overflow-hidden">
-      {/* Header row */}
+      {/* Header */}
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-green/10 flex items-center justify-center text-xs font-bold text-green">
@@ -161,23 +143,14 @@ function PositionCard({
               <SideBadge side={position.side} />
               <span className="text-xs text-text-dim">{position.leverage.toFixed(1)}×</span>
             </div>
-            <p className="text-xs text-text-dim mt-0.5">
-              {shortenPubkey(position.positionPubkey, 4)}
-            </p>
+            <p className="text-xs text-text-dim mt-0.5">{shortenPubkey(position.positionPubkey, 4)}</p>
           </div>
         </div>
         <button
           onClick={() => setExpanded((v) => !v)}
           className="text-text-dim hover:text-text transition-colors p-1"
-          aria-label={expanded ? 'Collapse' : 'Expand'}
         >
-          <svg
-            className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
+          <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
@@ -185,15 +158,15 @@ function PositionCard({
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-px bg-border mx-4 mb-4 rounded-lg overflow-hidden text-xs">
-        {[
+        {([
           ['Size', formatUsd(position.size)],
           ['Collateral', formatUsd(position.collateral)],
           ['Entry Price', formatUsd(position.entryPrice)],
           ['Mark Price', markPrice != null ? formatUsd(markPrice) : '—'],
           ['Liq. Price', formatUsd(position.liquidationPrice)],
           ['Unrealized PnL', null],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="bg-surface px-3 py-2">
+        ] as [string, string | null][]).map(([label, value]) => (
+          <div key={label} className="bg-surface px-3 py-2">
             <p className="text-text-dim mb-0.5">{label}</p>
             {label === 'Unrealized PnL' ? (
               <PnlDisplay pnl={position.unrealizedPnl} pct={position.unrealizedPnlPercent} />
@@ -204,7 +177,7 @@ function PositionCard({
         ))}
       </div>
 
-      {/* SL/TP chips (if set) */}
+      {/* SL/TP chips */}
       {(position.stopLossPrice || position.takeProfitPrice) && (
         <div className="flex gap-2 px-4 mb-3 text-xs">
           {position.stopLossPrice && (
@@ -223,106 +196,37 @@ function PositionCard({
       {/* Expandable section */}
       {expanded && (
         <div className="border-t border-border p-4 flex flex-col gap-4">
-          {/* Add / Remove collateral */}
           <div>
-            <p className="text-xs font-semibold text-text-dim uppercase tracking-wide mb-2">
-              Adjust Collateral
-            </p>
+            <p className="text-xs font-semibold text-text-dim uppercase tracking-wide mb-2">Adjust Collateral</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="flex gap-1.5">
-                <Input
-                  type="number"
-                  placeholder="Add (USD)"
-                  value={addAmount}
-                  onChange={(e) => setAddAmount(e.target.value)}
-                  className="text-xs"
-                />
-                <Button
-                  size="sm"
-                  onClick={handleAddCollateral}
-                  loading={addCollateral.isPending}
-                  disabled={!addAmount || isBusy}
-                >
-                  +
-                </Button>
+                <Input type="number" placeholder="Add (USD)" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="text-xs" />
+                <Button size="sm" onClick={handleAddCollateral} loading={addCollateral.isPending} disabled={!addAmount || isBusy}>+</Button>
               </div>
               <div className="flex gap-1.5">
-                <Input
-                  type="number"
-                  placeholder="Remove (USD)"
-                  value={removeAmount}
-                  onChange={(e) => setRemoveAmount(e.target.value)}
-                  className="text-xs"
-                />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleRemoveCollateral}
-                  loading={removeCollateral.isPending}
-                  disabled={!removeAmount || isBusy}
-                >
-                  −
-                </Button>
+                <Input type="number" placeholder="Remove (USD)" value={removeAmount} onChange={(e) => setRemoveAmount(e.target.value)} className="text-xs" />
+                <Button size="sm" variant="secondary" onClick={handleRemoveCollateral} loading={removeCollateral.isPending} disabled={!removeAmount || isBusy}>−</Button>
               </div>
             </div>
           </div>
-
-          {/* SL / TP */}
           <div>
-            <p className="text-xs font-semibold text-text-dim uppercase tracking-wide mb-2">
-              Stop Loss / Take Profit
-            </p>
+            <p className="text-xs font-semibold text-text-dim uppercase tracking-wide mb-2">Stop Loss / Take Profit</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="flex gap-1.5">
-                <Input
-                  type="number"
-                  placeholder="SL price"
-                  value={slPrice}
-                  onChange={(e) => setSlPrice(e.target.value)}
-                  className="text-xs"
-                />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleSetSL}
-                  loading={setTrigger.isPending}
-                  disabled={!slPrice || isBusy}
-                >
-                  Set
-                </Button>
+                <Input type="number" placeholder="SL price" value={slPrice} onChange={(e) => setSlPrice(e.target.value)} className="text-xs" />
+                <Button size="sm" variant="secondary" onClick={handleSetSL} loading={setTrigger.isPending} disabled={!slPrice || isBusy}>Set</Button>
               </div>
               <div className="flex gap-1.5">
-                <Input
-                  type="number"
-                  placeholder="TP price"
-                  value={tpPrice}
-                  onChange={(e) => setTpPrice(e.target.value)}
-                  className="text-xs"
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSetTP}
-                  loading={setTrigger.isPending}
-                  disabled={!tpPrice || isBusy}
-                >
-                  Set
-                </Button>
+                <Input type="number" placeholder="TP price" value={tpPrice} onChange={(e) => setTpPrice(e.target.value)} className="text-xs" />
+                <Button size="sm" onClick={handleSetTP} loading={setTrigger.isPending} disabled={!tpPrice || isBusy}>Set</Button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Close button */}
       <div className="px-4 pb-4">
-        <Button
-          variant="danger"
-          size="sm"
-          className="w-full"
-          onClick={handleClose}
-          loading={close.isPending}
-          disabled={isBusy}
-        >
+        <Button variant="danger" size="sm" className="w-full" onClick={handleClose} loading={close.isPending} disabled={isBusy}>
           Close Position
         </Button>
       </div>
@@ -335,31 +239,29 @@ function PositionCard({
 export function PerpsPage() {
   const pubkey = useActivePublicKey();
 
-  // Form state
   const [selectedMarket, setSelectedMarket] = useState<PerpsMarket | null>(null);
   const [side, setSide] = useState<PerpSide>('long');
   const [collateral, setCollateral] = useState('');
   const [leverage, setLeverage] = useState(2);
   const [showSLTP, setShowSLTP] = useState(false);
 
-  // Data
   const { data: markets = [], isLoading: marketsLoading } = usePerpsMarkets();
   const { data: prices = {} } = usePerpsPrices();
   const { data: positions = [] } = usePerpsPositions(pubkey, markets);
   const open = usePerpsOpen();
 
-  // Resolve mark price for selected market (from live prices, fallback to market's cached price)
+  // Mark price for selected market (live prices → fallback to cached)
   const markPrice = useMemo(() => {
     if (!selectedMarket) return null;
-    return (
-      prices[selectedMarket.pubkey] ??
-      prices[selectedMarket.symbol] ??
-      selectedMarket.currentPrice ??
-      null
-    );
+    return prices[selectedMarket.pubkey] ?? prices[selectedMarket.symbol] ?? selectedMarket.currentPrice ?? null;
   }, [selectedMarket, prices]);
 
-  // Live preview
+  // Chart mint — use selected market's symbol, fall back to SOL
+  const chartSymbol = selectedMarket?.symbol ?? DEFAULT_SYMBOL;
+  const chartMint = SYMBOL_TO_MINT[chartSymbol] ?? SYMBOL_TO_MINT[DEFAULT_SYMBOL];
+  const chartColor = side === 'long' ? '#22c55e' : '#f87171';
+
+  // Live preview params
   const previewParams = useMemo(() => {
     if (!selectedMarket || !markPrice || !collateral || parseFloat(collateral) <= 0) return null;
     return {
@@ -390,15 +292,10 @@ export function PerpsPage() {
         markPriceUi: markPrice,
       });
       setCollateral('');
-    } catch { /* errors surfaced via toast */ }
+    } catch { /* surfaced via toast */ }
   }
 
-  const canOpen =
-    !!pubkey &&
-    !!selectedMarket &&
-    !!collateral &&
-    parseFloat(collateral) > 0 &&
-    !open.isPending;
+  const canOpen = !!pubkey && !!selectedMarket && !!collateral && parseFloat(collateral) > 0 && !open.isPending;
 
   return (
     <div className="flex flex-col gap-4">
@@ -406,8 +303,27 @@ export function PerpsPage() {
       <div className="flex items-center gap-2">
         <h1 className="text-lg font-bold text-text">Perps</h1>
         <Badge variant="blue">Flash Trade</Badge>
+        {selectedMarket && markPrice && (
+          <span className="ml-2 text-sm font-semibold text-text-dim">
+            {selectedMarket.symbol}/USD{' '}
+            <span className="text-text">{formatUsd(markPrice)}</span>
+          </span>
+        )}
       </div>
 
+      {/* Full-width price chart */}
+      <Card>
+        <CardBody>
+          <PriceChart
+            mint={chartMint}
+            symbol={chartSymbol}
+            color={chartColor}
+            height={260}
+          />
+        </CardBody>
+      </Card>
+
+      {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* ── Trade form ─────────────────────────────────────────────────────── */}
         <Card>
@@ -421,24 +337,26 @@ export function PerpsPage() {
               ) : markets.length === 0 ? (
                 <p className="text-xs text-text-dim">No markets available</p>
               ) : (
-                <div className="grid grid-cols-3 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                <div className="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto pr-1">
                   {markets.map((m) => {
-                    const mPrice = prices[m.pubkey] ?? prices[m.symbol] ?? m.currentPrice;
+                    const mp = prices[m.pubkey] ?? prices[m.symbol] ?? m.currentPrice;
                     const isSelected = selectedMarket?.pubkey === m.pubkey;
                     return (
                       <button
                         key={m.pubkey}
                         onClick={() => setSelectedMarket(m)}
-                        className={`flex flex-col items-start px-3 py-2 rounded-lg border text-left transition-colors ${
+                        className={`flex flex-col items-start px-2.5 py-2 rounded-lg border text-left transition-colors ${
                           isSelected
                             ? 'border-green/50 bg-green/5 text-text'
                             : 'border-border bg-surface hover:bg-surface-2 text-text-dim hover:text-text'
                         }`}
                       >
                         <span className="text-xs font-semibold">{m.symbol}</span>
-                        {mPrice ? (
-                          <span className="text-xs opacity-70">{formatUsd(mPrice)}</span>
-                        ) : null}
+                        {mp > 0 && (
+                          <span className="text-xs opacity-60 tabular-nums">
+                            {mp >= 1000 ? `$${(mp / 1000).toFixed(1)}k` : `$${mp.toFixed(mp < 1 ? 4 : 2)}`}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -446,7 +364,7 @@ export function PerpsPage() {
               )}
             </div>
 
-            {/* Long / Short toggle */}
+            {/* Long / Short */}
             <div>
               <label className="text-xs text-text-dim mb-1.5 block">Direction</label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -468,22 +386,10 @@ export function PerpsPage() {
               </div>
             </div>
 
-            {/* Collateral input */}
+            {/* Collateral */}
             <div>
-              <label className="text-xs text-text-dim mb-1.5 block">
-                Collateral (
-                {selectedMarket?.collateralMint
-                  ? selectedMarket.collateralMint.slice(0, 4) + '…'
-                  : 'USDC'}
-                )
-              </label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={collateral}
-                onChange={(e) => setCollateral(e.target.value)}
-                min="0"
-              />
+              <label className="text-xs text-text-dim mb-1.5 block">Collateral (USDC)</label>
+              <Input type="number" placeholder="0.00" value={collateral} onChange={(e) => setCollateral(e.target.value)} min="0" />
             </div>
 
             {/* Leverage */}
@@ -492,7 +398,6 @@ export function PerpsPage() {
                 <label className="text-xs text-text-dim">Leverage</label>
                 <span className="text-sm font-bold text-text">{leverage}×</span>
               </div>
-              {/* Presets */}
               <div className="flex gap-1.5 mb-2">
                 {LEVERAGE_PRESETS.map((l) => (
                   <button
@@ -508,38 +413,30 @@ export function PerpsPage() {
                   </button>
                 ))}
               </div>
-              {/* Slider */}
               <input
-                type="range"
-                min={1}
-                max={10}
-                step={1}
-                value={leverage}
+                type="range" min={1} max={10} step={1} value={leverage}
                 onChange={(e) => setLeverage(Number(e.target.value))}
                 className="w-full accent-green"
               />
               <div className="flex justify-between text-xs text-text-dim mt-0.5">
-                <span>1×</span>
-                <span>10×</span>
+                <span>1×</span><span>10×</span>
               </div>
             </div>
 
-            {/* Position preview */}
+            {/* Live preview */}
             {previewParams && (
               <div className="rounded-lg border border-border bg-surface p-3 text-xs flex flex-col gap-2">
-                <p className="text-text-dim font-semibold uppercase tracking-wide text-xs">
-                  Preview
-                </p>
+                <p className="text-text-dim font-semibold uppercase tracking-wide text-xs">Preview</p>
                 {previewing ? (
                   <p className="text-text-dim animate-pulse">Calculating…</p>
                 ) : preview ? (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                    {[
+                    {([
                       ['Entry Price', formatUsd(preview.entryPrice)],
                       ['Liq. Price', formatUsd(preview.liquidationPrice)],
                       ['Position Size', formatUsd(preview.size)],
                       ['Est. Fee', preview.fee > 0 ? formatUsd(preview.fee) : '—'],
-                    ].map(([label, value]) => (
+                    ] as [string, string][]).map(([label, value]) => (
                       <div key={label}>
                         <p className="text-text-dim">{label}</p>
                         <p className="text-text font-medium">{value}</p>
@@ -552,14 +449,14 @@ export function PerpsPage() {
               </div>
             )}
 
-            {/* SL / TP toggle — handled per-position after opening */}
+            {/* SL/TP note */}
             <button
               onClick={() => setShowSLTP((v) => !v)}
               className="text-xs text-text-dim hover:text-text flex items-center gap-1 transition-colors"
             >
               <span>{showSLTP ? '▾' : '▸'}</span>
               <span>Stop Loss / Take Profit</span>
-              <span className="text-xs opacity-60">(set after opening)</span>
+              <span className="opacity-60">(set after opening)</span>
             </button>
             {showSLTP && (
               <p className="text-xs text-text-dim bg-surface rounded-lg p-3 border border-border">
@@ -568,12 +465,7 @@ export function PerpsPage() {
             )}
 
             {/* Open button */}
-            <Button
-              onClick={handleOpen}
-              loading={open.isPending}
-              disabled={!canOpen}
-              className="w-full"
-            >
+            <Button onClick={handleOpen} loading={open.isPending} disabled={!canOpen} className="w-full">
               {!pubkey
                 ? 'Connect Wallet'
                 : !selectedMarket
@@ -583,7 +475,7 @@ export function PerpsPage() {
           </CardBody>
         </Card>
 
-        {/* ── Open positions ─────────────────────────────────────────────────── */}
+        {/* ── Positions ──────────────────────────────────────────────────────── */}
         <Card>
           <CardHeader
             title="My Positions"
@@ -591,24 +483,18 @@ export function PerpsPage() {
           />
           <CardBody className="flex flex-col gap-3">
             {!pubkey ? (
-              <p className="text-sm text-text-dim py-8 text-center">
-                Connect a wallet to view positions
-              </p>
+              <p className="text-sm text-text-dim py-8 text-center">Connect a wallet to view positions</p>
             ) : positions.length === 0 ? (
               <p className="text-sm text-text-dim py-8 text-center">No open positions</p>
             ) : (
-              positions.map((pos) => {
-                const mp =
-                  prices[pos.marketPubkey] ?? prices[pos.symbol] ?? undefined;
-                return (
-                  <PositionCard
-                    key={pos.positionPubkey}
-                    position={pos}
-                    wallet={pubkey}
-                    markPrice={mp}
-                  />
-                );
-              })
+              positions.map((pos) => (
+                <PositionCard
+                  key={pos.positionPubkey}
+                  position={pos}
+                  wallet={pubkey}
+                  markPrice={prices[pos.marketPubkey] ?? prices[pos.symbol] ?? undefined}
+                />
+              ))
             )}
           </CardBody>
         </Card>

@@ -2,10 +2,17 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "backend",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/node_modules/.bin/tsx", "watch", "/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/backend/src/index.ts"],
+      "port": 4000
+    },
+    {
       "name": "frontend",
       "runtimeExecutable": "/opt/homebrew/bin/node",
-      "runtimeArgs": ["/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/node_modules/.bin/vite", "--config", "/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/frontend/vite.config.ts", "/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/frontend"],
+      "runtimeArgs": ["/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/node_modules/.bin/vite", "--host", "--config", "/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/frontend/vite.config.ts", "/Users/macelliot/Documents/ClaudeProjects/FlashTradeBot/frontend"],
       "port": 5173
     }
-  ]
+  ],
+  "autoVerify": false
 }

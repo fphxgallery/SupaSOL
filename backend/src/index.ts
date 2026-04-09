@@ -12,7 +12,6 @@ import portfolioRouter from './routes/portfolio';
 import sendRouter from './routes/send';
 import dlmmRouter from './routes/dlmm';
 import perpsRouter from './routes/perps';
-import ohlcvRouter from './routes/ohlcv';
 
 const app = express();
 
@@ -50,7 +49,6 @@ app.use('/api/portfolio', portfolioRouter);
 app.use('/api/send', sendRouter);
 app.use('/api/dlmm', dlmmRouter);
 app.use('/api/perps', perpsRouter);
-app.use('/api/ohlcv', ohlcvRouter);
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

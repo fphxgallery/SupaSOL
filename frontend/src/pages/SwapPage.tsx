@@ -8,9 +8,8 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { TokenSearchPanel } from '../components/panels/TokenSearchPanel';
-import { TradingChart } from '../components/charts/TradingChart';
+import { TokenInfoPanel } from '../components/panels/TokenInfoPanel';
 import type { TokenInfo } from '../hooks/useTokenSearch';
-import { formatUsd } from '../utils/format';
 import { MINTS } from '../config/constants';
 
 const SOL_TOKEN: TokenInfo = {
@@ -55,7 +54,6 @@ export function SwapPage() {
         decimals: 6,
         logoURI:  undefined,
       });
-      // Clear params so back-navigation doesn't re-apply
       setSearchParams({}, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,14 +72,12 @@ export function SwapPage() {
   const { data: quote, isLoading: isQuoting, error: quoteError } = useSwapQuote(quoteParams);
   const { mutateAsync: executeSwap, isPending: isExecuting } = useSwapExecute();
 
-  // Swap tokens
   function flipTokens() {
     setInputToken(outputToken);
     setOutputToken(inputToken);
     setInputAmount('');
   }
 
-  // Max SOL balance (leave 0.01 for fees)
   function handleMax() {
     if (!solBalanceLamports || solBalanceLamports === null || inputToken.address !== MINTS.SOL) return;
     const max = Math.max(0, (solBalanceLamports as number) - 10_000_000) / 1e9;
@@ -109,18 +105,15 @@ export function SwapPage() {
         {quote?.mode && <Badge variant="muted">{quote.mode}</Badge>}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_440px] gap-4 items-start">
-        {/* Left: price chart */}
+      <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
+        {/* Token info */}
         <Card>
           <CardBody>
-            <TradingChart
-              mint={inputToken.address}
-              symbol={inputToken.symbol}
-            />
+            <TokenInfoPanel token={outputToken} />
           </CardBody>
         </Card>
 
-        {/* Right: swap card */}
+        {/* Swap card */}
         <Card>
         <CardHeader title="Token Swap" subtitle="Best route across all DEXes + RFQ" />
         <CardBody className="flex flex-col gap-3">

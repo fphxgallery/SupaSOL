@@ -101,4 +101,48 @@ router.get('/history', async (req: Request, res: Response) => {
   }
 });
 
+// ── Token supply via Solana RPC (proxied to avoid browser CORS) ──────────
+
+router.get('/supply', async (req: Request, res: Response) => {
+  try {
+    const mint = String(req.query['mint'] ?? '').trim();
+    if (!mint) {
+      res.status(400).json({ error: 'mint is required' });
+      return;
+    }
+
+    const rpcUrl = process.env['VITE_RPC_URL'] ?? 'https://api.mainnet-beta.solana.com';
+    const rpcRes = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getTokenSupply',
+        params: [mint],
+      }),
+    });
+
+    if (!rpcRes.ok) {
+      res.status(rpcRes.status).json({ error: `RPC ${rpcRes.status}` });
+      return;
+    }
+
+    const json = await rpcRes.json() as {
+      result?: { value?: { amount: string; decimals: number; uiAmount: number } };
+      error?: { message: string };
+    };
+
+    if (json.error) {
+      res.status(400).json({ error: json.error.message });
+      return;
+    }
+
+    res.json(json.result?.value ?? null);
+  } catch (err) {
+    console.error('[price/supply]', err);
+    res.status(500).json({ error: 'Failed to fetch token supply' });
+  }
+});
+
 export default router;

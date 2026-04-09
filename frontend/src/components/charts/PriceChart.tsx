@@ -26,7 +26,7 @@ export function PriceChart({ mint, symbol = '', color = '#22c55e', height = 200 
 
   const { data, isLoading, isError } = usePriceHistory(mint, interval);
 
-  // ── Initialize chart ──────────────────────────────────────────────────────
+  // ── Initialize chart (once per color change only) ─────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -68,7 +68,16 @@ export function PriceChart({ mint, symbol = '', color = '#22c55e', height = 200 
       chartRef.current  = null;
       seriesRef.current = null;
     };
-  }, [color, height]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [color]);
+
+  // ── Resize chart when height prop changes ─────────────────────────────────
+  useEffect(() => {
+    if (!chartRef.current || !containerRef.current) return;
+    const w = containerRef.current.getBoundingClientRect().width;
+    chartRef.current.resize(w || containerRef.current.offsetWidth, height);
+    chartRef.current.timeScale().fitContent();
+  }, [height]);
 
   // ── Feed data into chart ──────────────────────────────────────────────────
   useEffect(() => {
@@ -77,7 +86,6 @@ export function PriceChart({ mint, symbol = '', color = '#22c55e', height = 200 
 
     const sorted = [...data]
       .sort((a, b) => a.time - b.time)
-      // Deduplicate by time (lightweight-charts requires unique timestamps)
       .filter((p, i, arr) => i === 0 || p.time !== arr[i - 1].time)
       .map((p) => ({ time: p.time as LineData['time'], value: p.value }));
 
@@ -85,51 +93,45 @@ export function PriceChart({ mint, symbol = '', color = '#22c55e', height = 200 
     chartRef.current.timeScale().fitContent();
   }, [data]);
 
-  // ── Resize observer ───────────────────────────────────────────────────────
+  // ── Resize observer (width only) ──────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || !chartRef.current) return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
-      if (w) chartRef.current?.resize(w, height);
+      if (w && chartRef.current) {
+        const h = chartRef.current.options().height ?? height;
+        chartRef.current.resize(w, h);
+      }
     });
     ro.observe(containerRef.current);
     return () => ro.disconnect();
-  }, [height]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Compute price change for the interval ─────────────────────────────────
-  const points = data;
+  // ── Price change for the selected interval window ─────────────────────────
   const priceChange = (() => {
-    if (!points || points.length < 2) return null;
-    const first = points[0].value;
-    const last  = points[points.length - 1].value;
+    if (!data || data.length < 2) return null;
+    const first = data[0].value;
+    const last  = data[data.length - 1].value;
     const pct   = ((last - first) / first) * 100;
     return { pct, positive: pct >= 0 };
   })();
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Header row: symbol + change + interval buttons */}
+      {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {symbol && (
             <span className="text-xs font-medium text-text-dim">{symbol} / USD</span>
           )}
           {priceChange !== null && (
-            <span
-              className={`text-xs font-semibold ${
-                priceChange.positive ? 'text-green' : 'text-red'
-              }`}
-            >
-              {priceChange.positive ? '+' : ''}
-              {priceChange.pct.toFixed(2)}%
+            <span className={`text-xs font-semibold ${priceChange.positive ? 'text-green' : 'text-red'}`}>
+              {priceChange.positive ? '+' : ''}{priceChange.pct.toFixed(2)}%
             </span>
           )}
-          {isLoading && (
-            <span className="text-xs text-text-dim animate-pulse">Loading…</span>
-          )}
-          {isError && (
-            <span className="text-xs text-red">Failed to load history</span>
-          )}
+          {isLoading && <span className="text-xs text-text-dim animate-pulse">Loading…</span>}
+          {isError && <span className="text-xs text-red">Failed to load history</span>}
         </div>
         <div className="flex gap-1 ml-auto">
           {INTERVALS.map((iv) => (
@@ -148,8 +150,6 @@ export function PriceChart({ mint, symbol = '', color = '#22c55e', height = 200 
         </div>
       </div>
 
-      {/* Chart container — always mounted so the chart can initialise;
-          skeleton overlaid while data is first loading */}
       <div className="relative">
         {isLoading && !data && (
           <Skeleton className="absolute inset-0 w-full rounded-lg" style={{ height }} />

@@ -6,7 +6,8 @@ import {
   type LineData,
   ColorType,
 } from 'lightweight-charts';
-import { usePriceHistory, type ChartInterval } from '../../hooks/usePriceHistory';
+import { useOHLCV } from '../../hooks/useOHLCV';
+import type { ChartInterval } from '../../hooks/usePriceHistory';
 import { Skeleton } from '../ui/Skeleton';
 
 interface Props {
@@ -24,7 +25,9 @@ export function PriceChart({ mint, symbol = '', color = '#22c55e', height = 200 
   const seriesRef    = useRef<ISeriesApi<'Area'> | null>(null);
   const [interval, setInterval] = useState<ChartInterval>('1D');
 
-  const { data, isLoading, isError } = usePriceHistory(mint, interval);
+  const { data: ohlcv, isLoading, isError } = useOHLCV(symbol || null, interval, mint);
+  // Map OHLCV candles to line-chart points (close price only)
+  const data = ohlcv?.map((c) => ({ time: c.time, value: c.close }));
 
   // ── Initialize chart (once per color change only) ─────────────────────────
   useEffect(() => {

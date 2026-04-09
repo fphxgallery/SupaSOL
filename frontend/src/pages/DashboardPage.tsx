@@ -6,6 +6,7 @@ import { useSolBalance } from '../hooks/useSolBalance';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { usePrice, useSolPrice } from '../hooks/usePrice';
 import { usePortfolio } from '../hooks/usePortfolio';
+import { usePerpsPrices } from '../hooks/usePerps';
 import { useTokenMetadata } from '../hooks/useTokenMetadata';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -79,6 +80,7 @@ export function DashboardPage() {
   const rpcUrl = useClusterStore((s) => s.rpcUrl);
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [chartSymbol, setChartSymbol] = useState<'BTC' | 'SOL' | 'SPY'>('SOL');
 
   const {
     data: solBalance,
@@ -102,6 +104,9 @@ export function DashboardPage() {
   const { data: prices } = usePrice(allPriceMints);
 
   const { data: portfolio } = usePortfolio(pubkey);
+
+  // Flash Trade API prices for the ticker (BTC, SOL, SPY)
+  const { data: perpsPrices } = usePerpsPrices();
 
   // Fetch metadata (symbol, name, logoURI) for all held SPL tokens
   const tokenMeta = useTokenMetadata(splMints);
@@ -295,37 +300,46 @@ export function DashboardPage() {
           </CardBody>
         </Card>
 
-        {/* SOL Price Chart */}
+        {/* Flash Trade Price Chart */}
         <Card>
           <CardHeader
-            title="SOL / USD"
-            subtitle={solPrice !== null ? formatUsd(solPrice) : 'Loading...'}
+            title={`${chartSymbol} / USD`}
+            subtitle={perpsPrices?.[chartSymbol] != null ? formatUsd(perpsPrices[chartSymbol]) : 'Loading...'}
           />
           <CardBody>
             <PriceChart
-              mint={MINTS.SOL}
-              symbol="SOL"
-              color="#a855f7"
+              key={chartSymbol}
+              mint={chartSymbol === 'SOL' ? MINTS.SOL : ''}
+              symbol={chartSymbol}
+              color={chartSymbol === 'BTC' ? '#f59e0b' : chartSymbol === 'SPY' ? '#22c55e' : '#a855f7'}
               height={180}
             />
-            {/* Price ticker mini-list */}
+            {/* Flash Trade price ticker (click to switch chart) */}
             <div className="flex flex-col gap-0 mt-3 border-t border-border pt-3">
-              {[
-                { label: 'USDC', mint: MINTS.USDC, accent: 'text-blue' },
-                { label: 'USDT', mint: MINTS.USDT, accent: 'text-green' },
-                { label: 'JUP', mint: MINTS.JUP, accent: 'text-orange' },
-              ].map(({ label, mint, accent }) => {
-                const p = prices?.[mint]?.usdPrice;
+              {([
+                { label: 'BTC', symbol: 'BTC' as const, accent: 'text-orange' },
+                { label: 'SOL', symbol: 'SOL' as const, accent: 'text-purple' },
+                { label: 'SPY', symbol: 'SPY' as const, accent: 'text-green' },
+              ]).map(({ label, symbol, accent }) => {
+                const p = perpsPrices?.[symbol];
+                const active = chartSymbol === symbol;
                 return (
-                  <div key={mint} className="flex items-center justify-between py-1.5">
+                  <button
+                    key={symbol}
+                    type="button"
+                    onClick={() => setChartSymbol(symbol)}
+                    className={`flex items-center justify-between py-1.5 px-2 -mx-2 rounded cursor-pointer transition-colors ${
+                      active ? 'bg-surface-2' : 'hover:bg-surface-2/50'
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold ${accent}`}>●</span>
-                      <span className="text-sm font-medium text-text">{label}</span>
+                      <span className={`text-sm font-medium ${active ? 'text-text' : 'text-text'}`}>{label}</span>
                     </div>
                     <span className="text-sm text-text font-mono">
                       {p ? formatUsd(p) : <span className="text-text-dim">—</span>}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>

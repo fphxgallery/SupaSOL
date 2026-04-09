@@ -4,6 +4,7 @@ import { useActivePublicKey } from '../store/walletStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSwapQuote, useSwapExecute } from '../hooks/useSwap';
 import { useSolBalance } from '../hooks/useSolBalance';
+import { useTokenBalances } from '../hooks/useTokenBalances';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -38,6 +39,7 @@ export function SwapPage() {
   const pubkey = useActivePublicKey();
   const { slippageBps, setSlippageBps } = useSettingsStore();
   const { data: solBalanceLamports } = useSolBalance(pubkey);
+  const { data: tokenBalances } = useTokenBalances(pubkey);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [inputToken, setInputToken] = useState<TokenInfo>(SOL_TOKEN);
@@ -78,10 +80,21 @@ export function SwapPage() {
     setInputAmount('');
   }
 
+  // Resolve input token balance (SOL native or SPL)
+  const inputBalance = (() => {
+    if (inputToken.address === MINTS.SOL && solBalanceLamports != null) {
+      return { uiAmount: (solBalanceLamports as number) / 1e9, decimals: 9, isSol: true };
+    }
+    const tb = tokenBalances?.find((b) => b.mint === inputToken.address);
+    if (tb?.uiAmount) return { uiAmount: tb.uiAmount, decimals: tb.decimals, isSol: false };
+    return null;
+  })();
+
   function handleMax() {
-    if (!solBalanceLamports || solBalanceLamports === null || inputToken.address !== MINTS.SOL) return;
-    const max = Math.max(0, (solBalanceLamports as number) - 10_000_000) / 1e9;
-    setInputAmount(max.toFixed(4));
+    if (!inputBalance) return;
+    // Reserve 0.01 SOL for fees when swapping SOL
+    const max = inputBalance.isSol ? Math.max(0, inputBalance.uiAmount - 0.01) : inputBalance.uiAmount;
+    setInputAmount(max.toFixed(Math.min(inputBalance.decimals, 6)));
   }
 
   async function handleSwap() {
@@ -122,9 +135,9 @@ export function SwapPage() {
           <div className="bg-surface-2 rounded-xl p-4 border border-border">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs text-text-dim">You Pay</p>
-              {inputToken.address === MINTS.SOL && solBalanceLamports != null && (
+              {inputBalance && (
                 <button onClick={handleMax} className="text-xs text-blue hover:underline cursor-pointer">
-                  Max: {((solBalanceLamports as number) / 1e9).toFixed(4)} SOL
+                  Max: {inputBalance.uiAmount.toFixed(Math.min(inputBalance.decimals, 4))} {inputToken.symbol}
                 </button>
               )}
             </div>

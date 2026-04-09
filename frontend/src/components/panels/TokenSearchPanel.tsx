@@ -1,14 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTokenSearch, type TokenInfo } from '../../hooks/useTokenSearch';
 
+export interface WalletToken extends TokenInfo {
+  balanceUi: number;
+}
+
 interface Props {
   value: TokenInfo | null;
   onChange: (token: TokenInfo) => void;
   placeholder?: string;
   label?: string;
+  /** Tokens held in the user's wallet — shown at the top of the dropdown when no search query. */
+  walletTokens?: WalletToken[];
 }
 
-function TokenRow({ token }: { token: TokenInfo }) {
+function TokenRow({ token, balanceUi }: { token: TokenInfo; balanceUi?: number }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-2 cursor-pointer transition-colors">
       {token.logoURI ? (
@@ -27,16 +33,20 @@ function TokenRow({ token }: { token: TokenInfo }) {
         </div>
         <span className="text-xs text-text-dim truncate block">{token.name}</span>
       </div>
-      {token.daily_volume !== undefined && (
+      {balanceUi !== undefined ? (
+        <span className="text-xs text-text font-mono shrink-0">
+          {balanceUi.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+        </span>
+      ) : token.daily_volume !== undefined ? (
         <span className="text-xs text-text-dim shrink-0">
           ${(token.daily_volume / 1000).toFixed(0)}K
         </span>
-      )}
+      ) : null}
     </div>
   );
 }
 
-export function TokenSearchPanel({ value, onChange, placeholder = 'Search tokens...', label }: Props) {
+export function TokenSearchPanel({ value, onChange, placeholder = 'Search tokens...', label, walletTokens }: Props) {
   const [open, setOpen] = useState(false);
   const { query, setQuery, tokens, isLoading } = useTokenSearch();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,13 +100,22 @@ export function TokenSearchPanel({ value, onChange, placeholder = 'Search tokens
               className="w-full bg-surface-2 border border-border rounded-lg text-sm text-text placeholder-muted px-3 py-2 focus:outline-none focus:border-blue"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-6 text-sm text-text-dim">
                 <span className="animate-spin mr-2">⟳</span> Searching...
               </div>
             ) : tokens.length === 0 && query.length >= 2 ? (
               <div className="py-6 text-center text-sm text-text-dim">No tokens found</div>
+            ) : tokens.length === 0 && walletTokens && walletTokens.length > 0 ? (
+              <>
+                <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-text-dim uppercase tracking-wider">Your Wallet</p>
+                {walletTokens.map((t) => (
+                  <div key={t.address} onClick={() => handleSelect(t)}>
+                    <TokenRow token={t} balanceUi={t.balanceUi} />
+                  </div>
+                ))}
+              </>
             ) : tokens.length === 0 ? (
               <div className="py-6 text-center text-sm text-text-dim">Type to search tokens</div>
             ) : (

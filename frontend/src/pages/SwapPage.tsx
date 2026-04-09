@@ -5,10 +5,11 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useSwapQuote, useSwapExecute } from '../hooks/useSwap';
 import { useSolBalance } from '../hooks/useSolBalance';
 import { useTokenBalances } from '../hooks/useTokenBalances';
+import { useTokenMetadata } from '../hooks/useTokenMetadata';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { TokenSearchPanel } from '../components/panels/TokenSearchPanel';
+import { TokenSearchPanel, type WalletToken } from '../components/panels/TokenSearchPanel';
 import { TokenInfoPanel } from '../components/panels/TokenInfoPanel';
 import type { TokenInfo } from '../hooks/useTokenSearch';
 import { MINTS } from '../config/constants';
@@ -97,6 +98,28 @@ export function SwapPage() {
     setInputAmount(max.toFixed(Math.min(inputBalance.decimals, 6)));
   }
 
+  // Build "wallet tokens" list for the input TokenSearchPanel dropdown
+  const splMintsInWallet = (tokenBalances ?? []).map((b) => b.mint);
+  const walletMeta = useTokenMetadata(splMintsInWallet);
+  const walletTokens: WalletToken[] = [
+    ...(solBalanceLamports != null && (solBalanceLamports as number) > 0
+      ? [{ ...SOL_TOKEN, balanceUi: (solBalanceLamports as number) / 1e9 }]
+      : []),
+    ...(tokenBalances ?? [])
+      .filter((b) => b.uiAmount && b.uiAmount > 0)
+      .map<WalletToken>((b) => {
+        const m = walletMeta[b.mint];
+        return {
+          address: b.mint,
+          symbol: m?.symbol ?? b.mint.slice(0, 4) + '…',
+          name: m?.name ?? 'Unknown Token',
+          decimals: b.decimals,
+          logoURI: m?.logoURI,
+          balanceUi: b.uiAmount ?? 0,
+        };
+      }),
+  ];
+
   async function handleSwap() {
     if (!quote) return;
     try {
@@ -143,7 +166,7 @@ export function SwapPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="w-40 shrink-0">
-                <TokenSearchPanel value={inputToken} onChange={setInputToken} />
+                <TokenSearchPanel value={inputToken} onChange={setInputToken} walletTokens={walletTokens} />
               </div>
               <input
                 type="number"

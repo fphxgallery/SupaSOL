@@ -118,12 +118,17 @@ export function AddLiquidityModal({
     return null;
   }, [pool.current_price, priceX, priceY]);
 
-  // Seed the range to ±20% around the current price on first open
+  // Seed range on open: target ~30 bins centered on current price.
+  // Use bin-count math so small bin-step pools don't blow past the 70-bin limit.
   useEffect(() => {
     if (!open) return;
     if ((!minPrice || !maxPrice) && priceXinY && priceXinY > 0) {
-      setMinPrice((priceXinY * 0.8).toPrecision(5));
-      setMaxPrice((priceXinY * 1.2).toPrecision(5));
+      const TARGET_BINS = 30;
+      const step = binStepBps ? binStepBps / 10000 : 0.008; // default 80 bps
+      // factor^TARGET_BINS gives the ratio min→max for TARGET_BINS bins
+      const halfFactor = Math.pow(1 + step, TARGET_BINS / 2);
+      setMinPrice((priceXinY / halfFactor).toPrecision(5));
+      setMaxPrice((priceXinY * halfFactor).toPrecision(5));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, priceXinY]);
@@ -441,8 +446,10 @@ export function AddLiquidityModal({
       </div>
 
       {totalBins !== null && (
-        <p className="text-[11px] text-text-dim mb-4">
-          <span className="underline decoration-dotted">Total Bins</span>: <span className="text-text font-mono">{totalBins}</span>
+        <p className={`text-[11px] mb-4 ${totalBins > 70 ? 'text-red' : 'text-text-dim'}`}>
+          <span className="underline decoration-dotted">Total Bins</span>:{' '}
+          <span className="font-mono">{totalBins}</span>
+          {totalBins > 70 && <span className="ml-2">⚠ max 70 — narrow range</span>}
         </p>
       )}
 

@@ -265,11 +265,17 @@ export async function buildAddLiquidityTxs(
 
   // min=true  → round toward the lower bin (use for the lower price bound)
   // min=false → round toward the higher bin (use for the upper price bound)
-  const minBinId = dlmmPool.getBinIdFromPrice(minPricePerLamport, true) - 1;
-  const maxBinId = dlmmPool.getBinIdFromPrice(maxPricePerLamport, false) + 1;
+  const minBinId = dlmmPool.getBinIdFromPrice(minPricePerLamport, true);
+  const maxBinId = dlmmPool.getBinIdFromPrice(maxPricePerLamport, false);
 
   if (minBinId >= maxBinId) {
     throw new Error('Min price bin must be less than max price bin — widen your range');
+  }
+
+  // Meteora DLMM program enforces max 70 bins per position (error 6040)
+  const width = maxBinId - minBinId + 1;
+  if (width > 70) {
+    throw new Error(`Price range too wide: ${width} bins (max 70). Narrow your range.`);
   }
 
   const strategyType =

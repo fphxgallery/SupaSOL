@@ -12,6 +12,7 @@ import {
   usePerpsTrigger,
 } from '../hooks/usePerps';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
+import { useUiStore } from '../store/uiStore';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -75,6 +76,7 @@ function PositionCard({
   const addCollateral = usePerpsAddCollateral();
   const removeCollateral = usePerpsRemoveCollateral();
   const setTrigger = usePerpsTrigger();
+  const addToast = useUiStore((s) => s.addToast);
 
   async function handleClose() {
     try {
@@ -113,6 +115,17 @@ function PositionCard({
   async function handleSetSL() {
     const price = parseFloat(slPrice);
     if (isNaN(price) || price <= 0) return;
+    // Stop loss must be on the losing side of current price
+    if (markPrice) {
+      if (position.side === 'long' && price >= markPrice) {
+        addToast({ type: 'error', message: 'Stop loss for Long must be below current price' });
+        return;
+      }
+      if (position.side === 'short' && price <= markPrice) {
+        addToast({ type: 'error', message: 'Stop loss for Short must be above current price' });
+        return;
+      }
+    }
     try {
       await setTrigger.mutateAsync({
         wallet,
@@ -121,7 +134,7 @@ function PositionCard({
         isStopLoss: true,
         marketSymbol: position.symbol,
         side: position.side,
-        sizeUsdUi: position.sizeAmount,
+        sizeUsdUi: position.size,
         symbol: position.symbol,
       });
     } catch { /* surfaced via toast */ }
@@ -130,6 +143,17 @@ function PositionCard({
   async function handleSetTP() {
     const price = parseFloat(tpPrice);
     if (isNaN(price) || price <= 0) return;
+    // Take profit must be on the winning side of current price
+    if (markPrice) {
+      if (position.side === 'long' && price <= markPrice) {
+        addToast({ type: 'error', message: 'Take profit for Long must be above current price' });
+        return;
+      }
+      if (position.side === 'short' && price >= markPrice) {
+        addToast({ type: 'error', message: 'Take profit for Short must be below current price' });
+        return;
+      }
+    }
     try {
       await setTrigger.mutateAsync({
         wallet,
@@ -138,7 +162,7 @@ function PositionCard({
         isStopLoss: false,
         marketSymbol: position.symbol,
         side: position.side,
-        sizeUsdUi: position.sizeAmount,
+        sizeUsdUi: position.size,
         symbol: position.symbol,
       });
     } catch { /* surfaced via toast */ }

@@ -16,13 +16,29 @@ import {
 import { useSignAndSend } from './useSignAndSend';
 import { useUiStore } from '../store/uiStore';
 
+// Known Flash Trade on-chain program error codes
+const FLASH_PROGRAM_ERRORS: Record<number, string> = {
+  6039: 'Exponent mismatch — size or price format rejected by program',
+  6040: 'Invalid position width',
+};
+
+function parseFlashError(raw: string): string {
+  const match = raw.match(/"Custom":(\d+)/);
+  if (match) {
+    const code = parseInt(match[1]);
+    if (FLASH_PROGRAM_ERRORS[code]) return FLASH_PROGRAM_ERRORS[code];
+    return `Program error ${code}`;
+  }
+  return raw;
+}
+
 function onMutationError(label: string) {
   return (err: unknown) => {
     let msg = 'Transaction failed';
     if (err instanceof Error) {
-      msg = err.message;
+      msg = parseFlashError(err.message);
     } else if (err && typeof err === 'object' && 'message' in err) {
-      msg = String((err as { message: unknown }).message);
+      msg = parseFlashError(String((err as { message: unknown }).message));
     }
     useUiStore.getState().addToast({ type: 'error', message: `${label}: ${msg}` });
   };

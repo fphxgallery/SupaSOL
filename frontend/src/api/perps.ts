@@ -1,3 +1,4 @@
+import { VersionedTransaction } from '@solana/web3.js';
 import { apiFetch } from './client';
 
 // ─── Symbol → Solana mint map (for PriceChart integration) ───────────────────
@@ -198,16 +199,44 @@ export async function fetchPerpsPrices(): Promise<Record<string, number>> {
   return result;
 }
 
+interface RawOrder {
+  triggerPriceUi?: string | number;
+  market?: string;    // custody pubkey
+  symbol?: string;
+  sideUi?: string;
+}
+interface RawOrdersResponse {
+  takeProfitOrders?: RawOrder[];
+  stopLossOrders?: RawOrder[];
+}
+
 export async function fetchPerpsPositions(
   wallet: string,
   markets: PerpsMarket[],
 ): Promise<PerpsPosition[]> {
-  const resp = await apiFetch<unknown>(`/api/perps/positions/${wallet}`);
+  // Fetch positions and orders in parallel
+  const [resp, ordersResp] = await Promise.all([
+    apiFetch<unknown>(`/api/perps/positions/${wallet}`),
+    apiFetch<RawOrdersResponse[]>(`/api/perps/orders/${wallet}`).catch(() => [] as RawOrdersResponse[]),
+  ]);
+
   const arr: RawPosition[] = Array.isArray(resp)
     ? (resp as RawPosition[])
     : Array.isArray((resp as { positions?: RawPosition[] }).positions)
     ? (resp as { positions: RawPosition[] }).positions
     : [];
+
+  // Flatten orders into symbol → { sl, tp } map
+  const slBySymbol = new Map<string, number>();
+  const tpBySymbol = new Map<string, number>();
+  for (const entry of (ordersResp ?? [])) {
+    for (const o of (entry.stopLossOrders ?? [])) {
+      if (o.symbol && o.triggerPriceUi) slBySymbol.set(o.symbol, toNum(o.triggerPriceUi));
+    }
+    for (const o of (entry.takeProfitOrders ?? [])) {
+      if (o.symbol && o.triggerPriceUi) tpBySymbol.set(o.symbol, toNum(o.triggerPriceUi));
+    }
+  }
 
   // Build a symbol → market map for lookup (positions response uses marketSymbol, not pubkey)
   const marketsBySymbol = new Map(markets.map((m) => [m.symbol, m]));
@@ -218,10 +247,11 @@ export async function fetchPerpsPositions(
       if (!positionPubkey) return null;
       const market = marketsBySymbol.get(p.marketSymbol ?? '');
       const rawSide = (p.sideUi ?? '').toLowerCase(); // "Long" → "long"
+      const symbol = p.marketSymbol ?? market?.symbol ?? '???';
       return {
         positionPubkey,
         marketPubkey: market?.pubkey ?? '',
-        symbol: p.marketSymbol ?? market?.symbol ?? '???',
+        symbol,
         side: rawSide === 'short' ? 'short' : 'long',
         collateral: toNum(p.collateralUsdUi),
         size: toNum(p.sizeUsdUi),
@@ -231,8 +261,8 @@ export async function fetchPerpsPositions(
         leverage: toNum(p.leverageUi),
         unrealizedPnl: toNum(p.pnlWithFeeUsdUi),
         unrealizedPnlPercent: toNum(p.pnlPercentageWithFee),
-        stopLossPrice: p.stopLossPrice != null ? toNum(p.stopLossPrice) : undefined,
-        takeProfitPrice: p.takeProfitPrice != null ? toNum(p.takeProfitPrice) : undefined,
+        stopLossPrice: slBySymbol.get(symbol),
+        takeProfitPrice: tpBySymbol.get(symbol),
       };
     })
     .filter((p): p is PerpsPosition => p !== null);
@@ -368,6 +398,13 @@ export async function buildPlaceTriggerOrder(
   side: PerpSide,
   sizeUsdUi: number,
 ): Promise<{ transaction: string }> {
+  // Fetch the oracle exponent for this symbol so trigger price uses the correct scale.
+  // SPY (equity) uses exponent -5; crypto uses -8. Sending the wrong exponent causes
+  // program error 6039 "Exponent Mismatch between operands".
+  const priceData = await apiFetch<Record<string, { exponent?: number }>>('/api/perps/prices');
+  const oracleExponent: number = priceData[marketSymbol]?.exponent ?? -9;
+  const triggerPriceRaw = Math.round(triggerPriceUi * Math.pow(10, -oracleExponent));
+
   const resp = await apiFetch<RawTxResponse>('/api/perps/trigger', {
     method: 'POST',
     body: JSON.stringify({
@@ -376,6 +413,7 @@ export async function buildPlaceTriggerOrder(
       marketSymbol,
       side: side === 'long' ? 'LONG' : 'SHORT',
       triggerPriceUi: String(triggerPriceUi),
+      triggerPrice: { price: triggerPriceRaw, exponent: oracleExponent },
       sizeAmountUi: String(sizeUsdUi),
       isStopLoss,
     }),
@@ -383,6 +421,42 @@ export async function buildPlaceTriggerOrder(
   if (resp.err) throw new Error(resp.err);
   const tx = resp.transactionBase64 ?? resp.transaction ?? '';
   if (!tx) throw new Error('No transaction returned');
+
+  // The Flash Trade API hard-codes exponent -6 for all trigger prices, but equity oracles
+  // (e.g. SPY) use exponent -5. The on-chain program throws error 6039 "Exponent Mismatch"
+  // when they differ. Patch the instruction bytes before returning so the exponent matches
+  // the oracle's actual exponent.
+  const PLACE_TRIGGER_DISC = Buffer.from('209c32bce89f70ec', 'hex');
+  const txBytes = Buffer.from(tx, 'base64');
+  const vtx = VersionedTransaction.deserialize(txBytes);
+  let patched = false;
+  for (const ix of vtx.message.compiledInstructions) {
+    const data = Buffer.from(ix.data);
+    // Layout: discriminator(8) + price_i64(8) + price_exp_i32(4) + size_i64(8) + is_stop_loss(1)
+    if (data.length >= 21 && data.subarray(0, 8).equals(PLACE_TRIGGER_DISC)) {
+      const currentExp = data.readInt32LE(16);
+      if (currentExp !== oracleExponent) {
+        // Rewrite price to match oracle exponent, then fix exponent field
+        const currentPriceRaw = data.readBigInt64LE(8);
+        const expDiff = oracleExponent - currentExp; // e.g. -5 - (-6) = +1
+        const scale = BigInt(Math.round(Math.pow(10, Math.abs(expDiff))));
+        const newPriceRaw = expDiff > 0
+          ? currentPriceRaw / scale
+          : currentPriceRaw * scale;
+        data.writeBigInt64LE(newPriceRaw, 8);
+        data.writeInt32LE(oracleExponent, 16);
+        ix.data.set(data);
+        patched = true;
+      }
+      break;
+    }
+  }
+
+  if (patched) {
+    // Re-serialize with patched data (signatures are empty — user signs in signAndSend)
+    const patchedBytes = vtx.serialize();
+    return { transaction: Buffer.from(patchedBytes).toString('base64') };
+  }
   return { transaction: tx };
 }
 

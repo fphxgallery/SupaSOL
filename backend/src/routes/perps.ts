@@ -63,9 +63,27 @@ router.post('/add-collateral', (req, res) =>
 router.post('/remove-collateral', (req, res) =>
   proxyToFlashTrade(req, res, '/transaction-builder/remove-collateral'),
 );
-router.post('/trigger', (req, res) =>
-  proxyToFlashTrade(req, res, '/transaction-builder/place-trigger-order'),
+router.get('/orders/:wallet', (req, res) =>
+  proxyToFlashTrade(req, res, `/orders/owner/${req.params.wallet}`),
 );
+
+router.post('/trigger', async (req, res) => {
+  console.log('[trigger] request body:', JSON.stringify(req.body, null, 2));
+  const origRes = res;
+  // Capture response by intercepting
+  const send = origRes.send.bind(origRes);
+  origRes.send = (body: unknown) => {
+    const parsed = typeof body === 'string' ? JSON.parse(body) : body;
+    console.log('[trigger] flash response keys:', Object.keys(parsed));
+    if (parsed.transactionBase64) {
+      const txBuf = Buffer.from(parsed.transactionBase64, 'base64');
+      console.log('[trigger] tx bytes:', txBuf.length);
+      console.log('[trigger] tx hex:', txBuf.toString('hex'));
+    }
+    return send(body);
+  };
+  return proxyToFlashTrade(req, origRes, '/transaction-builder/place-trigger-order');
+});
 router.post('/cancel-trigger', (req, res) =>
   proxyToFlashTrade(req, res, '/transaction-builder/cancel-trigger-order'),
 );

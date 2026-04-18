@@ -13,6 +13,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { LiquidityPage } from './pages/LiquidityPage';
 import { PerpsPage } from './pages/PerpsPage';
+import { TrendingPage } from './pages/TrendingPage';
 
 function PageBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary>{children}</ErrorBoundary>;
@@ -32,6 +33,7 @@ export function App() {
         <Route path="history" element={<PageBoundary><HistoryPage /></PageBoundary>} />
         <Route path="liquidity" element={<PageBoundary><LiquidityPage /></PageBoundary>} />
         <Route path="perps" element={<PageBoundary><PerpsPage /></PageBoundary>} />
+        <Route path="trending" element={<PageBoundary><TrendingPage /></PageBoundary>} />
         <Route path="settings" element={<PageBoundary><SettingsPage /></PageBoundary>} />
       </Route>
     </Routes>

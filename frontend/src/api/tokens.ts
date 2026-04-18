@@ -60,7 +60,70 @@ export async function fetchVerifiedTokens(): Promise<TokenInfo[]> {
   return Array.isArray(resp) ? resp : [];
 }
 
-export async function fetchTrendingTokens(interval: '5m' | '1h' | '6h' | '24h' = '24h'): Promise<TokenInfo[]> {
-  const resp = await apiFetch<TokenInfo[]>(`/api/tokens/toptrending/${interval}`);
-  return Array.isArray(resp) ? resp : [];
+interface JupStats {
+  priceChange?: number;
+  buyVolume?: number;
+  sellVolume?: number;
+  volume?: number;
+}
+
+interface JupTrendingRaw {
+  id: string;
+  name: string;
+  symbol: string;
+  icon?: string;
+  decimals: number;
+  usdPrice?: number;
+  mcap?: number;
+  fdv?: number;
+  liquidity?: number;
+  holderCount?: number;
+  organicScore?: number;
+  tags?: string[];
+  audit?: TokenInfo['audit'];
+  stats5m?: JupStats;
+  stats1h?: JupStats;
+  stats6h?: JupStats;
+  stats24h?: JupStats;
+}
+
+export interface TrendingToken extends TokenInfo {
+  usdPrice?: number;
+  mcap?: number;
+  fdv?: number;
+  liquidity?: number;
+  holderCount?: number;
+  stats: Partial<Record<'5m' | '1h' | '6h' | '24h', { priceChange?: number; volume?: number }>>;
+}
+
+function normalizeTrending(t: JupTrendingRaw): TrendingToken {
+  const vol = (s?: JupStats) =>
+    s ? ((s.buyVolume ?? 0) + (s.sellVolume ?? 0)) || s.volume : undefined;
+  return {
+    address: t.id,
+    name: t.name,
+    symbol: t.symbol,
+    decimals: t.decimals,
+    logoURI: t.icon,
+    tags: t.tags,
+    organicScore: t.organicScore,
+    daily_volume: t.stats24h?.volume ?? vol(t.stats24h),
+    audit: t.audit,
+    usdPrice: t.usdPrice,
+    mcap: t.mcap,
+    fdv: t.fdv,
+    liquidity: t.liquidity,
+    holderCount: t.holderCount,
+    stats: {
+      '5m':  t.stats5m  ? { priceChange: t.stats5m.priceChange,  volume: vol(t.stats5m)  } : undefined,
+      '1h':  t.stats1h  ? { priceChange: t.stats1h.priceChange,  volume: vol(t.stats1h)  } : undefined,
+      '6h':  t.stats6h  ? { priceChange: t.stats6h.priceChange,  volume: vol(t.stats6h)  } : undefined,
+      '24h': t.stats24h ? { priceChange: t.stats24h.priceChange, volume: vol(t.stats24h) } : undefined,
+    },
+  };
+}
+
+export async function fetchTrendingTokens(interval: '5m' | '1h' | '6h' | '24h' = '24h'): Promise<TrendingToken[]> {
+  const resp = await apiFetch<JupTrendingRaw[]>(`/api/tokens/toptrending/${interval}`);
+  return Array.isArray(resp) ? resp.map(normalizeTrending) : [];
 }

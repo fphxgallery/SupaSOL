@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePrice } from '../../hooks/usePrice';
 import { useTokenSupply } from '../../hooks/useTokenSupply';
 import { TokenLogo } from '../ui/TokenLogo';
@@ -6,8 +7,11 @@ import { formatUsd, formatUsdCompact } from '../../utils/format';
 import { EXPLORER_BASE } from '../../config/constants';
 import type { TokenInfo } from '../../hooks/useTokenSearch';
 
+const QUICK_BUY_AMOUNTS = [0.01, 0.05, 0.1] as const;
+
 interface Props {
   token: TokenInfo;
+  showQuickBuy?: boolean;
 }
 
 function formatPrice(amount: number): string {
@@ -18,11 +22,18 @@ function formatPrice(amount: number): string {
   return '$' + amount.toFixed(Math.min(decimals, 10));
 }
 
-export function TokenInfoPanel({ token }: Props) {
+export function TokenInfoPanel({ token, showQuickBuy = false }: Props) {
+  const navigate = useNavigate();
   const { data: prices } = usePrice([token.address]);
   const price = prices?.[token.address];
   const { data: supply } = useTokenSupply(token.address);
   const [copied, setCopied] = useState(false);
+
+  function handleQuickBuy(solAmount: number) {
+    navigate(
+      `/swap?outputMint=${token.address}&outputSymbol=${encodeURIComponent(token.symbol)}&amount=${solAmount}`
+    );
+  }
 
   function copyAddress() {
     navigator.clipboard.writeText(token.address);
@@ -136,6 +147,25 @@ export function TokenInfoPanel({ token }: Props) {
           </button>
         </div>
       </div>
+
+      {/* ── Quick Buy ──────────────────────────────────────────────────────── */}
+      {showQuickBuy && (
+        <div>
+          <p className="text-[10px] font-semibold text-text-dim uppercase tracking-wider mb-2">Quick Buy</p>
+          <div className="grid grid-cols-3 gap-2">
+            {QUICK_BUY_AMOUNTS.map((amt) => (
+              <button
+                key={amt}
+                onClick={() => handleQuickBuy(amt)}
+                className="flex flex-col items-center gap-0.5 py-2.5 rounded-lg border border-green/20 bg-green/5 hover:bg-green hover:border-green text-green hover:text-bg transition-colors group"
+              >
+                <span className="text-sm font-bold">{amt}</span>
+                <span className="text-[10px] font-semibold text-green/70 group-hover:text-bg/70">SOL</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

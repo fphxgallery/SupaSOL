@@ -65,6 +65,7 @@ interface JupStats {
   buyVolume?: number;
   sellVolume?: number;
   volume?: number;
+  numOrganicBuyers?: number;
 }
 
 interface JupTrendingRaw {
@@ -93,7 +94,7 @@ export interface TrendingToken extends TokenInfo {
   fdv?: number;
   liquidity?: number;
   holderCount?: number;
-  stats: Partial<Record<'5m' | '1h' | '6h' | '24h', { priceChange?: number; volume?: number }>>;
+  stats: Partial<Record<'5m' | '1h' | '6h' | '24h', { priceChange?: number; volume?: number; numOrganicBuyers?: number }>>;
 }
 
 function normalizeTrending(t: JupTrendingRaw): TrendingToken {
@@ -115,10 +116,10 @@ function normalizeTrending(t: JupTrendingRaw): TrendingToken {
     liquidity: t.liquidity,
     holderCount: t.holderCount,
     stats: {
-      '5m':  t.stats5m  ? { priceChange: t.stats5m.priceChange,  volume: vol(t.stats5m)  } : undefined,
-      '1h':  t.stats1h  ? { priceChange: t.stats1h.priceChange,  volume: vol(t.stats1h)  } : undefined,
-      '6h':  t.stats6h  ? { priceChange: t.stats6h.priceChange,  volume: vol(t.stats6h)  } : undefined,
-      '24h': t.stats24h ? { priceChange: t.stats24h.priceChange, volume: vol(t.stats24h) } : undefined,
+      '5m':  t.stats5m  ? { priceChange: t.stats5m.priceChange,  volume: vol(t.stats5m),  numOrganicBuyers: t.stats5m.numOrganicBuyers  } : undefined,
+      '1h':  t.stats1h  ? { priceChange: t.stats1h.priceChange,  volume: vol(t.stats1h),  numOrganicBuyers: t.stats1h.numOrganicBuyers  } : undefined,
+      '6h':  t.stats6h  ? { priceChange: t.stats6h.priceChange,  volume: vol(t.stats6h),  numOrganicBuyers: t.stats6h.numOrganicBuyers  } : undefined,
+      '24h': t.stats24h ? { priceChange: t.stats24h.priceChange, volume: vol(t.stats24h), numOrganicBuyers: t.stats24h.numOrganicBuyers } : undefined,
     },
   };
 }

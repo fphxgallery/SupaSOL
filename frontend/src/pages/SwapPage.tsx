@@ -45,24 +45,32 @@ export function SwapPage() {
 
   const [inputToken, setInputToken] = useState<TokenInfo>(SOL_TOKEN);
 
-  // Pre-select input token from nav search (?inputMint=...&inputSymbol=...)
+  // Pre-select tokens and amount from URL params
+  // ?inputMint=...&inputSymbol=... (from nav search)
+  // ?outputMint=...&outputSymbol=...&amount=... (from Trending quick-buy)
+  const [outputToken, setOutputToken] = useState<TokenInfo>(() => {
+    const mint   = searchParams.get('outputMint');
+    const symbol = searchParams.get('outputSymbol') ?? '';
+    if (mint) return { address: mint, symbol: symbol || mint.slice(0, 4), name: symbol || 'Unknown Token', decimals: 6, logoURI: undefined };
+    return USDC_TOKEN;
+  });
+  const [inputAmount, setInputAmount] = useState<string>(() => searchParams.get('amount') ?? '');
+
   useEffect(() => {
-    const mint   = searchParams.get('inputMint');
-    const symbol = searchParams.get('inputSymbol') ?? '';
-    if (mint && mint !== inputToken.address) {
+    const inputMint   = searchParams.get('inputMint');
+    const inputSymbol = searchParams.get('inputSymbol') ?? '';
+    if (inputMint && inputMint !== inputToken.address) {
       setInputToken({
-        address:  mint,
-        symbol:   symbol || mint.slice(0, 4),
-        name:     symbol || 'Unknown Token',
+        address:  inputMint,
+        symbol:   inputSymbol || inputMint.slice(0, 4),
+        name:     inputSymbol || 'Unknown Token',
         decimals: 6,
         logoURI:  undefined,
       });
-      setSearchParams({}, { replace: true });
     }
+    setSearchParams({}, { replace: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [outputToken, setOutputToken] = useState<TokenInfo>(USDC_TOKEN);
-  const [inputAmount, setInputAmount] = useState('');
 
   const rawAmount = inputAmount
     ? Math.floor(parseFloat(inputAmount) * Math.pow(10, inputToken.decimals))

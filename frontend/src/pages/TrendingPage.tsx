@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrendingTokens, type TrendingInterval } from '../hooks/useTrendingTokens';
 import { TokenInfoPanel } from '../components/panels/TokenInfoPanel';
@@ -13,6 +13,24 @@ const INTERVALS: { label: string; value: TrendingInterval }[] = [
   { label: '24h', value: '24h' },
 ];
 
+const MCAP_FILTERS = [
+  { label: 'All',     min: 0,          max: Infinity },
+  { label: '<$1M',    min: 0,          max: 1_000_000 },
+  { label: '$1M–10M', min: 1_000_000,  max: 10_000_000 },
+  { label: '$10M–100M', min: 10_000_000, max: 100_000_000 },
+  { label: '>$100M',  min: 100_000_000, max: Infinity },
+];
+
+const SCORE_FILTERS = [
+  { label: 'Any', min: 0 },
+  { label: '50+', min: 50 },
+  { label: '70+', min: 70 },
+  { label: '90+', min: 90 },
+];
+
+type SortKey = 'rank' | 'price' | 'change' | 'volume' | 'score' | 'mcap' | 'organicBuyers';
+type SortDir = 'asc' | 'desc';
+
 function formatTokenPrice(price: number | undefined): string {
   if (!price) return '—';
   if (price >= 1) return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -20,12 +38,59 @@ function formatTokenPrice(price: number | undefined): string {
   return '$' + price.toFixed(Math.min(decimals, 10));
 }
 
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <span className="text-text-dim/40 ml-0.5">↕</span>;
+  return <span className="text-green ml-0.5">{dir === 'asc' ? '↑' : '↓'}</span>;
+}
+
 export function TrendingPage() {
   const navigate = useNavigate();
   const [interval, setInterval] = useState<TrendingInterval>('24h');
   const [selectedToken, setSelectedToken] = useState<TrendingToken | null>(null);
+  const [mcapIdx, setMcapIdx] = useState(0);
+  const [scoreIdx, setScoreIdx] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>('rank');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const { data: tokens = [], isLoading, isError, refetch } = useTrendingTokens(interval);
+
+  const filtered = useMemo(() => {
+    const mcap = MCAP_FILTERS[mcapIdx];
+    const minScore = SCORE_FILTERS[scoreIdx].min;
+
+    let list = tokens.filter(t => {
+      if (minScore > 0 && (t.organicScore ?? 0) < minScore) return false;
+      if (mcapIdx > 0) {
+        const m = t.mcap ?? 0;
+        if (m < mcap.min || m >= mcap.max) return false;
+      }
+      return true;
+    });
+
+    if (sortKey !== 'rank') {
+      list = [...list].sort((a, b) => {
+        let av: number, bv: number;
+        if (sortKey === 'price') { av = a.usdPrice ?? 0; bv = b.usdPrice ?? 0; }
+        else if (sortKey === 'change') { av = a.stats[interval]?.priceChange ?? -Infinity; bv = b.stats[interval]?.priceChange ?? -Infinity; }
+        else if (sortKey === 'volume') { av = a.stats[interval]?.volume ?? 0; bv = b.stats[interval]?.volume ?? 0; }
+        else if (sortKey === 'score') { av = a.organicScore ?? 0; bv = b.organicScore ?? 0; }
+        else if (sortKey === 'mcap') { av = a.mcap ?? 0; bv = b.mcap ?? 0; }
+        else { av = a.stats[interval]?.numOrganicBuyers ?? 0; bv = b.stats[interval]?.numOrganicBuyers ?? 0; }
+        return sortDir === 'asc' ? av - bv : bv - av;
+      });
+    }
+
+    return list;
+  }, [tokens, mcapIdx, scoreIdx, sortKey, sortDir, interval]);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  }
 
   function handleBuy(token: TrendingToken, e: React.MouseEvent) {
     e.stopPropagation();
@@ -36,8 +101,20 @@ export function TrendingPage() {
     setSelectedToken(prev => prev?.address === token.address ? null : token);
   }
 
+  function ColHeader({ label, sortable, sk, className = '' }: { label: string; sortable?: SortKey; sk?: SortKey; className?: string }) {
+    if (!sortable) return <span className={className}>{label}</span>;
+    return (
+      <button
+        onClick={() => handleSort(sortable)}
+        className={`flex items-center gap-0.5 hover:text-text transition-colors ${className} ${sortKey === sortable ? 'text-text' : ''}`}
+      >
+        {label}<SortIcon active={sortKey === sortable} dir={sortDir} />
+      </button>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full min-h-0 p-4 gap-4">
+    <div className="flex flex-col h-full min-h-0 p-4 gap-3">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -59,6 +136,56 @@ export function TrendingPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Organic score */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-text-dim uppercase tracking-wide font-semibold shrink-0">Score</span>
+          <div className="flex gap-0.5 bg-surface-2 rounded-md p-0.5 border border-border">
+            {SCORE_FILTERS.map(({ label }, i) => (
+              <button
+                key={label}
+                onClick={() => setScoreIdx(i)}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-colors ${
+                  scoreIdx === i ? 'bg-green/20 text-green' : 'text-text-dim hover:text-text'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Market cap */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-text-dim uppercase tracking-wide font-semibold shrink-0">Mcap</span>
+          <div className="flex gap-0.5 bg-surface-2 rounded-md p-0.5 border border-border">
+            {MCAP_FILTERS.map(({ label }, i) => (
+              <button
+                key={label}
+                onClick={() => setMcapIdx(i)}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-colors ${
+                  mcapIdx === i ? 'bg-green/20 text-green' : 'text-text-dim hover:text-text'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {(mcapIdx > 0 || scoreIdx > 0 || sortKey !== 'rank') && (
+          <button
+            onClick={() => { setMcapIdx(0); setScoreIdx(0); setSortKey('rank'); setSortDir('asc'); }}
+            className="text-[10px] text-text-dim hover:text-red transition-colors"
+          >
+            Reset
+          </button>
+        )}
+
+        <span className="ml-auto text-[10px] text-text-dim">{filtered.length} tokens</span>
+      </div>
+
       {/* Main content */}
       <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
         {/* Token table */}
@@ -66,20 +193,22 @@ export function TrendingPage() {
           <div className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col flex-1 min-h-0">
 
             {/* Header row */}
-            <div className="grid grid-cols-[32px_minmax(0,1fr)_90px_72px_84px_52px_64px] gap-x-3 px-4 py-2.5 border-b border-border text-[10px] font-semibold text-text-dim uppercase tracking-wide shrink-0">
+            <div className="grid grid-cols-[32px_minmax(0,1fr)_90px_72px_84px_84px_68px_52px_64px] gap-x-3 px-4 py-2.5 border-b border-border text-[10px] font-semibold text-text-dim uppercase tracking-wide shrink-0">
               <span>#</span>
               <span>Token</span>
-              <span className="text-right">Price</span>
-              <span className="text-right">{interval}%</span>
-              <span className="text-right">Volume</span>
-              <span className="text-right">Score</span>
+              <ColHeader label="Price" sortable="price" className="justify-end" />
+              <ColHeader label={`${interval}%`} sortable="change" className="justify-end" />
+              <ColHeader label="Volume" sortable="volume" className="justify-end" />
+              <ColHeader label="Mcap" sortable="mcap" className="justify-end" />
+              <ColHeader label="Org.Buyers" sortable="organicBuyers" className="justify-end" />
+              <ColHeader label="Score" sortable="score" className="justify-end" />
               <span />
             </div>
 
             {/* Scrollable rows */}
             <div className="overflow-y-auto flex-1">
               {isLoading && Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="grid grid-cols-[32px_minmax(0,1fr)_90px_72px_84px_52px_64px] gap-x-3 px-4 py-3 border-b border-border/40 animate-pulse items-center">
+                <div key={i} className="grid grid-cols-[32px_minmax(0,1fr)_90px_72px_84px_84px_68px_52px_64px] gap-x-3 px-4 py-3 border-b border-border/40 animate-pulse items-center">
                   <div className="h-3.5 w-5 bg-surface-2 rounded" />
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 bg-surface-2 rounded-full shrink-0" />
@@ -88,6 +217,8 @@ export function TrendingPage() {
                   <div className="h-3.5 w-16 bg-surface-2 rounded ml-auto" />
                   <div className="h-3.5 w-12 bg-surface-2 rounded ml-auto" />
                   <div className="h-3.5 w-14 bg-surface-2 rounded ml-auto" />
+                  <div className="h-3.5 w-14 bg-surface-2 rounded ml-auto" />
+                  <div className="h-3.5 w-10 bg-surface-2 rounded ml-auto" />
                   <div className="h-3.5 w-8 bg-surface-2 rounded ml-auto" />
                   <div className="h-6 w-12 bg-surface-2 rounded ml-auto" />
                 </div>
@@ -100,7 +231,19 @@ export function TrendingPage() {
                 </div>
               )}
 
-              {!isLoading && !isError && tokens.map((token, i) => {
+              {!isLoading && !isError && filtered.length === 0 && (
+                <div className="flex flex-col items-center justify-center gap-2 py-16">
+                  <p className="text-text-dim text-sm">No tokens match filters</p>
+                  <button
+                    onClick={() => { setMcapIdx(0); setScoreIdx(0); }}
+                    className="text-xs text-green hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
+
+              {!isLoading && !isError && filtered.map((token, i) => {
                 const stats = token.stats[interval];
                 const change = stats?.priceChange;
                 const volume = stats?.volume;
@@ -110,7 +253,7 @@ export function TrendingPage() {
                   <div
                     key={token.address}
                     onClick={() => handleRowClick(token)}
-                    className={`grid grid-cols-[32px_minmax(0,1fr)_90px_72px_84px_52px_64px] gap-x-3 px-4 py-2.5 border-b border-border/40 cursor-pointer transition-colors items-center ${
+                    className={`grid grid-cols-[32px_minmax(0,1fr)_90px_72px_84px_84px_68px_52px_64px] gap-x-3 px-4 py-2.5 border-b border-border/40 cursor-pointer transition-colors items-center ${
                       isSelected ? 'bg-green/5 border-l-2 border-l-green' : 'hover:bg-surface-2'
                     }`}
                   >
@@ -147,6 +290,16 @@ export function TrendingPage() {
                       {volume ? formatUsdCompact(volume) : '—'}
                     </span>
 
+                    {/* Mcap */}
+                    <span className="text-xs text-text-dim text-right tabular-nums">
+                      {token.mcap ? formatUsdCompact(token.mcap) : '—'}
+                    </span>
+
+                    {/* Organic buyers */}
+                    <span className="text-xs text-text-dim text-right font-mono tabular-nums">
+                      {stats?.numOrganicBuyers != null ? stats.numOrganicBuyers.toLocaleString() : '—'}
+                    </span>
+
                     {/* Organic score */}
                     <span className="text-xs text-text-dim text-right font-mono tabular-nums">
                       {token.organicScore != null ? token.organicScore.toFixed(0) : '—'}
@@ -169,7 +322,7 @@ export function TrendingPage() {
         {/* Token info panel */}
         {selectedToken && (
           <div className="w-full lg:w-[340px] shrink-0">
-            <TokenInfoPanel token={selectedToken} />
+            <TokenInfoPanel token={selectedToken} showQuickBuy />
           </div>
         )}
       </div>

@@ -1,12 +1,12 @@
 # ⚡ SupaSOL
 
-A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [Meteora](https://meteora.ag), and [Flash Trade](https://flash.trade). Swap tokens, earn yield, trade perpetual futures, place limit orders, run DCA strategies, provide liquidity, and send tokens via invite codes — all from a single self-hosted app.
+A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [Meteora](https://meteora.ag), and [Flash Trade](https://flash.trade). Swap tokens, earn yield, trade perpetual futures, place limit orders, run DCA strategies, provide liquidity, browse trending tokens, and send tokens via invite codes — all from a single self-hosted app.
 
 ![SupaSOL Dashboard](https://img.shields.io/badge/Solana-mainnet-9945FF?style=flat&logo=solana)
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.2.0-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.3.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -15,16 +15,17 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 
 | Feature | Description |
 |---|---|
-| **Swap** | Best-route token swaps via Jupiter Ultra v2 (DEX + RFQ) |
+| **Swap** | Best-route token swaps via Jupiter Ultra v2 (DEX + RFQ) with wallet token selector |
+| **Trending** | Jupiter organic score leaderboard — bot-filtered token rankings with 5m/1h/6h/24h intervals, price, change, volume, and one-click buy |
 | **Lend / Earn** | Deposit & withdraw into Jupiter lending products |
-| **Perps** | Long/short perpetual futures on SOL, BTC, ETH, and more via Flash Trade — with live preview, SL/TP, and collateral management |
+| **Perps** | Long/short perpetual futures on crypto and equities via Flash Trade — live preview, SL/TP orders, and collateral management |
 | **Limit Orders** | Place and cancel trigger-based limit orders |
 | **DCA** | Set up recurring dollar-cost-averaging purchases |
 | **Liquidity** | Provide liquidity to Meteora DLMM pools — Spot, Curve, and Bid-Ask strategies |
 | **Portfolio** | Token balances + Jupiter DeFi positions across all platforms |
 | **Send** | Send tokens via claimable invite codes (clawback supported) |
 | **History** | App transactions + live on-chain signature history via Solana RPC |
-| **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via CoinGecko |
+| **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via Pyth Network |
 | **Token Search** | Global search bar — find any Solana token, click to swap |
 | **Settings** | RPC endpoint, cluster, slippage tolerance, priority fee |
 
@@ -40,13 +41,11 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 - **lightweight-charts** — TradingView-style price charts
 - **@solana/web3.js** + **@solana/spl-token** — on-chain interactions
 - **@meteora-ag/dlmm** + **@coral-xyz/anchor** — Meteora DLMM liquidity SDK
-- **Flash Trade REST API** — perpetuals transaction builder (no SDK dependency)
 
 ### Backend
-- **Express.js** + **TypeScript** — Jupiter & Meteora API proxy
+- **Express.js** + **TypeScript** — Jupiter, Meteora & Flash Trade API proxy
 - **express-rate-limit** — 200 req / 10s global limit
 - **CORS** — configurable frontend origin whitelist
-- In-memory cache for CoinGecko price history (2-min TTL)
 
 ---
 
@@ -56,10 +55,10 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 SupaSOL/
 ├── frontend/                  # React + Vite SPA
 │   ├── src/
-│   │   ├── pages/             # 11 route pages
+│   │   ├── pages/             # 12 route pages
 │   │   ├── components/        # UI, charts, layout, liquidity, wallet modals
 │   │   ├── hooks/             # Custom React hooks
-│   │   ├── api/               # Jupiter + Meteora API client functions
+│   │   ├── api/               # Jupiter, Meteora & Flash Trade client functions
 │   │   ├── store/             # Zustand stores
 │   │   └── config/            # Constants & token mints
 │   ├── Dockerfile             # Multi-stage: Node builder → nginx
@@ -67,7 +66,7 @@ SupaSOL/
 │
 ├── backend/                   # Express API proxy
 │   ├── src/
-│   │   ├── routes/            # Route modules (swap, lend, trigger, dlmm, perps…)
+│   │   ├── routes/            # Route modules (swap, lend, trigger, dlmm, perps, tokens…)
 │   │   └── lib/               # Jupiter client + trigger JWT auth
 │   └── Dockerfile             # Multi-stage: Node builder → slim runtime
 │
@@ -84,6 +83,7 @@ SupaSOL/
 - **Node.js 20+**
 - **npm 10+**
 - A **Jupiter API key** — get one at [portal.jup.ag](https://portal.jup.ag)
+- A **Helius API key** (recommended) — get one at [helius.dev](https://helius.dev) for reliable RPC
 
 ### 1. Clone & install
 
@@ -99,12 +99,12 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and set your API key:
+Edit `.env`:
 
 ```env
 JUPITER_API_KEY=your_key_here
 VITE_API_BASE=http://localhost:4000
-VITE_RPC_URL=https://api.mainnet-beta.solana.com
+VITE_RPC_URL=https://mainnet.helius-rpc.com/?api-key=your_helius_key
 VITE_CLUSTER=mainnet-beta
 FRONTEND_ORIGIN=http://localhost:5173
 PORT=4000
@@ -178,7 +178,7 @@ After install:
 | `NODE_ENV` | — | `development` | `development` or `production` |
 | `FRONTEND_ORIGIN` | — | `http://localhost:5173` | CORS allowed origin |
 | `VITE_API_BASE` | ✅ | — | Backend URL (used at build time) |
-| `VITE_RPC_URL` | — | mainnet-beta RPC | Solana RPC endpoint |
+| `VITE_RPC_URL` | — | mainnet-beta RPC | Solana RPC endpoint (Helius recommended) |
 | `VITE_CLUSTER` | — | `mainnet-beta` | Solana cluster name |
 
 ---
@@ -195,7 +195,7 @@ SupaSOL includes a built-in non-custodial wallet:
 
 ## API Routes
 
-All backend routes proxy to Jupiter or Meteora with your API key injected server-side.
+All backend routes proxy to Jupiter, Meteora, or Flash Trade with your API key injected server-side.
 
 | Path | Description |
 |---|---|
@@ -204,8 +204,8 @@ All backend routes proxy to Jupiter or Meteora with your API key injected server
 | `GET /api/lend/*` | Lending positions, deposit, withdraw |
 | `GET /api/trigger/*` | Limit orders (create, cancel, list) |
 | `GET /api/recurring/*` | DCA orders |
-| `GET /api/tokens/*` | Token search & metadata |
-| `GET /api/price/*` | Live prices + OHLCV history |
+| `GET /api/tokens/*` | Token search, metadata, trending rankings |
+| `GET /api/price/*` | Live prices |
 | `GET /api/portfolio/*` | Portfolio positions |
 | `POST /api/send/*` | Craft send / clawback invite |
 | `GET /api/dlmm/pairs` | Meteora DLMM pool list |
@@ -213,6 +213,7 @@ All backend routes proxy to Jupiter or Meteora with your API key injected server
 | `GET /api/perps/pool-data` | Flash Trade markets + custody stats |
 | `GET /api/perps/prices` | Flash Trade mark prices (live) |
 | `GET /api/perps/positions/:wallet` | Open perp positions with PnL |
+| `GET /api/perps/orders/:wallet` | Open SL/TP trigger orders |
 | `POST /api/perps/open` | Build open position transaction |
 | `POST /api/perps/close` | Build close position transaction |
 | `POST /api/perps/add-collateral` | Build add collateral transaction |
@@ -234,18 +235,41 @@ npm run start      # Start production build
 
 ## Changelog
 
+### v1.3.0
+- **Trending tab** — Jupiter organic score token leaderboard
+  - 5m / 1h / 6h / 24h interval selector with per-interval price change and volume
+  - Rank, logo, name/symbol, price, % change, volume, organic score, and audit warnings per row
+  - Click any row to expand a full TokenInfoPanel with price, liquidity, market cap, and safety audit
+  - Buy button navigates directly to Swap with the token pre-selected
+  - 30s auto-refresh; data pulled directly from Jupiter toptrending API (no extra price calls)
+
+### v1.2.10
+- **Perps SL/TP fixes**
+  - Fixed error 6039 "Exponent Mismatch" for equity trigger orders (SPY etc.) — Flash Trade API hard-codes exponent -6 but equity oracles use -5; now patches transaction instruction bytes post-build
+  - SL/TP orders now visible on position cards — added `/orders/owner/:wallet` endpoint and merged trigger data into position display
+  - Switched RPC to Helius for reliable blockhash fetching (avoids public endpoint 403s)
+
+### v1.2.9
+- Meteora DLMM Add Liquidity modal redesigned to match Meteora UI
+- Fixed error 6040 "Invalid position width" — removed ±1 bin padding that exceeded 70-bin limit; default range targets ~30 bins using bin-step math
+
+### v1.2.8
+- Swap page wallet token selector — "You Pay" token dropdown shows your wallet balances at the top
+- Dashboard price card shows BTC, SOL, and SPY via Flash Trade API; clicking a ticker switches the chart
+
+### v1.2.7
+- Swap page redesigned to single centered column with Jupiter-style TokenInfoPanel for output token (price, liquidity, market cap, audit flags)
+- Wallet balance displayed for all tokens in "You Pay" field (not just SOL)
+
 ### v1.2.0
 - **Perps tab** — perpetual futures trading via Flash Trade
-  - Long/short on SOL, BTC, ETH, JitoSOL, JUP, BONK, WIF, PYTH, JTO, RAY, plus stock/commodity markets (ZEC, BNB, ORE, SPY, NVDA, TSLA, AAPL, AMD, AMZN, XAU, XAG)
+  - Long/short on SOL, BTC, ETH, JitoSOL, JUP, BONK, WIF, PYTH, JTO, RAY, plus equities (SPY, NVDA, TSLA, AAPL, AMD, AMZN) and commodities (XAU, XAG)
   - 1×–10× leverage with presets and slider
-  - Live entry price + liquidation price preview (Flash Trade API)
-  - Stop Loss / Take Profit orders on open positions
-  - Add / Remove collateral to adjust leverage on existing positions
-  - Full-width TradingView-style price chart above the trade form
+  - Live entry price + liquidation price preview
+  - Stop Loss / Take Profit orders with on-chain validation
+  - Add / Remove collateral to adjust leverage
+  - TradingView-style price chart above the trade form via Pyth Network OHLCV
   - Live mark prices polled every 5s; positions refreshed every 15s
-  - Error toasts on all failed transactions
-- **Lend / Earn fixes** — correct Jupiter v1 API field names, APY calculation, position filtering, and USD value display
-- Backend Flash Trade proxy (`/api/perps/*`) — no API key required
 
 ### v1.1.0
 - **Meteora DLMM Liquidity** — full integration with the Meteora DLMM SDK
@@ -253,22 +277,12 @@ npm run start      # Start production build
   - Claim swap fees and LM rewards per position or all at once
   - Remove 100% of liquidity and close a position in one action
   - Pool browser with search, sorted by Fee/TVL, Volume, or APR
-  - Add liquidity with **Spot**, **Curve**, and **Bid-Ask** strategy selection
-  - Price range inputs auto-convert to bin IDs via SDK
-- Backend proxy for Meteora REST API (`dlmm-api.meteora.ag`)
-- `signAndSendLegacy` + `signAndSendAllLegacy` for legacy Transaction objects
-- Meteora SDK isolated in its own Vite chunk (417 kB / 108 kB gzip)
+  - Add liquidity with Spot, Curve, and Bid-Ask strategy selection
 
 ### v1.0.1
-- Token search icons now display correctly (mapped Jupiter v2 API `icon` → `logoURI`, `id` → `address`)
-- SOL price display fixed for both Jupiter Price v3 response formats (with/without API key)
-- Real token logos in dashboard via Jupiter CDN with letter-initial fallback
-- Mobile layout: slide-over sidebar, hamburger in top nav, auto-close on navigation
-- Wallet backup: locked backdrop during seed phrase step, "Copy all words" button, regenerate confirmation
-- Swap transaction feedback: "Submitting…" toast + confirmed sigs recorded in History
-- On-chain history: last 50 signatures from Solana RPC with skeleton loaders and retry
-- Error states: Lend and Portfolio show Retry button on network failure
-- Removed geo-restricted Predictions page
+- Token search icons, SOL price display, real token logos via Jupiter CDN
+- Mobile layout: slide-over sidebar with hamburger, auto-close on navigation
+- Wallet backup flow, swap transaction feedback, on-chain history
 
 ### v1.0.0
 - Initial release

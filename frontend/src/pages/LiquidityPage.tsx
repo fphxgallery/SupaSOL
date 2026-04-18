@@ -1,238 +1,518 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useActivePublicKey } from '../store/walletStore';
-import { useUserPositions, useClaimRewards, useRemoveLiquidity } from '../hooks/useDlmm';
-import { Card, CardHeader, CardBody } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { SkeletonCard } from '../components/ui/Skeleton';
-import { PositionCard } from '../components/liquidity/PositionCard';
-import { PoolSearchModal } from '../components/liquidity/PoolSearchModal';
+import {
+  usePools,
+  useUserPositions,
+  usePoolInfo,
+  useClaimRewards,
+  useRemoveLiquidity,
+} from '../hooks/useDlmm';
+import { TokenLogo } from '../components/ui/TokenLogo';
+import { PoolDetailPanel } from '../components/liquidity/PoolDetailPanel';
 import { AddLiquidityModal } from '../components/liquidity/AddLiquidityModal';
-import { formatUsd } from '../utils/format';
-import type { MeteoraPairInfo } from '../api/dlmm';
+import { formatUsdCompact } from '../utils/format';
+import type { MeteoraPairInfo, UserPosition } from '../api/dlmm';
 
-function EmptyPositions({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 gap-5 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-surface-2 border border-border flex items-center justify-center text-2xl">
-        ◈
-      </div>
-      <div>
-        <h3 className="text-base font-bold text-text mb-1">No active positions</h3>
-        <p className="text-sm text-text-dim max-w-xs">
-          Provide liquidity to Meteora DLMM pools and earn dynamic fees.
-        </p>
-      </div>
-      <Button onClick={onAdd}>+ Add Liquidity</Button>
-    </div>
-  );
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function hasFees(pos: UserPosition): boolean {
+  return (BigInt(pos.feeXRaw) + BigInt(pos.feeYRaw)) > 0n;
 }
 
-function StatPill({
-  label,
-  value,
-  accent,
+function formatAmt(raw: string, decimals: number): string {
+  const n = Number(raw) / Math.pow(10, decimals);
+  if (isNaN(n) || n === 0) return '0';
+  if (n < 0.001) return '<0.001';
+  return n.toLocaleString('en-US', { maximumFractionDigits: 3 });
+}
+
+type SortKey = 'feetvl' | 'volume' | 'apr' | 'tvl';
+type SortDir = 'asc' | 'desc';
+
+const TVL_FILTERS = [
+  { label: 'All',    min: 0 },
+  { label: '>$100K', min: 100_000 },
+  { label: '>$1M',   min: 1_000_000 },
+  { label: '>$10M',  min: 10_000_000 },
+];
+
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <span className="text-text-dim/40 ml-0.5">↕</span>;
+  return <span className="text-green ml-0.5">{dir === 'asc' ? '↑' : '↓'}</span>;
+}
+
+// ── Position row (needs pool info) ───────────────────────────────────────────
+
+function PositionRow({
+  position,
+  onClaim,
+  onRemove,
+  isClaiming,
+  isRemoving,
 }: {
-  label: string;
-  value: string;
-  accent?: string;
+  position: UserPosition;
+  onClaim: (poolAddress: string) => void;
+  onRemove: (poolAddress: string, positionPubkey: string) => void;
+  isClaiming: boolean;
+  isRemoving: boolean;
 }) {
+  const { data: poolInfo } = usePoolInfo(position.poolAddress);
+  const symX = poolInfo?.token_x?.symbol ?? '?';
+  const symY = poolInfo?.token_y?.symbol ?? '?';
+  const decimalsX = poolInfo?.token_x?.decimals ?? 9;
+  const decimalsY = poolInfo?.token_y?.decimals ?? 6;
+  const apr = (poolInfo?.apr ?? 0) + (poolInfo?.farm_apr ?? 0);
+  const bins = position.upperBinId - position.lowerBinId + 1;
+  const claimable = hasFees(position);
+
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
-      <p className="text-xs text-text-dim mb-1">{label}</p>
-      <p className={`text-xl font-bold ${accent ?? 'text-text'}`}>{value}</p>
+    <div className="grid grid-cols-[minmax(0,1fr)_80px_80px_20px_56px_48px_auto] gap-x-3 px-4 py-3 border-b border-border/40 items-center hover:bg-surface-2 transition-colors">
+      {/* Pool identity */}
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="flex -space-x-1.5 shrink-0">
+          <TokenLogo mint={poolInfo?.token_x?.address ?? position.mintX} symbol={symX} size="sm" />
+          <TokenLogo mint={poolInfo?.token_y?.address ?? position.mintY} symbol={symY} size="sm" />
+        </div>
+        <span className="text-sm font-semibold text-text truncate">
+          {poolInfo?.name ?? `${position.mintX.slice(0, 4)}…/${position.mintY.slice(0, 4)}…`}
+        </span>
+      </div>
+
+      {/* X amount */}
+      <span className="text-xs text-text font-mono text-right tabular-nums">
+        {formatAmt(position.totalXAmount, decimalsX)} <span className="text-text-dim">{symX}</span>
+      </span>
+
+      {/* Y amount */}
+      <span className="text-xs text-text font-mono text-right tabular-nums">
+        {formatAmt(position.totalYAmount, decimalsY)} <span className="text-text-dim">{symY}</span>
+      </span>
+
+      {/* Claimable dot */}
+      <div className="flex justify-center">
+        {claimable && (
+          <span className="w-2 h-2 rounded-full bg-green animate-pulse" title="Fees claimable" />
+        )}
+      </div>
+
+      {/* APR */}
+      <span className="text-xs text-green text-right font-mono tabular-nums">
+        {apr > 0 ? apr.toFixed(1) + '%' : '—'}
+      </span>
+
+      {/* Bins */}
+      <span className="text-xs text-text-dim text-right tabular-nums">
+        {bins}
+      </span>
+
+      {/* Actions */}
+      <div className="flex gap-1.5 justify-end">
+        <button
+          onClick={() => onClaim(position.poolAddress)}
+          disabled={!claimable || isClaiming}
+          className="text-[11px] font-semibold px-2 py-1 rounded-md border border-green/20 text-green bg-green/5 hover:bg-green hover:text-bg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {isClaiming ? '…' : 'Claim'}
+        </button>
+        <button
+          onClick={() => onRemove(position.poolAddress, position.positionPubkey)}
+          disabled={isRemoving}
+          className="text-[11px] font-semibold px-2 py-1 rounded-md border border-red/20 text-red bg-red/5 hover:bg-red hover:text-bg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {isRemoving ? '…' : 'Remove'}
+        </button>
+      </div>
     </div>
   );
 }
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export function LiquidityPage() {
   const pubkey = useActivePublicKey();
-  const [showPoolSearch, setShowPoolSearch] = useState(false);
-  const [selectedPool, setSelectedPool] = useState<MeteoraPairInfo | null>(null);
-  const [showAddLiquidity, setShowAddLiquidity] = useState(false);
 
-  const { data: positions, isLoading, isError, refetch } = useUserPositions(pubkey);
-  const { mutate: claimRewards, isPending: isClaiming, variables: claimingVars } = useClaimRewards();
-  const { mutate: removeLiquidity, isPending: isRemoving, variables: removingVars } = useRemoveLiquidity();
+  // Tab
+  const [tab, setTab] = useState<'pools' | 'positions'>('pools');
+
+  // Pools state
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('feetvl');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [tvlIdx, setTvlIdx] = useState(0);
+  const [selectedPool, setSelectedPool] = useState<MeteoraPairInfo | null>(null);
+  const [addLiquidityPool, setAddLiquidityPool] = useState<MeteoraPairInfo | null>(null);
+
+  // Hooks
+  const minTvl = TVL_FILTERS[tvlIdx].min;
+
+  // When TVL filter active: force tvl:desc + min_tvl server-side (only combo Meteora honours),
+  // then sort client-side by user's chosen key.
+  // Without filter: use user's sort directly.
+  const serverSortKey = minTvl > 0 ? 'tvl' : sortKey;
+  const serverSortDir: 'asc' | 'desc' = minTvl > 0 ? 'desc' : sortDir;
+
+  const { data: poolsResp, isLoading: poolsLoading } = usePools({
+    page: 0,
+    limit: 25,
+    search: search.length >= 2 ? search : undefined,
+    sortKey: serverSortKey,
+    orderBy: serverSortDir,
+    minTvl: minTvl > 0 ? minTvl : undefined,
+  });
+
+  const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);
+  const { mutate: claimRewards, isPending: isClaiming, variables: claimVars } = useClaimRewards();
+  const { mutate: removeLiquidity, isPending: isRemoving, variables: removeVars } = useRemoveLiquidity();
+
+  // Client-side sort when TVL filter is active (server was forced to tvl:desc)
+  // or when APR selected (server-side apr_24h returns 500 on Meteora)
+  const pools = useMemo(() => {
+    let list = poolsResp?.data ?? [];
+
+    if (minTvl > 0 || sortKey === 'apr') {
+      list = [...list].sort((a, b) => {
+        let av = 0, bv = 0;
+        if (sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0);  bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
+        else if (sortKey === 'tvl')    { av = a.tvl ?? 0;                         bv = b.tvl ?? 0; }
+        else if (sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;             bv = b.volume?.['24h'] ?? 0; }
+        else if (sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0;     bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
+        return sortDir === 'desc' ? bv - av : av - bv;
+      });
+    }
+
+    return list;
+  }, [poolsResp, minTvl, sortKey, sortDir]);
 
   const posCount = positions?.length ?? 0;
-  // Claimable fees exist if any position has non-zero fee amounts
-  const hasClaimable = positions?.some(
-    (p) => BigInt(p.feeXRaw) + BigInt(p.feeYRaw) > 0n
-  ) ?? false;
+  const hasClaimable = positions?.some(p => hasFees(p)) ?? false;
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
+  }
 
   function handleClaimAll() {
     if (!pubkey || !positions) return;
-    // Claim pool by pool for positions with fees
-    const poolsWithFees = [
-      ...new Set(
-        positions
-          .filter((p) => BigInt(p.feeXRaw) + BigInt(p.feeYRaw) > 0n)
-          .map((p) => p.poolAddress)
-      ),
-    ];
-    for (const poolAddress of poolsWithFees) {
-      claimRewards({ poolAddress, ownerAddress: pubkey });
-    }
+    const pools = [...new Set(positions.filter(p => hasFees(p)).map(p => p.poolAddress))];
+    for (const poolAddress of pools) claimRewards({ poolAddress, ownerAddress: pubkey });
   }
 
-  function handleAddLiquidityFlow() {
-    setShowPoolSearch(true);
-  }
+  const filtersActive = tvlIdx > 0 || sortKey !== 'feetvl';
 
-  function handlePoolSelected(pool: MeteoraPairInfo) {
-    setSelectedPool(pool);
-    setShowAddLiquidity(true);
-  }
-
-  if (!pubkey) {
+  // ── No wallet ──────────────────────────────────────────────────────────────
+  if (!pubkey && tab === 'positions') {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col h-full min-h-0 p-4 gap-4">
         <h1 className="text-lg font-bold text-text">DLMM</h1>
-        <Card>
-          <CardBody>
-            <p className="text-sm text-text-dim text-center py-4">
-              Connect a wallet to view and manage your Meteora DLMM liquidity positions.
-            </p>
-          </CardBody>
-        </Card>
+        <div className="bg-surface border border-border rounded-xl p-8 text-center">
+          <p className="text-sm text-text-dim">Connect a wallet to view your positions.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full min-h-0 p-4 gap-3">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-lg font-bold text-text">DLMM</h1>
-          <p className="text-xs text-text-dim mt-0.5">Meteora DLMM · Dynamic fee market making</p>
+          <p className="text-xs text-text-dim">Meteora DLMM · Dynamic fee market making</p>
         </div>
         <div className="flex items-center gap-2">
-          {hasClaimable && (
-            <Button
-              variant="secondary"
-              size="sm"
+          {/* Tab switcher */}
+          <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
+            {(['pools', 'positions'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  tab === t ? 'bg-green text-bg' : 'text-text-dim hover:text-text'
+                }`}
+              >
+                {t === 'pools' ? 'Pools' : `My Positions${posCount > 0 ? ` (${posCount})` : ''}`}
+              </button>
+            ))}
+          </div>
+          {/* Action buttons */}
+          {tab === 'positions' && hasClaimable && (
+            <button
               onClick={handleClaimAll}
               disabled={isClaiming}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-green/20 text-green bg-green/5 hover:bg-green hover:text-bg transition-colors disabled:opacity-50"
             >
               {isClaiming ? 'Claiming…' : '✦ Claim All Fees'}
-            </Button>
+            </button>
           )}
-          <Button size="sm" onClick={handleAddLiquidityFlow}>
-            + Add Liquidity
-          </Button>
-        </div>
-      </div>
-
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <StatPill
-          label="Active Positions"
-          value={isLoading ? '—' : String(posCount)}
-          accent="text-green"
-        />
-        <StatPill
-          label="Pools"
-          value={isLoading ? '—' : String(
-            new Set(positions?.map((p) => p.poolAddress) ?? []).size
-          )}
-        />
-        <StatPill
-          label="Claimable"
-          value={hasClaimable ? 'Yes' : '—'}
-          accent={hasClaimable ? 'text-orange' : undefined}
-        />
-      </div>
-
-      {/* Positions list */}
-      <Card>
-        <CardHeader
-          title="My Positions"
-          subtitle={isLoading ? 'Loading…' : `${posCount} position${posCount !== 1 ? 's' : ''}`}
-          action={
+          {tab === 'positions' && (
             <button
               onClick={() => refetch()}
-              className="text-xs text-text-dim hover:text-text transition-colors"
+              className="text-xs text-text-dim hover:text-text transition-colors px-2 py-1.5"
               title="Refresh"
             >
               ↺
             </button>
-          }
-        />
-        <CardBody>
-          {isLoading ? (
-            <div className="flex flex-col gap-3">
-              <SkeletonCard />
-              <SkeletonCard />
+          )}
+        </div>
+      </div>
+
+      {/* ── Pools tab ──────────────────────────────────────────────────────── */}
+      {tab === 'pools' && (
+        <>
+          {/* Search + sort */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 bg-surface-2 border border-border rounded-lg px-3 py-1.5 flex-1 min-w-[160px] focus-within:border-green/50 transition-colors">
+              <svg className="w-3.5 h-3.5 text-text-dim shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search pools…"
+                className="flex-1 bg-transparent text-sm text-text placeholder:text-text-dim outline-none min-w-0"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="text-text-dim hover:text-text shrink-0 text-xs">✕</button>
+              )}
             </div>
-          ) : isError ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <p className="text-sm text-text-dim">Failed to load positions.</p>
-              <Button variant="secondary" size="sm" onClick={() => refetch()}>Retry</Button>
+            <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
+              {(['feetvl', 'volume', 'apr', 'tvl'] as SortKey[]).map(key => (
+                <button
+                  key={key}
+                  onClick={() => handleSort(key)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-0.5 ${
+                    sortKey === key ? 'bg-green/20 text-green' : 'text-text-dim hover:text-text'
+                  }`}
+                >
+                  {key === 'feetvl' ? 'Fee/TVL' : key === 'volume' ? 'Volume' : key === 'apr' ? 'APR' : 'TVL'}
+                  {sortKey === key && <SortIcon active dir={sortDir} />}
+                </button>
+              ))}
             </div>
-          ) : posCount === 0 ? (
-            <EmptyPositions onAdd={handleAddLiquidityFlow} />
-          ) : (
-            <div className="flex flex-col gap-3">
-              {positions!.map((pos) => (
-                <PositionCard
+          </div>
+
+          {/* TVL filter */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-text-dim uppercase tracking-wide font-semibold shrink-0">TVL</span>
+              <div className="flex gap-0.5 bg-surface-2 rounded-md p-0.5 border border-border">
+                {TVL_FILTERS.map(({ label }, i) => (
+                  <button
+                    key={label}
+                    onClick={() => setTvlIdx(i)}
+                    className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-colors ${
+                      tvlIdx === i ? 'bg-green/20 text-green' : 'text-text-dim hover:text-text'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {filtersActive && (
+              <button
+                onClick={() => { setTvlIdx(0); setSortKey('feetvl'); setSortDir('desc'); }}
+                className="text-[10px] text-text-dim hover:text-red transition-colors"
+              >
+                Reset
+              </button>
+            )}
+            <span className="ml-auto text-[10px] text-text-dim">{pools.length} pools</span>
+          </div>
+
+          {/* Pool table + detail panel */}
+          <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
+            {/* Table */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col flex-1 min-h-0">
+                {/* Header row */}
+                <div className="grid grid-cols-[32px_minmax(0,1fr)_56px_84px_84px_72px] gap-x-3 px-4 py-2.5 border-b border-border text-[10px] font-semibold text-text-dim uppercase tracking-wide shrink-0">
+                  <span>#</span>
+                  <span>Pool</span>
+                  <span className="text-right">Step</span>
+                  <button onClick={() => handleSort('tvl')} className={`text-right flex items-center justify-end gap-0.5 hover:text-text transition-colors ${sortKey === 'tvl' ? 'text-text' : ''}`}>
+                    TVL<SortIcon active={sortKey === 'tvl'} dir={sortDir} />
+                  </button>
+                  <button onClick={() => handleSort('volume')} className={`text-right flex items-center justify-end gap-0.5 hover:text-text transition-colors ${sortKey === 'volume' ? 'text-text' : ''}`}>
+                    24h Vol<SortIcon active={sortKey === 'volume'} dir={sortDir} />
+                  </button>
+                  <button onClick={() => handleSort('apr')} className={`text-right flex items-center justify-end gap-0.5 hover:text-text transition-colors ${sortKey === 'apr' ? 'text-text' : ''}`}>
+                    APR<SortIcon active={sortKey === 'apr'} dir={sortDir} />
+                  </button>
+                </div>
+
+                {/* Rows */}
+                <div className="overflow-y-auto flex-1">
+                  {poolsLoading && Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className="grid grid-cols-[32px_minmax(0,1fr)_56px_84px_84px_72px] gap-x-3 px-4 py-3 border-b border-border/40 animate-pulse items-center">
+                      <div className="h-3 w-4 bg-surface-2 rounded" />
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-surface-2 rounded-full shrink-0" />
+                        <div className="w-6 h-6 bg-surface-2 rounded-full -ml-2 shrink-0" />
+                        <div className="h-3 w-24 bg-surface-2 rounded" />
+                      </div>
+                      <div className="h-3 w-10 bg-surface-2 rounded ml-auto" />
+                      <div className="h-3 w-14 bg-surface-2 rounded ml-auto" />
+                      <div className="h-3 w-14 bg-surface-2 rounded ml-auto" />
+                      <div className="h-3 w-10 bg-surface-2 rounded ml-auto" />
+                    </div>
+                  ))}
+
+                  {!poolsLoading && pools.length === 0 && (
+                    <div className="flex items-center justify-center py-16 text-sm text-text-dim">
+                      No pools found
+                    </div>
+                  )}
+
+                  {!poolsLoading && pools.map((pool, i) => {
+                    const symX = pool.token_x?.symbol ?? pool.name?.split('-')[0] ?? 'X';
+                    const symY = pool.token_y?.symbol ?? pool.name?.split('-')[1] ?? 'Y';
+                    const apr = (pool.apr ?? 0) + (pool.farm_apr ?? 0);
+                    const isSelected = selectedPool?.address === pool.address;
+
+                    return (
+                      <div
+                        key={pool.address}
+                        onClick={() => setSelectedPool(prev => prev?.address === pool.address ? null : pool)}
+                        className={`grid grid-cols-[32px_minmax(0,1fr)_56px_84px_84px_72px] gap-x-3 px-4 py-2.5 border-b border-border/40 cursor-pointer transition-colors items-center ${
+                          isSelected ? 'bg-green/5 border-l-2 border-l-green' : 'hover:bg-surface-2'
+                        }`}
+                      >
+                        <span className="text-xs text-text-dim font-mono tabular-nums">{i + 1}</span>
+
+                        {/* Pool identity */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex -space-x-1.5 shrink-0">
+                            <TokenLogo mint={pool.token_x?.address} symbol={symX} size="sm" />
+                            <TokenLogo mint={pool.token_y?.address} symbol={symY} size="sm" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-sm font-semibold text-text truncate block">{pool.name}</span>
+                          </div>
+                        </div>
+
+                        {/* Bin step */}
+                        <span className="text-xs text-text-dim text-right tabular-nums">
+                          {pool.pool_config?.bin_step != null ? `${pool.pool_config.bin_step}` : '—'}
+                        </span>
+
+                        {/* TVL */}
+                        <span className="text-xs text-text-dim text-right tabular-nums">
+                          {pool.tvl ? formatUsdCompact(pool.tvl) : '—'}
+                        </span>
+
+                        {/* 24h volume */}
+                        <span className="text-xs text-text-dim text-right tabular-nums">
+                          {pool.volume?.['24h'] ? formatUsdCompact(pool.volume['24h']) : '—'}
+                        </span>
+
+                        {/* APR */}
+                        <span className="text-xs text-green text-right font-mono tabular-nums">
+                          {apr > 0 ? apr.toFixed(1) + '%' : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Detail panel */}
+            {selectedPool && (
+              <div className="w-full lg:w-[300px] shrink-0">
+                <div className="bg-surface border border-border rounded-xl p-4 h-full">
+                  <PoolDetailPanel
+                    pool={selectedPool}
+                    onAddLiquidity={pool => { setAddLiquidityPool(pool); }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── My Positions tab ───────────────────────────────────────────────── */}
+      {tab === 'positions' && (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col flex-1 min-h-0">
+            {/* Header row */}
+            <div className="grid grid-cols-[minmax(0,1fr)_80px_80px_20px_56px_48px_auto] gap-x-3 px-4 py-2.5 border-b border-border text-[10px] font-semibold text-text-dim uppercase tracking-wide shrink-0">
+              <span>Pool</span>
+              <span className="text-right">X</span>
+              <span className="text-right">Y</span>
+              <span />
+              <span className="text-right">APR</span>
+              <span className="text-right">Bins</span>
+              <span />
+            </div>
+
+            {/* Rows */}
+            <div className="overflow-y-auto flex-1">
+              {posLoading && Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="grid grid-cols-[minmax(0,1fr)_80px_80px_20px_56px_48px_auto] gap-x-3 px-4 py-3 border-b border-border/40 animate-pulse items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-surface-2 rounded-full" />
+                    <div className="w-6 h-6 bg-surface-2 rounded-full -ml-2" />
+                    <div className="h-3 w-24 bg-surface-2 rounded" />
+                  </div>
+                  <div className="h-3 w-16 bg-surface-2 rounded ml-auto" />
+                  <div className="h-3 w-16 bg-surface-2 rounded ml-auto" />
+                  <div />
+                  <div className="h-3 w-10 bg-surface-2 rounded ml-auto" />
+                  <div className="h-3 w-8 bg-surface-2 rounded ml-auto" />
+                  <div className="h-6 w-24 bg-surface-2 rounded ml-auto" />
+                </div>
+              ))}
+
+              {posError && (
+                <div className="flex flex-col items-center justify-center gap-3 py-16">
+                  <p className="text-text-dim text-sm">Failed to load positions</p>
+                  <button onClick={() => refetch()} className="text-xs text-green hover:underline">Retry</button>
+                </div>
+              )}
+
+              {!posLoading && !posError && posCount === 0 && (
+                <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+                  <span className="text-3xl">◈</span>
+                  <div>
+                    <p className="text-sm font-semibold text-text">No active positions</p>
+                    <p className="text-xs text-text-dim mt-1">Provide liquidity to earn dynamic fees</p>
+                  </div>
+                  <button
+                    onClick={() => setTab('pools')}
+                    className="text-xs font-semibold px-4 py-2 rounded-lg bg-green/10 text-green border border-green/20 hover:bg-green hover:text-bg transition-colors"
+                  >
+                    Browse Pools
+                  </button>
+                </div>
+              )}
+
+              {!posLoading && !posError && positions?.map(pos => (
+                <PositionRow
                   key={pos.positionPubkey}
                   position={pos}
-                  onClaim={(poolAddress) => {
-                    if (pubkey) claimRewards({ poolAddress, ownerAddress: pubkey });
-                  }}
-                  onRemove={(poolAddress, positionPubkey) => {
-                    if (pubkey) removeLiquidity({ poolAddress, positionPubkey, ownerAddress: pubkey });
-                  }}
-                  isClaiming={isClaiming && claimingVars?.poolAddress === pos.poolAddress}
-                  isRemoving={isRemoving && removingVars?.positionPubkey === pos.positionPubkey}
+                  onClaim={poolAddress => { if (pubkey) claimRewards({ poolAddress, ownerAddress: pubkey }); }}
+                  onRemove={(poolAddress, positionPubkey) => { if (pubkey) removeLiquidity({ poolAddress, positionPubkey, ownerAddress: pubkey }); }}
+                  isClaiming={isClaiming && claimVars?.poolAddress === pos.poolAddress}
+                  isRemoving={isRemoving && removeVars?.positionPubkey === pos.positionPubkey}
                 />
               ))}
             </div>
-          )}
-        </CardBody>
-      </Card>
-
-      {/* About Meteora DLMM */}
-      <Card>
-        <CardBody>
-          <div className="flex items-start gap-3">
-            <span className="text-2xl shrink-0">◈</span>
-            <div>
-              <p className="text-sm font-medium text-text mb-1">About Meteora DLMM</p>
-              <p className="text-xs text-text-dim leading-relaxed">
-                Dynamic Liquidity Market Maker (DLMM) is Meteora's concentrated liquidity protocol
-                on Solana. Positions earn swap fees from every trade through the selected price bins.
-                Use <span className="text-text">Spot</span> for balanced liquidity,{' '}
-                <span className="text-text">Curve</span> to concentrate near current price,
-                or <span className="text-text">Bid-Ask</span> for volatility-capturing strategies.
-              </p>
-              <a
-                href="https://docs.meteora.ag"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue hover:underline mt-2 inline-block"
-              >
-                Read the docs ↗
-              </a>
-            </div>
           </div>
-        </CardBody>
-      </Card>
+        </div>
+      )}
 
-      {/* Modals */}
-      <PoolSearchModal
-        open={showPoolSearch}
-        onClose={() => setShowPoolSearch(false)}
-        onSelect={handlePoolSelected}
-      />
-      {selectedPool && pubkey && (
+      {/* ── Add Liquidity Modal ─────────────────────────────────────────────── */}
+      {addLiquidityPool && pubkey && (
         <AddLiquidityModal
-          open={showAddLiquidity}
-          onClose={() => { setShowAddLiquidity(false); setSelectedPool(null); }}
-          pool={selectedPool}
+          open={!!addLiquidityPool}
+          onClose={() => setAddLiquidityPool(null)}
+          pool={addLiquidityPool}
           ownerAddress={pubkey}
-          onSuccess={() => refetch()}
+          onSuccess={() => { setAddLiquidityPool(null); refetch(); }}
         />
       )}
     </div>

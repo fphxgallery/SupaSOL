@@ -100,7 +100,8 @@ export async function fetchPairInfo(poolAddress: string): Promise<MeteoraPairInf
 const SORT_KEY_MAP: Record<string, string> = {
   feetvl:  'fee_tvl_ratio_24h',
   volume:  'volume_24h',
-  apr:     'apr',
+  apr:     'fee_tvl_ratio_24h', // apr_24h broken on Meteora API; fee_tvl_ratio_24h === apr
+  tvl:     'tvl',
 };
 
 export async function fetchPairs(opts: {
@@ -109,12 +110,14 @@ export async function fetchPairs(opts: {
   search?: string;
   sortKey?: string;
   orderBy?: 'asc' | 'desc';
+  minTvl?: number;
 } = {}): Promise<MeteoraPairsResponse> {
   const qs = new URLSearchParams();
   // Meteora API is 1-based; our UI passes 0-based pages
   qs.set('page', String((opts.page ?? 0) + 1));
   if (opts.limit !== undefined) qs.set('page_size', String(opts.limit));
   if (opts.search) qs.set('query', opts.search);
+  if (opts.minTvl) qs.set('min_tvl', String(opts.minTvl));
   const sortField = SORT_KEY_MAP[opts.sortKey ?? 'feetvl'] ?? 'fee_tvl_ratio_24h';
   qs.set('sort_by', `${sortField}:${opts.orderBy ?? 'desc'}`);
   return apiFetch<MeteoraPairsResponse>(`/api/dlmm/pairs?${qs}`);

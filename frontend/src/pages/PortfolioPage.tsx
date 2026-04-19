@@ -131,7 +131,10 @@ export function PortfolioPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-text">{solUi?.toFixed(4) ?? '—'} SOL</p>
-                          {solUsd !== null && <p className="text-xs text-text-dim">{formatUsd(solUsd)}</p>}
+                          <div className="flex items-center justify-end gap-2">
+                            {solUsd !== null && <p className="text-xs text-text-dim">{formatUsd(solUsd)}</p>}
+                            {(() => { const c = prices?.[MINTS.SOL]?.priceChange24h; return c != null ? <p className={`text-xs font-medium ${c >= 0 ? 'text-green' : 'text-red'}`}>{c >= 0 ? '+' : ''}{c.toFixed(2)}%</p> : null; })()}
+                          </div>
                         </div>
                       </div>
                     );
@@ -167,7 +170,10 @@ export function PortfolioPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-text">{b.uiAmount?.toLocaleString('en-US', { maximumFractionDigits: 4 })} {displaySymbol}</p>
-                          {usd !== null && <p className="text-xs text-text-dim">{formatUsd(usd)}</p>}
+                          <div className="flex items-center justify-end gap-2">
+                            {usd !== null && <p className="text-xs text-text-dim">{formatUsd(usd)}</p>}
+                            {(() => { const c = prices?.[b.mint]?.priceChange24h; return c != null ? <p className={`text-xs font-medium ${c >= 0 ? 'text-green' : 'text-red'}`}>{c >= 0 ? '+' : ''}{c.toFixed(2)}%</p> : null; })()}
+                          </div>
                         </div>
                       </div>
                     );

@@ -5,11 +5,13 @@ import { usePrice } from '../hooks/usePrice';
 import { useSolBalance } from '../hooks/useSolBalance';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { useTokenMetadata } from '../hooks/useTokenMetadata';
+import { useEmptyTokenAccounts } from '../hooks/useEmptyTokenAccounts';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { TokenLogo } from '../components/ui/TokenLogo';
 import { TokenInfoPanel } from '../components/panels/TokenInfoPanel';
+import { CloseEmptyAccountsModal } from '../components/portfolio/CloseEmptyAccountsModal';
 import { formatUsd, formatUsdCompact } from '../utils/format';
 import { MINTS } from '../config/constants';
 import type { TokenInfo } from '../hooks/useTokenSearch';
@@ -29,6 +31,8 @@ const TYPE_VARIANT: Record<string, 'green' | 'blue' | 'orange' | 'purple' | 'mut
 export function PortfolioPage() {
   const pubkey = useActivePublicKey();
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
+  const [reclaimOpen, setReclaimOpen] = useState(false);
+  const { data: emptyAccounts = [] } = useEmptyTokenAccounts(pubkey);
 
   function toggleToken(token: SelectedToken) {
     setSelectedToken(prev => prev?.address === token.address ? null : token);
@@ -102,7 +106,15 @@ export function PortfolioPage() {
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1 min-w-0">
               <Card>
-                <CardHeader title="Token Holdings" subtitle={`${(tokenBalances?.length ?? 0) + 1} assets`} />
+                <CardHeader
+                  title="Token Holdings"
+                  subtitle={`${(tokenBalances?.length ?? 0) + 1} assets`}
+                  action={emptyAccounts.length > 0 ? (
+                    <Button variant="secondary" size="sm" onClick={() => setReclaimOpen(true)}>
+                      Reclaim Rent ({emptyAccounts.length})
+                    </Button>
+                  ) : undefined}
+                />
                 <CardBody className="p-0">
                   {/* SOL */}
                   {(() => {
@@ -194,6 +206,15 @@ export function PortfolioPage() {
               </div>
             )}
           </div>
+
+          {reclaimOpen && pubkey && (
+            <CloseEmptyAccountsModal
+              open={reclaimOpen}
+              onClose={() => setReclaimOpen(false)}
+              accounts={emptyAccounts}
+              ownerPubkey={pubkey}
+            />
+          )}
 
           {/* Jupiter DeFi positions */}
           <Card>

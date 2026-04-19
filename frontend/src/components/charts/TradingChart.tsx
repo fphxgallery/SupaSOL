@@ -220,10 +220,40 @@ export function TradingChart({
     };
   }, []);
 
+  // ── Clear all series when the token changes ──────────────────────────────
+  useEffect(() => {
+    if (!candleSeries.current) return;
+    candleSeries.current.setData([]);
+    ma20Series.current?.setData([]);
+    ma50Series.current?.setData([]);
+    ma200Series.current?.setData([]);
+    bbUpperSeries.current?.setData([]);
+    bbMidSeries.current?.setData([]);
+    bbLowSeries.current?.setData([]);
+    rsiSeries.current?.setData([]);
+    macdLineSeries.current?.setData([]);
+    macdSigSeries.current?.setData([]);
+    macdHistSeries.current?.setData([]);
+  }, [symbol, mint]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Feed OHLCV + indicators into charts ──────────────────────────────────
   useEffect(() => {
-    if (!ohlcv || ohlcv.length === 0) return;
     if (!candleSeries.current || !mainChart.current) return;
+    if (!ohlcv || ohlcv.length === 0) {
+      // Clear stale series so no old-token data lingers
+      candleSeries.current.setData([]);
+      ma20Series.current?.setData([]);
+      ma50Series.current?.setData([]);
+      ma200Series.current?.setData([]);
+      bbUpperSeries.current?.setData([]);
+      bbMidSeries.current?.setData([]);
+      bbLowSeries.current?.setData([]);
+      rsiSeries.current?.setData([]);
+      macdLineSeries.current?.setData([]);
+      macdSigSeries.current?.setData([]);
+      macdHistSeries.current?.setData([]);
+      return;
+    }
 
     const times = ohlcv.map((p) => p.time as number);
     const closes = ohlcv.map((p) => p.close);

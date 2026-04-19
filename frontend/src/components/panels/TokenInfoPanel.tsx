@@ -8,10 +8,12 @@ import { EXPLORER_BASE } from '../../config/constants';
 import type { TokenInfo } from '../../hooks/useTokenSearch';
 
 const QUICK_BUY_AMOUNTS = [0.01, 0.05, 0.1] as const;
+const QUICK_SELL_PCTS = [25, 50, 100] as const;
 
 interface Props {
   token: TokenInfo;
   showQuickBuy?: boolean;
+  quickSell?: { balance: number; decimals: number };
 }
 
 function formatPrice(amount: number): string {
@@ -22,7 +24,7 @@ function formatPrice(amount: number): string {
   return '$' + amount.toFixed(Math.min(decimals, 10));
 }
 
-export function TokenInfoPanel({ token, showQuickBuy = false }: Props) {
+export function TokenInfoPanel({ token, showQuickBuy = false, quickSell }: Props) {
   const navigate = useNavigate();
   const { data: prices } = usePrice([token.address]);
   const price = prices?.[token.address];
@@ -32,6 +34,15 @@ export function TokenInfoPanel({ token, showQuickBuy = false }: Props) {
   function handleQuickBuy(solAmount: number) {
     navigate(
       `/swap?outputMint=${token.address}&outputSymbol=${encodeURIComponent(token.symbol)}&amount=${solAmount}`
+    );
+  }
+
+  function handleQuickSell(pct: number) {
+    if (!quickSell) return;
+    const amount = (quickSell.balance * pct) / 100;
+    const rounded = parseFloat(amount.toFixed(Math.min(quickSell.decimals, 6)));
+    navigate(
+      `/swap?inputMint=${token.address}&inputSymbol=${encodeURIComponent(token.symbol)}&amount=${rounded}`
     );
   }
 
@@ -163,6 +174,30 @@ export function TokenInfoPanel({ token, showQuickBuy = false }: Props) {
                 <span className="text-[10px] font-semibold text-green/70 group-hover:text-bg/70">SOL</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick Sell ─────────────────────────────────────────────────────── */}
+      {quickSell && (
+        <div>
+          <p className="text-[10px] font-semibold text-text-dim uppercase tracking-wider mb-2">Quick Sell</p>
+          <div className="grid grid-cols-3 gap-2">
+            {QUICK_SELL_PCTS.map((pct) => {
+              const amt = (quickSell.balance * pct) / 100;
+              return (
+                <button
+                  key={pct}
+                  onClick={() => handleQuickSell(pct)}
+                  className="flex flex-col items-center gap-0.5 py-2.5 rounded-lg border border-red/20 bg-red/5 hover:bg-red hover:border-red text-red hover:text-bg transition-colors group"
+                >
+                  <span className="text-sm font-bold">{pct}%</span>
+                  <span className="text-[10px] font-semibold text-red/70 group-hover:text-bg/70 truncate w-full text-center px-1">
+                    {amt < 0.0001 ? '<0.0001' : amt.toLocaleString('en-US', { maximumFractionDigits: 4 })} {token.symbol}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

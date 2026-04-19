@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useActivePublicKey } from '../store/walletStore';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { usePrice } from '../hooks/usePrice';
@@ -8,8 +9,14 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { TokenLogo } from '../components/ui/TokenLogo';
+import { TokenInfoPanel } from '../components/panels/TokenInfoPanel';
 import { formatUsd, formatUsdCompact } from '../utils/format';
 import { MINTS } from '../config/constants';
+import type { TokenInfo } from '../hooks/useTokenSearch';
+
+interface SelectedToken extends TokenInfo {
+  balance: number;
+}
 
 const TYPE_VARIANT: Record<string, 'green' | 'blue' | 'orange' | 'purple' | 'muted'> = {
   trade: 'green',
@@ -21,6 +28,11 @@ const TYPE_VARIANT: Record<string, 'green' | 'blue' | 'orange' | 'purple' | 'mut
 
 export function PortfolioPage() {
   const pubkey = useActivePublicKey();
+  const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
+
+  function toggleToken(token: SelectedToken) {
+    setSelectedToken(prev => prev?.address === token.address ? null : token);
+  }
   const { data: portfolio, isLoading: portfolioLoading, isError: portfolioError, refetch: refetchPortfolio } = usePortfolio(pubkey);
   const { data: solBalance } = useSolBalance(pubkey);
   const { data: tokenBalances } = useTokenBalances(pubkey);
@@ -87,50 +99,95 @@ export function PortfolioPage() {
           </div>
 
           {/* Token holdings */}
-          <Card>
-            <CardHeader title="Token Holdings" subtitle={`${(tokenBalances?.length ?? 0) + 1} assets`} />
-            <CardBody className="p-0">
-              {/* SOL */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center">
-                    <span className="text-sm font-bold text-purple">◎</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-text">SOL</p>
-                    <p className="text-xs text-text-dim">Native Solana</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-text">{solUi?.toFixed(4) ?? '—'} SOL</p>
-                  {solUsd !== null && <p className="text-xs text-text-dim">{formatUsd(solUsd)}</p>}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <Card>
+                <CardHeader title="Token Holdings" subtitle={`${(tokenBalances?.length ?? 0) + 1} assets`} />
+                <CardBody className="p-0">
+                  {/* SOL */}
+                  {(() => {
+                    const solToken: SelectedToken = {
+                      address: MINTS.SOL,
+                      name: 'Solana',
+                      symbol: 'SOL',
+                      decimals: 9,
+                      logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
+                      balance: solUi ?? 0,
+                    };
+                    const isSelected = selectedToken?.address === MINTS.SOL;
+                    return (
+                      <div
+                        onClick={() => toggleToken(solToken)}
+                        className={`flex items-center justify-between px-4 py-3 border-b border-border cursor-pointer transition-colors ${isSelected ? 'bg-green/5 border-l-2 border-l-green' : 'hover:bg-surface-2'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center shrink-0">
+                            <span className="text-sm font-bold text-purple">◎</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-text">SOL</p>
+                            <p className="text-xs text-text-dim">Native Solana</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-text">{solUi?.toFixed(4) ?? '—'} SOL</p>
+                          {solUsd !== null && <p className="text-xs text-text-dim">{formatUsd(solUsd)}</p>}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {/* SPL tokens */}
+                  {(tokenBalances ?? []).map((b) => {
+                    const meta = tokenMeta[b.mint];
+                    const p = prices?.[b.mint]?.usdPrice ?? null;
+                    const usd = p && b.uiAmount ? p * b.uiAmount : null;
+                    const displaySymbol = meta?.symbol ?? b.mint.slice(0, 4) + '…';
+                    const displayName = meta?.name ?? b.mint.slice(0, 8) + '…';
+                    const isSelected = selectedToken?.address === b.mint;
+                    const splToken: SelectedToken = {
+                      address: b.mint,
+                      name: displayName,
+                      symbol: displaySymbol,
+                      decimals: b.decimals,
+                      logoURI: meta?.logoURI,
+                      balance: b.uiAmount ?? 0,
+                    };
+                    return (
+                      <div
+                        key={b.mint}
+                        onClick={() => toggleToken(splToken)}
+                        className={`flex items-center justify-between px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors ${isSelected ? 'bg-green/5 border-l-2 border-l-green' : 'hover:bg-surface-2'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <TokenLogo mint={b.mint} symbol={displaySymbol} logoURI={meta?.logoURI} size="lg" />
+                          <div>
+                            <p className="text-sm font-medium text-text">{displaySymbol}</p>
+                            <p className="text-xs text-text-dim">{displayName}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-text">{b.uiAmount?.toLocaleString('en-US', { maximumFractionDigits: 4 })} {displaySymbol}</p>
+                          {usd !== null && <p className="text-xs text-text-dim">{formatUsd(usd)}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardBody>
+              </Card>
+            </div>
+
+            {/* Token detail panel */}
+            {selectedToken && (
+              <div className="w-full lg:w-[340px] shrink-0">
+                <div className="bg-surface border border-border rounded-xl p-4 sticky top-4">
+                  <TokenInfoPanel
+                    token={selectedToken}
+                    quickSell={selectedToken.balance > 0 ? { balance: selectedToken.balance, decimals: selectedToken.decimals } : undefined}
+                  />
                 </div>
               </div>
-              {/* SPL tokens */}
-              {(tokenBalances ?? []).map((b) => {
-                const meta = tokenMeta[b.mint];
-                const p = prices?.[b.mint]?.usdPrice ?? null;
-                const usd = p && b.uiAmount ? p * b.uiAmount : null;
-                const displaySymbol = meta?.symbol ?? b.mint.slice(0, 4) + '…';
-                const displayName = meta?.name ?? b.mint.slice(0, 8) + '…';
-                return (
-                  <div key={b.mint} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0">
-                    <div className="flex items-center gap-3">
-                      <TokenLogo mint={b.mint} symbol={displaySymbol} logoURI={meta?.logoURI} size="lg" />
-                      <div>
-                        <p className="text-sm font-medium text-text">{displaySymbol}</p>
-                        <p className="text-xs text-text-dim">{displayName}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-text">{b.uiAmount?.toLocaleString('en-US', { maximumFractionDigits: 4 })} {displaySymbol}</p>
-                      {usd !== null && <p className="text-xs text-text-dim">{formatUsd(usd)}</p>}
-                    </div>
-                  </div>
-                );
-              })}
-            </CardBody>
-          </Card>
+            )}
+          </div>
 
           {/* Jupiter DeFi positions */}
           <Card>

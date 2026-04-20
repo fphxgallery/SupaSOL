@@ -132,11 +132,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable "${BACKEND_SERVICE}"
 sudo systemctl restart "${BACKEND_SERVICE}"
 
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
 log ""
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 log "  SupaSOL installed successfully!"
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "  ${BLUE}Frontend:${NC} http://localhost"
-echo -e "  ${BLUE}Backend:${NC}  http://localhost:${BACKEND_PORT}/health"
+echo -e "  ${BLUE}Frontend:${NC} http://${SERVER_IP}"
+echo -e "  ${BLUE}Backend:${NC}  http://${SERVER_IP}:${BACKEND_PORT}/health"
 echo -e "  ${BLUE}Service:${NC}  sudo systemctl status ${BACKEND_SERVICE}"
 log ""

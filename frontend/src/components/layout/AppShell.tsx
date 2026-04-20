@@ -4,10 +4,12 @@ import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
 import { ToastContainer } from '../ui/Toast';
 import { useUiStore } from '../../store/uiStore';
+import { useTradingBot } from '../../hooks/useTradingBot';
 
 export function AppShell() {
   const location = useLocation();
   const closeMobileSidebar = useUiStore((s) => s.closeMobileSidebar);
+  useTradingBot();
 
   // Close mobile sidebar on route change
   useEffect(() => {

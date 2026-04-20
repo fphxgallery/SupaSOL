@@ -129,7 +129,7 @@ export function CloseEmptyAccountsModal({ open, onClose, accounts, ownerPubkey }
             onClick={handleClose}
             disabled={selected.size === 0 || closing}
           >
-            {closing ? 'Closing…' : `Close ${selected.size > 0 ? selected.size : ''} Account${selected.size !== 1 ? 's' : ''}`}
+            {closing ? 'Closing…' : selected.size > 0 ? `Close ${selected.size} Account${selected.size !== 1 ? 's' : ''}` : 'Close Accounts'}
           </Button>
         </div>
       </div>

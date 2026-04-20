@@ -4,6 +4,7 @@ import { useUiStore } from '../../store/uiStore';
 const navItems = [
   { to: '/',           label: 'Dashboard',   icon: '⊞', exact: true },
   { to: '/trending',   label: 'Trending',     icon: '🔥' },
+  { to: '/bot',        label: 'Auto Trader',  icon: '⚡' },
   { to: '/swap',       label: 'Swap',         icon: '⇌' },
   { to: '/lend',       label: 'Lend / Earn',  icon: '%' },
   { to: '/trigger',    label: 'Limit Orders', icon: '⊕' },

@@ -8,6 +8,9 @@ import { Button } from '../ui/Button';
 import { TokenLogo } from '../ui/TokenLogo';
 import { CreateWalletModal } from '../wallet/CreateWalletModal';
 import { ImportWalletModal } from '../wallet/ImportWalletModal';
+import { SaveToVaultModal, UnlockVaultModal } from '../wallet/VaultModal';
+import { useVaultStatus } from '../../hooks/useVaultStatus';
+import type { VaultData } from '../../api/vault';
 
 function TokenSearchBar() {
   const navigate = useNavigate();
@@ -116,6 +119,9 @@ export function TopNav() {
   const [showCreate, setShowCreate]         = useState(false);
   const [showImport, setShowImport]         = useState(false);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
+  const [showSaveVault, setShowSaveVault]   = useState(false);
+  const [showUnlock, setShowUnlock]         = useState(false);
+  const { data: vaultStatus, isLoading: vaultLoading } = useVaultStatus();
 
   function copyAddress() {
     if (!pubkey) return;
@@ -170,6 +176,12 @@ export function TopNav() {
                   >
                     View on Solscan ↗
                   </a>
+                  <button
+                    onClick={() => { setShowSaveVault(true); setShowWalletMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-2 transition-colors"
+                  >
+                    Save to Vault
+                  </button>
                   <hr className="border-border my-1" />
                   <button
                     onClick={() => { clearKeypair(); setShowWalletMenu(false); }}
@@ -182,12 +194,25 @@ export function TopNav() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>
-                Import
-              </Button>
-              <Button size="sm" onClick={() => setShowCreate(true)}>
-                Create Wallet
-              </Button>
+              {!vaultLoading && vaultStatus?.exists ? (
+                <>
+                  <Button variant="primary" size="sm" onClick={() => setShowUnlock(true)}>
+                    Unlock Wallet
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>
+                    Other…
+                  </Button>
+                </>
+              ) : !vaultLoading ? (
+                <>
+                  <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>
+                    Import
+                  </Button>
+                  <Button size="sm" onClick={() => setShowCreate(true)}>
+                    Create Wallet
+                  </Button>
+                </>
+              ) : null}
             </div>
           )}
         </div>
@@ -195,6 +220,14 @@ export function TopNav() {
 
       <CreateWalletModal open={showCreate} onClose={() => setShowCreate(false)} />
       <ImportWalletModal open={showImport} onClose={() => setShowImport(false)} />
+      <SaveToVaultModal open={showSaveVault} onClose={() => setShowSaveVault(false)} />
+      {vaultStatus?.exists && (
+        <UnlockVaultModal
+          open={showUnlock}
+          onClose={() => setShowUnlock(false)}
+          vaultData={vaultStatus as VaultData}
+        />
+      )}
     </>
   );
 }

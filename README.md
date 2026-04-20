@@ -158,14 +158,14 @@ chmod +x install.sh
 
 This script will:
 1. Install Node.js 20 and nginx (if not present)
-2. Build the frontend and copy to `/var/www/flashtradebot`
+2. Build the frontend and copy to `/var/www/supasol`
 3. Configure nginx with SPA routing and `/api/` proxy
-4. Create and enable a `flashtradebot-backend` systemd service
+4. Create and enable a `supasol-backend` systemd service
 
 After install:
 - Frontend: `http://your-server-ip`
 - Backend health: `http://your-server-ip/api/health`
-- Logs: `sudo journalctl -u flashtradebot-backend -f`
+- Logs: `sudo journalctl -u supasol-backend -f`
 
 ---
 

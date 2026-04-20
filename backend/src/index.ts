@@ -59,6 +59,6 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 app.listen(config.port, () => {
-  console.log(`[flashtradebot-backend] listening on port ${config.port}`);
-  console.log(`[flashtradebot-backend] CORS origin: ${config.frontendOrigin}`);
+  console.log(`[supasol-backend] listening on port ${config.port}`);
+  console.log(`[supasol-backend] CORS origin: ${config.frontendOrigin}`);
 });

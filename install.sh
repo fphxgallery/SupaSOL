@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FlashTradeBot — Ubuntu bare-metal installer
+# SupaSOL — Ubuntu bare-metal installer
 set -euo pipefail
 
 RED='\033[0;31m'
@@ -14,8 +14,8 @@ err()  { echo -e "${RED}[error]${NC} $*" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_PORT=4000
-FRONTEND_DIR=/var/www/flashtradebot
-BACKEND_SERVICE=flashtradebot-backend
+FRONTEND_DIR=/var/www/supasol
+BACKEND_SERVICE=supasol-backend
 
 # ── 1. Check OS ───────────────────────────────────────────────────────────────
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -73,7 +73,7 @@ log "Deploying frontend to $FRONTEND_DIR..."
 sudo mkdir -p "$FRONTEND_DIR"
 sudo cp -r "$SCRIPT_DIR/frontend/dist/." "$FRONTEND_DIR/"
 
-sudo tee /etc/nginx/sites-available/flashtradebot > /dev/null <<EOF
+sudo tee /etc/nginx/sites-available/supasol > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
@@ -101,7 +101,7 @@ server {
 }
 EOF
 
-sudo ln -sf /etc/nginx/sites-available/flashtradebot /etc/nginx/sites-enabled/flashtradebot
+sudo ln -sf /etc/nginx/sites-available/supasol /etc/nginx/sites-enabled/supasol
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 
@@ -109,7 +109,7 @@ sudo nginx -t && sudo systemctl reload nginx
 log "Installing systemd service..."
 sudo tee /etc/systemd/system/${BACKEND_SERVICE}.service > /dev/null <<EOF
 [Unit]
-Description=FlashTradeBot Backend
+Description=SupaSOL Backend
 After=network.target
 
 [Service]
@@ -134,7 +134,7 @@ sudo systemctl restart "${BACKEND_SERVICE}"
 
 log ""
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log "  FlashTradeBot installed successfully!"
+log "  SupaSOL installed successfully!"
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "  ${BLUE}Frontend:${NC} http://localhost"
 echo -e "  ${BLUE}Backend:${NC}  http://localhost:${BACKEND_PORT}/health"

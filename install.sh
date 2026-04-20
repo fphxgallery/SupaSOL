@@ -66,13 +66,14 @@ npm run build
 # ── 7. Build frontend ─────────────────────────────────────────────────────────
 log "Building frontend..."
 cd "$SCRIPT_DIR/frontend"
-VITE_API_BASE="http://localhost:${BACKEND_PORT}" npm run build
+VITE_API_BASE="" npm run build
 
 SERVER_IP=$(hostname -I | awk '{print $1}')
 
 # ── 8. Update FRONTEND_ORIGIN in .env ────────────────────────────────────────
-log "Setting FRONTEND_ORIGIN=https://${SERVER_IP} in .env..."
+log "Setting FRONTEND_ORIGIN and VITE_API_BASE to https://${SERVER_IP} in .env..."
 sed -i "s|^FRONTEND_ORIGIN=.*|FRONTEND_ORIGIN=https://${SERVER_IP}|" "$SCRIPT_DIR/.env"
+sed -i "s|^VITE_API_BASE=.*|VITE_API_BASE=|" "$SCRIPT_DIR/.env"
 
 # ── 8b. Self-signed TLS cert ──────────────────────────────────────────────────
 SSL_KEY=/etc/ssl/private/supasol.key

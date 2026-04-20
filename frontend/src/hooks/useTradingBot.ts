@@ -125,7 +125,7 @@ async function runExitLoop() {
   if (exitLoopRunning) return;
   exitLoopRunning = true;
   try {
-    const { config, positions, updatePosition, removePosition, addLog } = useBotStore.getState();
+    const { config, positions, updatePosition, removePosition, addClosedPosition, addLog } = useBotStore.getState();
     const keypair = useWalletStore.getState().keypair;
     if (!config.enabled || !keypair) return;
 
@@ -187,6 +187,24 @@ async function runExitLoop() {
         const result = await executeSwap(signed, order.requestId);
 
         if (result.status === 'Success') {
+          const solReturned = Number(result.outputAmountResult ?? order.outAmount) / 1e9;
+          const exitPrice = currentPrice;
+          addClosedPosition({
+            id: position.id,
+            mint: position.mint,
+            symbol: position.symbol,
+            entryPrice: position.entryPrice,
+            exitPrice,
+            amountSolIn: position.amountSolIn,
+            solReturned,
+            pnlSol: solReturned - position.amountSolIn,
+            pnlPct,
+            exitReason,
+            entryTime: position.entryTime,
+            exitTime: Date.now(),
+            entryTxSig: position.entryTxSig,
+            exitTxSig: result.signature,
+          });
           removePosition(position.id);
           addLog({
             type: 'sell',

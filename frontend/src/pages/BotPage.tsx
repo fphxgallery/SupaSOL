@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { formatPct, timeAgo } from '../utils/format';
 import { EXPLORER_BASE } from '../config/constants';
 import type { TrendingInterval } from '../hooks/useTrendingTokens';
+import type { ClosedPosition } from '../store/botStore';
 
 const INTERVALS: { label: string; value: TrendingInterval }[] = [
   { label: '5m', value: '5m' },
@@ -79,9 +80,88 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
   );
 }
 
+function PnlRow({ closed, onClear }: { closed: ClosedPosition[]; onClear: () => void }) {
+  const total = closed.length;
+  const wins = closed.filter((p) => p.pnlSol > 0).length;
+  const winRate = total > 0 ? (wins / total) * 100 : null;
+  const totalPnlSol = closed.reduce((s, p) => s + p.pnlSol, 0);
+  const best = total > 0 ? Math.max(...closed.map((p) => p.pnlPct)) : null;
+  const worst = total > 0 ? Math.min(...closed.map((p) => p.pnlPct)) : null;
+
+  function fmtSol(v: number) {
+    const s = (v >= 0 ? '+' : '') + v.toFixed(4);
+    return s + ' SOL';
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="PnL History"
+        subtitle={total > 0 ? `${total} closed trade${total !== 1 ? 's' : ''}` : 'No closed trades yet'}
+        action={total > 0 ? <Button variant="secondary" size="sm" onClick={onClear}>Clear</Button> : undefined}
+      />
+      <CardBody className="flex flex-col gap-4">
+        <div className="grid grid-cols-5 gap-3">
+          {[
+            { label: 'Total trades', value: total > 0 ? String(total) : '—', color: 'text-text' },
+            { label: 'Win rate', value: winRate != null ? winRate.toFixed(0) + '%' : '—', color: winRate != null ? (winRate >= 50 ? 'text-green' : 'text-red') : 'text-text-dim' },
+            { label: 'Total PnL', value: total > 0 ? fmtSol(totalPnlSol) : '—', color: total > 0 ? (totalPnlSol >= 0 ? 'text-green' : 'text-red') : 'text-text-dim' },
+            { label: 'Best trade', value: best != null ? formatPct(best) : '—', color: best != null ? 'text-green' : 'text-text-dim' },
+            { label: 'Worst trade', value: worst != null ? formatPct(worst) : '—', color: worst != null && worst < 0 ? 'text-red' : 'text-text-dim' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-surface-2 border border-border rounded-lg px-4 py-3 flex flex-col gap-1">
+              <span className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">{label}</span>
+              <span className={`text-base font-bold tabular-nums ${color}`}>{value}</span>
+            </div>
+          ))}
+        </div>
+
+        {closed.length > 0 && (
+          <div className="overflow-y-auto" style={{ maxHeight: '240px' }}>
+            <div className="divide-y divide-border/40">
+              <div className="grid grid-cols-[1fr_90px_90px_80px_80px_1fr_80px] gap-x-3 px-3 py-2 text-[10px] font-semibold text-text-dim uppercase tracking-wide">
+                <span>Token</span>
+                <span className="text-right">Entry</span>
+                <span className="text-right">Exit</span>
+                <span className="text-right">SOL in</span>
+                <span className="text-right">SOL out</span>
+                <span>Reason</span>
+                <span className="text-right">PnL</span>
+              </div>
+              {closed.map((p) => {
+                function fmtPrice(v: number) {
+                  if (v >= 1) return '$' + v.toFixed(4);
+                  const d = Math.max(2, -Math.floor(Math.log10(v)) + 2);
+                  return '$' + v.toFixed(Math.min(d, 10));
+                }
+                return (
+                  <div key={p.id} className="grid grid-cols-[1fr_90px_90px_80px_80px_1fr_80px] gap-x-3 px-3 py-2.5 items-center">
+                    <div>
+                      <p className="text-sm font-semibold text-text">{p.symbol}</p>
+                      <p className="text-[10px] text-text-dim">{timeAgo(p.exitTime)}</p>
+                    </div>
+                    <span className="text-xs text-text-dim text-right font-mono tabular-nums">{fmtPrice(p.entryPrice)}</span>
+                    <span className="text-xs text-text-dim text-right font-mono tabular-nums">{fmtPrice(p.exitPrice)}</span>
+                    <span className="text-xs text-text-dim text-right font-mono tabular-nums">{p.amountSolIn.toFixed(3)}</span>
+                    <span className="text-xs text-right font-mono tabular-nums text-text">{p.solReturned.toFixed(4)}</span>
+                    <span className="text-xs text-text-dim truncate">{p.exitReason}</span>
+                    <span className={`text-xs text-right font-mono tabular-nums font-semibold ${p.pnlPct >= 0 ? 'text-green' : 'text-red'}`}>
+                      {formatPct(p.pnlPct)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export function BotPage() {
   const pubkey = useActivePublicKey();
-  const { config, positions, log, updateConfig, removePosition, clearLog } = useBotStore();
+  const { config, positions, closedPositions, log, updateConfig, removePosition, clearLog, clearHistory } = useBotStore();
 
   const openPositions = positions.filter((p) => p.status === 'open' || p.status === 'closing');
   const positionMints = openPositions.map((p) => p.mint);
@@ -124,6 +204,8 @@ export function BotPage() {
           </CardBody>
         </Card>
       )}
+
+      <PnlRow closed={closedPositions} onClear={clearHistory} />
 
       <div className="grid grid-cols-3 gap-4 items-start">
         {/* Col 1: Entry + Exit stacked */}

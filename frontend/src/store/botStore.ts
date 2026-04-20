@@ -46,6 +46,23 @@ export interface BotLogEntry {
   txSig?: string;
 }
 
+export interface ClosedPosition {
+  id: string;
+  mint: string;
+  symbol: string;
+  entryPrice: number;
+  exitPrice: number;
+  amountSolIn: number;
+  solReturned: number;
+  pnlSol: number;
+  pnlPct: number;
+  exitReason: string;
+  entryTime: number;
+  exitTime: number;
+  entryTxSig: string;
+  exitTxSig?: string;
+}
+
 const DEFAULT_CONFIG: BotConfig = {
   enabled: false,
   interval: '5m',
@@ -70,11 +87,14 @@ const DEFAULT_CONFIG: BotConfig = {
 interface BotState {
   config: BotConfig;
   positions: BotPosition[];
+  closedPositions: ClosedPosition[];
   log: BotLogEntry[];
   updateConfig: (updates: Partial<BotConfig>) => void;
   addPosition: (pos: BotPosition) => void;
   updatePosition: (id: string, updates: Partial<BotPosition>) => void;
   removePosition: (id: string) => void;
+  addClosedPosition: (pos: ClosedPosition) => void;
+  clearHistory: () => void;
   addLog: (entry: Omit<BotLogEntry, 'id' | 'time'>) => void;
   clearLog: () => void;
 }
@@ -84,6 +104,7 @@ export const useBotStore = create<BotState>()(
     (set) => ({
       config: DEFAULT_CONFIG,
       positions: [],
+      closedPositions: [],
       log: [],
       updateConfig: (updates) =>
         set((s) => ({ config: { ...s.config, ...updates } })),
@@ -95,6 +116,9 @@ export const useBotStore = create<BotState>()(
         })),
       removePosition: (id) =>
         set((s) => ({ positions: s.positions.filter((p) => p.id !== id) })),
+      addClosedPosition: (pos) =>
+        set((s) => ({ closedPositions: [pos, ...s.closedPositions].slice(0, 500) })),
+      clearHistory: () => set({ closedPositions: [] }),
       addLog: (entry) =>
         set((s) => ({
           log: [{ ...entry, id: crypto.randomUUID(), time: Date.now() }, ...s.log].slice(0, 500),

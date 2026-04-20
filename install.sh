@@ -70,7 +70,11 @@ VITE_API_BASE="http://localhost:${BACKEND_PORT}" npm run build
 
 SERVER_IP=$(hostname -I | awk '{print $1}')
 
-# ── 8. Self-signed TLS cert ───────────────────────────────────────────────────
+# ── 8. Update FRONTEND_ORIGIN in .env ────────────────────────────────────────
+log "Setting FRONTEND_ORIGIN=https://${SERVER_IP} in .env..."
+sed -i "s|^FRONTEND_ORIGIN=.*|FRONTEND_ORIGIN=https://${SERVER_IP}|" "$SCRIPT_DIR/.env"
+
+# ── 8b. Self-signed TLS cert ──────────────────────────────────────────────────
 SSL_KEY=/etc/ssl/private/supasol.key
 SSL_CERT=/etc/ssl/certs/supasol.crt
 

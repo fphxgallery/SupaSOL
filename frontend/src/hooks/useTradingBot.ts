@@ -228,6 +228,87 @@ async function runExitLoop() {
   }
 }
 
+export async function closeAllAndStop() {
+  const { config, positions, updatePosition, removePosition, addClosedPosition, addLog, updateConfig } = useBotStore.getState();
+  const keypair = useWalletStore.getState().keypair;
+
+  // Disable immediately so entry loop won't fire new buys
+  updateConfig({ enabled: false });
+
+  const openPositions = positions.filter((p) => p.status === 'open');
+  if (openPositions.length === 0 || !keypair) return;
+
+  addLog({ type: 'info', message: `Bot stopped — closing ${openPositions.length} position${openPositions.length !== 1 ? 's' : ''}` });
+
+  let prices: Awaited<ReturnType<typeof fetchPrices>>;
+  try {
+    prices = await fetchPrices(openPositions.map((p) => p.mint));
+  } catch {
+    addLog({ type: 'error', message: 'Failed to fetch prices for close-all' });
+    return;
+  }
+
+  const pubkey = keypair.publicKey.toBase58();
+
+  for (const position of openPositions) {
+    const currentPrice = prices[position.mint]?.usdPrice ?? position.entryPrice;
+    const pnlPct = ((currentPrice - position.entryPrice) / position.entryPrice) * 100;
+    const exitReason = 'bot stopped';
+
+    updatePosition(position.id, { status: 'closing' });
+
+    try {
+      const order = await getSwapOrder({
+        inputMint: position.mint,
+        outputMint: MINTS.SOL,
+        amount: position.tokenAmountOut,
+        userPublicKey: pubkey,
+        slippageBps: config.slippageBps,
+        swapMode: 'ExactIn',
+      });
+
+      const txBytes = Buffer.from(order.transaction, 'base64');
+      const tx = VersionedTransaction.deserialize(txBytes);
+      tx.sign([keypair]);
+      const signed = Buffer.from(tx.serialize()).toString('base64');
+
+      const result = await executeSwap(signed, order.requestId);
+
+      if (result.status === 'Success') {
+        const solReturned = Number(result.outputAmountResult ?? order.outAmount) / 1e9;
+        addClosedPosition({
+          id: position.id,
+          mint: position.mint,
+          symbol: position.symbol,
+          entryPrice: position.entryPrice,
+          exitPrice: currentPrice,
+          amountSolIn: position.amountSolIn,
+          solReturned,
+          pnlSol: solReturned - position.amountSolIn,
+          pnlPct,
+          exitReason,
+          entryTime: position.entryTime,
+          exitTime: Date.now(),
+          entryTxSig: position.entryTxSig,
+          exitTxSig: result.signature,
+        });
+        removePosition(position.id);
+        addLog({
+          type: 'sell',
+          message: `Sold ${position.symbol} — ${exitReason} — P&L: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`,
+          txSig: result.signature,
+        });
+      } else {
+        updatePosition(position.id, { status: 'open' });
+        addLog({ type: 'error', message: `Sell ${position.symbol} failed: ${result.error ?? 'unknown'}` });
+      }
+    } catch (err) {
+      updatePosition(position.id, { status: 'open' });
+      addLog({ type: 'error', message: `Sell ${position.symbol} error: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  }
+}
+
 export function useTradingBot() {
   const enabled = useBotStore((s) => s.config.enabled);
   const pollIntervalMs = useBotStore((s) => s.config.pollIntervalMs);

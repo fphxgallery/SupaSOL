@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useBotStore } from '../store/botStore';
 import { useActivePublicKey } from '../store/walletStore';
 import { usePrice } from '../hooks/usePrice';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { PnlChart } from '../components/charts/PnlChart';
 import { formatPct, timeAgo } from '../utils/format';
 import { EXPLORER_BASE } from '../config/constants';
+import { closeAllAndStop } from '../hooks/useTradingBot';
 import type { TrendingInterval } from '../hooks/useTrendingTokens';
 import type { ClosedPosition } from '../store/botStore';
 
@@ -116,44 +119,7 @@ function PnlRow({ closed, onClear }: { closed: ClosedPosition[]; onClear: () => 
           ))}
         </div>
 
-        {closed.length > 0 && (
-          <div className="overflow-y-auto" style={{ maxHeight: '240px' }}>
-            <div className="divide-y divide-border/40">
-              <div className="grid grid-cols-[1fr_90px_90px_80px_80px_1fr_80px] gap-x-3 px-3 py-2 text-[10px] font-semibold text-text-dim uppercase tracking-wide">
-                <span>Token</span>
-                <span className="text-right">Entry</span>
-                <span className="text-right">Exit</span>
-                <span className="text-right">SOL in</span>
-                <span className="text-right">SOL out</span>
-                <span>Reason</span>
-                <span className="text-right">PnL</span>
-              </div>
-              {closed.map((p) => {
-                function fmtPrice(v: number) {
-                  if (v >= 1) return '$' + v.toFixed(4);
-                  const d = Math.max(2, -Math.floor(Math.log10(v)) + 2);
-                  return '$' + v.toFixed(Math.min(d, 10));
-                }
-                return (
-                  <div key={p.id} className="grid grid-cols-[1fr_90px_90px_80px_80px_1fr_80px] gap-x-3 px-3 py-2.5 items-center">
-                    <div>
-                      <p className="text-sm font-semibold text-text">{p.symbol}</p>
-                      <p className="text-[10px] text-text-dim">{timeAgo(p.exitTime)}</p>
-                    </div>
-                    <span className="text-xs text-text-dim text-right font-mono tabular-nums">{fmtPrice(p.entryPrice)}</span>
-                    <span className="text-xs text-text-dim text-right font-mono tabular-nums">{fmtPrice(p.exitPrice)}</span>
-                    <span className="text-xs text-text-dim text-right font-mono tabular-nums">{p.amountSolIn.toFixed(3)}</span>
-                    <span className="text-xs text-right font-mono tabular-nums text-text">{p.solReturned.toFixed(4)}</span>
-                    <span className="text-xs text-text-dim truncate">{p.exitReason}</span>
-                    <span className={`text-xs text-right font-mono tabular-nums font-semibold ${p.pnlPct >= 0 ? 'text-green' : 'text-red'}`}>
-                      {formatPct(p.pnlPct)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <PnlChart closed={closed} height={180} />
       </CardBody>
     </Card>
   );
@@ -162,14 +128,21 @@ function PnlRow({ closed, onClear }: { closed: ClosedPosition[]; onClear: () => 
 export function BotPage() {
   const pubkey = useActivePublicKey();
   const { config, positions, closedPositions, log, updateConfig, removePosition, clearLog, clearHistory } = useBotStore();
+  const [stopping, setStopping] = useState(false);
 
   const openPositions = positions.filter((p) => p.status === 'open' || p.status === 'closing');
   const positionMints = openPositions.map((p) => p.mint);
   const { data: prices } = usePrice(positionMints.length > 0 ? positionMints : ['']);
 
-  function toggle() {
+  async function toggle() {
     if (!pubkey) return;
-    updateConfig({ enabled: !config.enabled });
+    if (config.enabled) {
+      setStopping(true);
+      await closeAllAndStop();
+      setStopping(false);
+    } else {
+      updateConfig({ enabled: true });
+    }
   }
 
   const isRunning = config.enabled && !!pubkey;
@@ -182,17 +155,17 @@ export function BotPage() {
           <p className="text-xs text-text-dim">Buys trending tokens automatically. Sells via trailing stop.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-1.5 text-xs font-semibold ${isRunning ? 'text-green' : 'text-text-dim'}`}>
-            <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-green animate-pulse' : 'bg-text-dim/40'}`} />
-            {isRunning ? 'Running' : 'Stopped'}
+          <div className={`flex items-center gap-1.5 text-xs font-semibold ${stopping ? 'text-orange' : isRunning ? 'text-green' : 'text-text-dim'}`}>
+            <span className={`w-2 h-2 rounded-full ${stopping ? 'bg-orange animate-pulse' : isRunning ? 'bg-green animate-pulse' : 'bg-text-dim/40'}`} />
+            {stopping ? 'Stopping' : isRunning ? 'Running' : 'Stopped'}
           </div>
           <Button
             variant={isRunning ? 'secondary' : 'primary'}
             size="sm"
             onClick={toggle}
-            disabled={!pubkey}
+            disabled={!pubkey || stopping}
           >
-            {isRunning ? 'Stop Bot' : 'Start Bot'}
+            {stopping ? 'Closing…' : isRunning ? 'Stop Bot' : 'Start Bot'}
           </Button>
         </div>
       </div>

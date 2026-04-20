@@ -10,6 +10,7 @@ export interface BotConfig {
   maxPositions: number;
   minOrganicScore: number;
   minPriceChangePct: number;
+  maxPriceChangePct: number; // 0 = unlimited
   minOrganicBuyers: number;
   mcapMin: number;
   mcapMax: number; // 0 = unlimited
@@ -71,6 +72,7 @@ const DEFAULT_CONFIG: BotConfig = {
   maxPositions: 3,
   minOrganicScore: 70,
   minPriceChangePct: 5,
+  maxPriceChangePct: 0,
   minOrganicBuyers: 3,
   mcapMin: 0,
   mcapMax: 10_000_000,

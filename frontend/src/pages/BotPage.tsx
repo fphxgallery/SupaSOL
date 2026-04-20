@@ -216,7 +216,19 @@ export function BotPage() {
                 <Num label="Buy amount" value={config.buyAmountSol} onChange={(v) => updateConfig({ buyAmountSol: v })} min={0.001} step={0.01} suffix="SOL" />
                 <Num label="Max positions" value={config.maxPositions} onChange={(v) => updateConfig({ maxPositions: v })} min={1} max={20} />
                 <Num label="Min score" value={config.minOrganicScore} onChange={(v) => updateConfig({ minOrganicScore: v })} min={0} max={100} />
-                <Num label="Min price chg" value={config.minPriceChangePct} onChange={(v) => updateConfig({ minPriceChangePct: v })} min={0} step={0.5} suffix="%" />
+                <div className="col-span-2 flex flex-col gap-1">
+                  <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Price chg range</label>
+                  <div className="flex items-center gap-1.5">
+                    <input type="number" value={config.minPriceChangePct} min={0} step={0.5}
+                      onChange={(e) => updateConfig({ minPriceChangePct: Number(e.target.value) })}
+                      className="w-full bg-surface-2 border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" />
+                    <span className="text-xs text-text-dim shrink-0">—</span>
+                    <input type="number" value={config.maxPriceChangePct} min={0} step={0.5}
+                      onChange={(e) => updateConfig({ maxPriceChangePct: Number(e.target.value) })}
+                      className="w-full bg-surface-2 border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" />
+                    <span className="text-xs text-text-dim shrink-0">% (0=∞)</span>
+                  </div>
+                </div>
                 <Num label="Min org buyers" value={config.minOrganicBuyers} onChange={(v) => updateConfig({ minOrganicBuyers: v })} min={0} />
                 <Num label="Max price impact" value={config.maxPriceImpactPct} onChange={(v) => updateConfig({ maxPriceImpactPct: v })} min={0} step={0.5} suffix="%" />
                 <Num label="Mcap min" value={config.mcapMin} onChange={(v) => updateConfig({ mcapMin: v })} min={0} step={100_000} suffix="$" />

@@ -49,7 +49,9 @@ async function runEntryLoop() {
 
       const stats = token.stats[config.interval];
       if (!stats) continue;
-      if ((stats.priceChange ?? -Infinity) < config.minPriceChangePct) continue;
+      const priceChange = stats.priceChange ?? -Infinity;
+      if (priceChange < config.minPriceChangePct) continue;
+      if (config.maxPriceChangePct > 0 && priceChange > config.maxPriceChangePct) continue;
       if ((stats.numOrganicBuyers ?? 0) < config.minOrganicBuyers) continue;
 
       try {

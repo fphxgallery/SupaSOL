@@ -68,7 +68,23 @@ log "Building frontend..."
 cd "$SCRIPT_DIR/frontend"
 VITE_API_BASE="http://localhost:${BACKEND_PORT}" npm run build
 
-# ── 8. Deploy frontend to nginx ───────────────────────────────────────────────
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
+# ── 8. Self-signed TLS cert ───────────────────────────────────────────────────
+SSL_KEY=/etc/ssl/private/supasol.key
+SSL_CERT=/etc/ssl/certs/supasol.crt
+
+if [[ ! -f "$SSL_CERT" ]]; then
+  log "Generating self-signed TLS certificate for ${SERVER_IP}..."
+  sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout "$SSL_KEY" \
+    -out "$SSL_CERT" \
+    -subj "/CN=${SERVER_IP}"
+else
+  log "TLS certificate already exists, skipping."
+fi
+
+# ── 9. Deploy frontend to nginx ───────────────────────────────────────────────
 log "Deploying frontend to $FRONTEND_DIR..."
 sudo mkdir -p "$FRONTEND_DIR"
 sudo cp -r "$SCRIPT_DIR/frontend/dist/." "$FRONTEND_DIR/"
@@ -77,8 +93,19 @@ sudo tee /etc/nginx/sites-available/supasol > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name _;
     root $FRONTEND_DIR;
     index index.html;
+
+    ssl_certificate     $SSL_CERT;
+    ssl_certificate_key $SSL_KEY;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
 
     add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -105,7 +132,7 @@ sudo ln -sf /etc/nginx/sites-available/supasol /etc/nginx/sites-enabled/supasol
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 
-# ── 9. systemd service for backend ───────────────────────────────────────────
+# ── 10. systemd service for backend ──────────────────────────────────────────
 log "Installing systemd service..."
 sudo tee /etc/systemd/system/${BACKEND_SERVICE}.service > /dev/null <<EOF
 [Unit]
@@ -121,7 +148,7 @@ Restart=on-failure
 RestartSec=5
 Environment=NODE_ENV=production
 Environment=PORT=${BACKEND_PORT}
-Environment=FRONTEND_ORIGIN=http://localhost
+Environment=FRONTEND_ORIGIN=https://${SERVER_IP}
 EnvironmentFile=$SCRIPT_DIR/.env
 
 [Install]
@@ -132,13 +159,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable "${BACKEND_SERVICE}"
 sudo systemctl restart "${BACKEND_SERVICE}"
 
-SERVER_IP=$(hostname -I | awk '{print $1}')
-
 log ""
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 log "  SupaSOL installed successfully!"
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "  ${BLUE}Frontend:${NC} http://${SERVER_IP}"
+warn "Self-signed cert: browser will show a security warning — click Advanced → Proceed."
+echo -e "  ${BLUE}Frontend:${NC} https://${SERVER_IP}"
 echo -e "  ${BLUE}Backend:${NC}  http://${SERVER_IP}:${BACKEND_PORT}/health"
 echo -e "  ${BLUE}Service:${NC}  sudo systemctl status ${BACKEND_SERVICE}"
 log ""

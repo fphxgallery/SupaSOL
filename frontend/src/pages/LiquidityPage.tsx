@@ -169,6 +169,10 @@ export function LiquidityPage() {
   const pools = useMemo(() => {
     let list = poolsResp?.data ?? [];
 
+    if (minTvl > 0) {
+      list = list.filter(p => (p.tvl ?? 0) >= minTvl);
+    }
+
     if (minTvl > 0 || sortKey === 'apr') {
       list = [...list].sort((a, b) => {
         let av = 0, bv = 0;

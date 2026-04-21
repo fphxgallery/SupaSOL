@@ -200,7 +200,7 @@ export function TopNav() {
                     Unlock Wallet
                   </Button>
                   <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>
-                    Other…
+                    Import
                   </Button>
                 </>
               ) : !vaultLoading ? (

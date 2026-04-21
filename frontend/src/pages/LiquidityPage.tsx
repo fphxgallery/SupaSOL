@@ -146,6 +146,7 @@ export function LiquidityPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [tvlMinInput, setTvlMinInput] = useState('25k');
   const [tvlMaxInput, setTvlMaxInput] = useState('');
+  const [binStepInput, setBinStepInput] = useState('100');
   const [selectedPool, setSelectedPool] = useState<MeteoraPairInfo | null>(null);
   const [addLiquidityPool, setAddLiquidityPool] = useState<MeteoraPairInfo | null>(null);
 
@@ -159,7 +160,7 @@ export function LiquidityPage() {
   const serverSortKey = hasMinTvl ? 'tvl' : sortKey;
   const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : sortDir;
 
-  const { data: poolsResp, isLoading: poolsLoading } = usePools({
+  const { data: poolsResp, isLoading: poolsLoading, refetch: refetchPools } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
@@ -179,6 +180,8 @@ export function LiquidityPage() {
 
     if (!isNaN(minTvl)) list = list.filter(p => (p.tvl ?? 0) >= minTvl);
     if (!isNaN(maxTvl)) list = list.filter(p => (p.tvl ?? 0) <= maxTvl);
+    const binStepVal = parseInt(binStepInput, 10);
+    if (!isNaN(binStepVal)) list = list.filter(p => p.pool_config?.bin_step === binStepVal);
 
     if (hasMinTvl || sortKey === 'apr') {
       list = [...list].sort((a, b) => {
@@ -192,7 +195,7 @@ export function LiquidityPage() {
     }
 
     return list;
-  }, [poolsResp, minTvl, maxTvl, hasMinTvl, sortKey, sortDir]);
+  }, [poolsResp, minTvl, maxTvl, hasMinTvl, binStepInput, sortKey, sortDir]);
 
   const posCount = positions?.length ?? 0;
   const hasClaimable = positions?.some(p => hasFees(p)) ?? false;
@@ -208,7 +211,7 @@ export function LiquidityPage() {
     for (const poolAddress of pools) claimRewards({ poolAddress, ownerAddress: pubkey });
   }
 
-  const filtersActive = tvlMinInput !== '' || tvlMaxInput !== '' || sortKey !== 'feetvl';
+  const filtersActive = tvlMinInput !== '' || tvlMaxInput !== '' || binStepInput !== '' || sortKey !== 'feetvl';
 
   // ── No wallet ──────────────────────────────────────────────────────────────
   if (!pubkey && tab === 'positions') {
@@ -324,9 +327,26 @@ export function LiquidityPage() {
                 className="w-28 px-2 py-0.5 text-[11px] bg-surface-2 border border-border rounded-md text-text placeholder:text-text-dim/50 focus:outline-none focus:border-green/50"
               />
             </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-text-dim uppercase tracking-wide font-semibold shrink-0">Step</span>
+              <input
+                type="text"
+                placeholder="Any"
+                value={binStepInput}
+                onChange={e => setBinStepInput(e.target.value)}
+                className="w-16 px-2 py-0.5 text-[11px] bg-surface-2 border border-border rounded-md text-text placeholder:text-text-dim/50 focus:outline-none focus:border-green/50"
+              />
+            </div>
+            <button
+              onClick={() => refetchPools()}
+              disabled={poolsLoading}
+              className="px-2.5 py-0.5 text-[11px] font-semibold rounded-md bg-green/20 text-green hover:bg-green/30 transition-colors disabled:opacity-50"
+            >
+              {poolsLoading ? 'Scanning…' : 'Scan'}
+            </button>
             {filtersActive && (
               <button
-                onClick={() => { setTvlMinInput(''); setTvlMaxInput(''); setSortKey('feetvl'); setSortDir('desc'); }}
+                onClick={() => { setTvlMinInput('25k'); setTvlMaxInput(''); setBinStepInput('100'); setSortKey('feetvl'); setSortDir('desc'); }}
                 className="text-[10px] text-text-dim hover:text-red transition-colors"
               >
                 Reset

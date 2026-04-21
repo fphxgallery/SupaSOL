@@ -162,12 +162,17 @@ export function LiquidityPage() {
   const maxTvl = parseTvlInput(committed.tvlMax);
 
   const hasMinTvl = !isNaN(minTvl);
+  // Meteora only honours min_tvl with tvl:desc. Always fetch that way when min is set,
+  // then sort the qualifying pool universe client-side by the user's chosen key.
+  const serverSortKey = hasMinTvl ? 'tvl' : committed.sortKey;
+  const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : committed.sortDir;
+
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
-    sortKey: committed.sortKey,
-    orderBy: committed.sortDir,
+    sortKey: serverSortKey,
+    orderBy: serverSortDir,
     minTvl: hasMinTvl ? minTvl : undefined,
   });
 
@@ -185,7 +190,7 @@ export function LiquidityPage() {
     const binStepVal = parseInt(committed.binStep, 10);
     if (!isNaN(binStepVal)) list = list.filter(p => (p.pool_config?.bin_step ?? 0) >= binStepVal);
 
-    if (committed.sortKey === 'apr') {
+    if (hasMinTvl || committed.sortKey === 'apr') {
       list = [...list].sort((a, b) => {
         let av = 0, bv = 0;
         if (committed.sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0); bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
@@ -197,7 +202,7 @@ export function LiquidityPage() {
     }
 
     return list;
-  }, [poolsResp, minTvl, maxTvl, committed]);
+  }, [poolsResp, minTvl, maxTvl, hasMinTvl, committed]);
 
   const posCount = positions?.length ?? 0;
   const hasClaimable = positions?.some(p => hasFees(p)) ?? false;

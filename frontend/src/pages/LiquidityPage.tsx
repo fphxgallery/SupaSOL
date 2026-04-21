@@ -161,19 +161,14 @@ export function LiquidityPage() {
   const minTvl = parseTvlInput(committed.tvlMin);
   const maxTvl = parseTvlInput(committed.tvlMax);
 
-  const hasMinTvl = !isNaN(minTvl);
-  // Meteora only honours min_tvl with tvl:desc. Always fetch that way when min is set,
-  // then sort the qualifying pool universe client-side by the user's chosen key.
-  const serverSortKey = hasMinTvl ? 'tvl' : committed.sortKey;
-  const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : committed.sortDir;
-
+  // Always send user's sort key to server. min_tvl filtered client-side only —
+  // Meteora ignores it for non-tvl sorts anyway, and forcing tvl:desc loses the right pools.
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
-    sortKey: serverSortKey,
-    orderBy: serverSortDir,
-    minTvl: hasMinTvl ? minTvl : undefined,
+    sortKey: committed.sortKey,
+    orderBy: committed.sortDir,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);
@@ -189,18 +184,9 @@ export function LiquidityPage() {
     const binStepVal = parseInt(committed.binStep, 10);
     if (!isNaN(binStepVal)) list = list.filter(p => (p.pool_config?.bin_step ?? 0) >= binStepVal);
 
-    if (hasMinTvl) {
-      list = [...list].sort((a, b) => {
-        let av = 0, bv = 0;
-        if (committed.sortKey === 'tvl')         { av = a.tvl ?? 0;                     bv = b.tvl ?? 0; }
-        else if (committed.sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;         bv = b.volume?.['24h'] ?? 0; }
-        else if (committed.sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0; bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
-        return committed.sortDir === 'desc' ? bv - av : av - bv;
-      });
-    }
 
     return list;
-  }, [poolsResp, minTvl, maxTvl, hasMinTvl, committed]);
+  }, [poolsResp, minTvl, maxTvl, committed]);
 
   const posCount = positions?.length ?? 0;
   const hasClaimable = positions?.some(p => hasFees(p)) ?? false;

@@ -150,17 +150,24 @@ export function LiquidityPage() {
   const [selectedPool, setSelectedPool] = useState<MeteoraPairInfo | null>(null);
   const [addLiquidityPool, setAddLiquidityPool] = useState<MeteoraPairInfo | null>(null);
 
+  // Committed query state — only updated when Scan is clicked
+  const [committed, setCommitted] = useState({ tvlMin: '25k', tvlMax: '', binStep: '100', sortKey: 'feetvl' as SortKey, sortDir: 'desc' as SortDir });
+
+  function handleScan() {
+    setCommitted({ tvlMin: tvlMinInput, tvlMax: tvlMaxInput, binStep: binStepInput, sortKey, sortDir });
+  }
+
   // Hooks
-  const minTvl = parseTvlInput(tvlMinInput);
-  const maxTvl = parseTvlInput(tvlMaxInput);
+  const minTvl = parseTvlInput(committed.tvlMin);
+  const maxTvl = parseTvlInput(committed.tvlMax);
 
   const hasMinTvl = !isNaN(minTvl);
   // Meteora only honours min_tvl with sort_by=tvl:desc. When min is set,
   // fetch qualifying pools server-side then sort client-side by user's key.
-  const serverSortKey = hasMinTvl ? 'tvl' : sortKey;
-  const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : sortDir;
+  const serverSortKey = hasMinTvl ? 'tvl' : committed.sortKey;
+  const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : committed.sortDir;
 
-  const { data: poolsResp, isLoading: poolsLoading, refetch: refetchPools } = usePools({
+  const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
@@ -180,22 +187,22 @@ export function LiquidityPage() {
 
     if (!isNaN(minTvl)) list = list.filter(p => (p.tvl ?? 0) >= minTvl);
     if (!isNaN(maxTvl)) list = list.filter(p => (p.tvl ?? 0) <= maxTvl);
-    const binStepVal = parseInt(binStepInput, 10);
-    if (!isNaN(binStepVal)) list = list.filter(p => p.pool_config?.bin_step === binStepVal);
+    const binStepVal = parseInt(committed.binStep, 10);
+    if (!isNaN(binStepVal)) list = list.filter(p => (p.pool_config?.bin_step ?? 0) >= binStepVal);
 
-    if (hasMinTvl || sortKey === 'apr') {
+    if (hasMinTvl || committed.sortKey === 'apr') {
       list = [...list].sort((a, b) => {
         let av = 0, bv = 0;
-        if (sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0); bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
-        else if (sortKey === 'tvl')    { av = a.tvl ?? 0;                        bv = b.tvl ?? 0; }
-        else if (sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;            bv = b.volume?.['24h'] ?? 0; }
-        else if (sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0;    bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
-        return sortDir === 'desc' ? bv - av : av - bv;
+        if (committed.sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0); bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
+        else if (committed.sortKey === 'tvl')    { av = a.tvl ?? 0;                        bv = b.tvl ?? 0; }
+        else if (committed.sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;            bv = b.volume?.['24h'] ?? 0; }
+        else if (committed.sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0;    bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
+        return committed.sortDir === 'desc' ? bv - av : av - bv;
       });
     }
 
     return list;
-  }, [poolsResp, minTvl, maxTvl, hasMinTvl, binStepInput, sortKey, sortDir]);
+  }, [poolsResp, minTvl, maxTvl, hasMinTvl, committed]);
 
   const posCount = positions?.length ?? 0;
   const hasClaimable = positions?.some(p => hasFees(p)) ?? false;
@@ -211,7 +218,7 @@ export function LiquidityPage() {
     for (const poolAddress of pools) claimRewards({ poolAddress, ownerAddress: pubkey });
   }
 
-  const filtersActive = tvlMinInput !== '' || tvlMaxInput !== '' || binStepInput !== '' || sortKey !== 'feetvl';
+  const filtersActive = tvlMinInput !== '25k' || tvlMaxInput !== '' || binStepInput !== '100' || sortKey !== 'feetvl';
 
   // ── No wallet ──────────────────────────────────────────────────────────────
   if (!pubkey && tab === 'positions') {
@@ -338,7 +345,7 @@ export function LiquidityPage() {
               />
             </div>
             <button
-              onClick={() => refetchPools()}
+              onClick={handleScan}
               disabled={poolsLoading}
               className="px-2.5 py-0.5 text-[11px] font-semibold rounded-md bg-green/20 text-green hover:bg-green/30 transition-colors disabled:opacity-50"
             >
@@ -346,7 +353,11 @@ export function LiquidityPage() {
             </button>
             {filtersActive && (
               <button
-                onClick={() => { setTvlMinInput('25k'); setTvlMaxInput(''); setBinStepInput('100'); setSortKey('feetvl'); setSortDir('desc'); }}
+                onClick={() => {
+                  setTvlMinInput('25k'); setTvlMaxInput(''); setBinStepInput('100');
+                  setSortKey('feetvl'); setSortDir('desc');
+                  setCommitted({ tvlMin: '25k', tvlMax: '', binStep: '100', sortKey: 'feetvl', sortDir: 'desc' });
+                }}
                 className="text-[10px] text-text-dim hover:text-red transition-colors"
               >
                 Reset

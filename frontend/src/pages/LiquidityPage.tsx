@@ -153,13 +153,19 @@ export function LiquidityPage() {
   const minTvl = parseTvlInput(tvlMinInput);
   const maxTvl = parseTvlInput(tvlMaxInput);
 
+  // Meteora only honours min_tvl when sort_by=tvl:desc; force it server-side
+  // and re-sort client-side by the user's chosen key.
+  const hasMinTvl = !isNaN(minTvl);
+  const serverSortKey = hasMinTvl ? 'tvl' : sortKey;
+  const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : sortDir;
+
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
-    sortKey,
-    orderBy: sortDir,
-    minTvl: !isNaN(minTvl) ? minTvl : undefined,
+    sortKey: serverSortKey,
+    orderBy: serverSortDir,
+    minTvl: hasMinTvl ? minTvl : undefined,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);
@@ -174,16 +180,19 @@ export function LiquidityPage() {
     if (!isNaN(minTvl)) list = list.filter(p => (p.tvl ?? 0) >= minTvl);
     if (!isNaN(maxTvl)) list = list.filter(p => (p.tvl ?? 0) <= maxTvl);
 
-    if (sortKey === 'apr') {
+    if (hasMinTvl || sortKey === 'apr') {
       list = [...list].sort((a, b) => {
-        const av = (a.apr ?? 0) + (a.farm_apr ?? 0);
-        const bv = (b.apr ?? 0) + (b.farm_apr ?? 0);
+        let av = 0, bv = 0;
+        if (sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0); bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
+        else if (sortKey === 'tvl')    { av = a.tvl ?? 0;                        bv = b.tvl ?? 0; }
+        else if (sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;            bv = b.volume?.['24h'] ?? 0; }
+        else if (sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0;    bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
         return sortDir === 'desc' ? bv - av : av - bv;
       });
     }
 
     return list;
-  }, [poolsResp, minTvl, maxTvl, sortKey, sortDir]);
+  }, [poolsResp, minTvl, maxTvl, hasMinTvl, sortKey, sortDir]);
 
   const posCount = positions?.length ?? 0;
   const hasClaimable = positions?.some(p => hasFees(p)) ?? false;

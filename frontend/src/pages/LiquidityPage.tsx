@@ -162,17 +162,13 @@ export function LiquidityPage() {
   const maxTvl = parseTvlInput(committed.tvlMax);
 
   const hasMinTvl = !isNaN(minTvl);
-  // Send min_tvl to server only when sorting by tvl (Meteora only honours that combo).
-  // For other sort keys (apr, feetvl, volume), send the real sort key and filter client-side.
-  const serverMinTvl = hasMinTvl && committed.sortKey === 'tvl' ? minTvl : undefined;
-
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
     sortKey: committed.sortKey,
     orderBy: committed.sortDir,
-    minTvl: serverMinTvl,
+    minTvl: hasMinTvl ? minTvl : undefined,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);

@@ -162,18 +162,17 @@ export function LiquidityPage() {
   const maxTvl = parseTvlInput(committed.tvlMax);
 
   const hasMinTvl = !isNaN(minTvl);
-  // Meteora only honours min_tvl with sort_by=tvl:desc. When min is set,
-  // fetch qualifying pools server-side then sort client-side by user's key.
-  const serverSortKey = hasMinTvl ? 'tvl' : committed.sortKey;
-  const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : committed.sortDir;
+  // Send min_tvl to server only when sorting by tvl (Meteora only honours that combo).
+  // For other sort keys (apr, feetvl, volume), send the real sort key and filter client-side.
+  const serverMinTvl = hasMinTvl && committed.sortKey === 'tvl' ? minTvl : undefined;
 
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
-    sortKey: serverSortKey,
-    orderBy: serverSortDir,
-    minTvl: hasMinTvl ? minTvl : undefined,
+    sortKey: committed.sortKey,
+    orderBy: committed.sortDir,
+    minTvl: serverMinTvl,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);
@@ -190,7 +189,7 @@ export function LiquidityPage() {
     const binStepVal = parseInt(committed.binStep, 10);
     if (!isNaN(binStepVal)) list = list.filter(p => (p.pool_config?.bin_step ?? 0) >= binStepVal);
 
-    if (hasMinTvl || committed.sortKey === 'apr') {
+    if (committed.sortKey === 'apr') {
       list = [...list].sort((a, b) => {
         let av = 0, bv = 0;
         if (committed.sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0); bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
@@ -202,7 +201,7 @@ export function LiquidityPage() {
     }
 
     return list;
-  }, [poolsResp, minTvl, maxTvl, hasMinTvl, committed]);
+  }, [poolsResp, minTvl, maxTvl, committed]);
 
   const posCount = positions?.length ?? 0;
   const hasClaimable = positions?.some(p => hasFees(p)) ?? false;

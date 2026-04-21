@@ -46,9 +46,10 @@ export function TokenLogo({ mint, symbol, logoURI, size = 'md' }: TokenLogoProps
 
   const sizeClass = SIZE_CLASS[size];
 
-  // Priority: explicit logoURI → static map → Jupiter API logo → letter fallback
+  // Priority: explicit logoURI → static map → Jupiter API logo → CDN fallback → letter fallback
+  const cdnFallback = mint ? `https://img.jup.ag/tokens/${mint}` : undefined;
   const src = !errored
-    ? (logoURI || (mint ? TOKEN_LOGOS[mint] : undefined) || jupiterLogo || undefined)
+    ? (logoURI || (mint ? TOKEN_LOGOS[mint] : undefined) || (jupiterLogo !== null ? jupiterLogo : cdnFallback) || undefined)
     : undefined;
 
   if (src) {

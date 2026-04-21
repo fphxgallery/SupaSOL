@@ -70,8 +70,8 @@ function PositionRow({
       {/* Pool identity */}
       <div className="flex items-center gap-2 min-w-0">
         <div className="flex -space-x-1.5 shrink-0">
-          <TokenLogo mint={poolInfo?.token_x?.address ?? position.mintX} symbol={symX} size="sm" />
-          <TokenLogo mint={poolInfo?.token_y?.address ?? position.mintY} symbol={symY} size="sm" />
+          <TokenLogo mint={poolInfo?.token_x?.address ?? position.mintX} logoURI={poolInfo?.token_x?.logoURI} symbol={symX} size="sm" />
+          <TokenLogo mint={poolInfo?.token_y?.address ?? position.mintY} logoURI={poolInfo?.token_y?.logoURI} symbol={symY} size="sm" />
         </div>
         <span className="text-sm font-semibold text-text truncate">
           {poolInfo?.name ?? `${position.mintX.slice(0, 4)}…/${position.mintY.slice(0, 4)}…`}
@@ -385,8 +385,8 @@ export function LiquidityPage() {
                         {/* Pool identity */}
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="flex -space-x-1.5 shrink-0">
-                            <TokenLogo mint={pool.token_x?.address} symbol={symX} size="sm" />
-                            <TokenLogo mint={pool.token_y?.address} symbol={symY} size="sm" />
+                            <TokenLogo mint={pool.token_x?.address} logoURI={pool.token_x?.logoURI} symbol={symX} size="sm" />
+                            <TokenLogo mint={pool.token_y?.address} logoURI={pool.token_y?.logoURI} symbol={symY} size="sm" />
                           </div>
                           <div className="min-w-0">
                             <span className="text-sm font-semibold text-text truncate block">{pool.name}</span>

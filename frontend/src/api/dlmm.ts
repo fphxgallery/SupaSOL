@@ -12,6 +12,7 @@ interface DlmmToken {
   name: string;
   symbol: string;
   decimals: number;
+  logoURI?: string;
   is_verified?: boolean;
   price?: number;
 }

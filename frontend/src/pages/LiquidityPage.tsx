@@ -29,12 +29,18 @@ function formatAmt(raw: string, decimals: number): string {
 type SortKey = 'feetvl' | 'volume' | 'apr' | 'tvl';
 type SortDir = 'asc' | 'desc';
 
-const TVL_FILTERS = [
-  { label: 'All',          min: 0,          max: Infinity },
-  { label: '$100K–$1M',    min: 100_000,    max: 1_000_000 },
-  { label: '$1M–$10M',     min: 1_000_000,  max: 10_000_000 },
-  { label: '>$10M',        min: 10_000_000, max: Infinity },
-];
+function parseTvlInput(s: string): number {
+  const v = s.trim().replace(/[$,]/g, '');
+  if (!v) return NaN;
+  const m = v.match(/^([\d.]+)\s*([kmb]?)$/i);
+  if (!m) return NaN;
+  const n = parseFloat(m[1]);
+  const suffix = m[2].toLowerCase();
+  if (suffix === 'k') return n * 1_000;
+  if (suffix === 'm') return n * 1_000_000;
+  if (suffix === 'b') return n * 1_000_000_000;
+  return n;
+}
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <span className="text-text-dim/40 ml-0.5">↕</span>;
@@ -138,27 +144,21 @@ export function LiquidityPage() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('feetvl');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [tvlIdx, setTvlIdx] = useState(0);
+  const [tvlMinInput, setTvlMinInput] = useState('');
+  const [tvlMaxInput, setTvlMaxInput] = useState('');
   const [selectedPool, setSelectedPool] = useState<MeteoraPairInfo | null>(null);
   const [addLiquidityPool, setAddLiquidityPool] = useState<MeteoraPairInfo | null>(null);
 
   // Hooks
-  const minTvl = TVL_FILTERS[tvlIdx].min;
-  const maxTvl = TVL_FILTERS[tvlIdx].max;
-
-  // When TVL filter active: force tvl:desc + min_tvl server-side (only combo Meteora honours),
-  // then sort client-side by user's chosen key.
-  // Without filter: use user's sort directly.
-  const serverSortKey = minTvl > 0 ? 'tvl' : sortKey;
-  const serverSortDir: 'asc' | 'desc' = minTvl > 0 ? 'desc' : sortDir;
+  const minTvl = parseTvlInput(tvlMinInput);
+  const maxTvl = parseTvlInput(tvlMaxInput);
 
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 25,
     search: search.length >= 2 ? search : undefined,
-    sortKey: serverSortKey,
-    orderBy: serverSortDir,
-    minTvl: minTvl > 0 ? minTvl : undefined,
+    sortKey,
+    orderBy: sortDir,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);
@@ -170,17 +170,13 @@ export function LiquidityPage() {
   const pools = useMemo(() => {
     let list = poolsResp?.data ?? [];
 
-    if (minTvl > 0 || maxTvl < Infinity) {
-      list = list.filter(p => (p.tvl ?? 0) >= minTvl && (p.tvl ?? 0) < maxTvl);
-    }
+    if (!isNaN(minTvl)) list = list.filter(p => (p.tvl ?? 0) >= minTvl);
+    if (!isNaN(maxTvl)) list = list.filter(p => (p.tvl ?? 0) <= maxTvl);
 
-    if (minTvl > 0 || sortKey === 'apr') {
+    if (sortKey === 'apr') {
       list = [...list].sort((a, b) => {
-        let av = 0, bv = 0;
-        if (sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0);  bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
-        else if (sortKey === 'tvl')    { av = a.tvl ?? 0;                         bv = b.tvl ?? 0; }
-        else if (sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;             bv = b.volume?.['24h'] ?? 0; }
-        else if (sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0;     bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
+        const av = (a.apr ?? 0) + (a.farm_apr ?? 0);
+        const bv = (b.apr ?? 0) + (b.farm_apr ?? 0);
         return sortDir === 'desc' ? bv - av : av - bv;
       });
     }
@@ -202,7 +198,7 @@ export function LiquidityPage() {
     for (const poolAddress of pools) claimRewards({ poolAddress, ownerAddress: pubkey });
   }
 
-  const filtersActive = tvlIdx > 0 || sortKey !== 'feetvl';
+  const filtersActive = tvlMinInput !== '' || tvlMaxInput !== '' || sortKey !== 'feetvl';
 
   // ── No wallet ──────────────────────────────────────────────────────────────
   if (!pubkey && tab === 'positions') {
@@ -302,23 +298,25 @@ export function LiquidityPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-text-dim uppercase tracking-wide font-semibold shrink-0">TVL</span>
-              <div className="flex gap-0.5 bg-surface-2 rounded-md p-0.5 border border-border">
-                {TVL_FILTERS.map(({ label }, i) => (
-                  <button
-                    key={label}
-                    onClick={() => setTvlIdx(i)}
-                    className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-colors ${
-                      tvlIdx === i ? 'bg-green/20 text-green' : 'text-text-dim hover:text-text'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <input
+                type="text"
+                placeholder="Min (e.g. 100k)"
+                value={tvlMinInput}
+                onChange={e => setTvlMinInput(e.target.value)}
+                className="w-28 px-2 py-0.5 text-[11px] bg-surface-2 border border-border rounded-md text-text placeholder:text-text-dim/50 focus:outline-none focus:border-green/50"
+              />
+              <span className="text-[10px] text-text-dim">–</span>
+              <input
+                type="text"
+                placeholder="Max (e.g. 1m)"
+                value={tvlMaxInput}
+                onChange={e => setTvlMaxInput(e.target.value)}
+                className="w-28 px-2 py-0.5 text-[11px] bg-surface-2 border border-border rounded-md text-text placeholder:text-text-dim/50 focus:outline-none focus:border-green/50"
+              />
             </div>
             {filtersActive && (
               <button
-                onClick={() => { setTvlIdx(0); setSortKey('feetvl'); setSortDir('desc'); }}
+                onClick={() => { setTvlMinInput(''); setTvlMaxInput(''); setSortKey('feetvl'); setSortDir('desc'); }}
                 className="text-[10px] text-text-dim hover:text-red transition-colors"
               >
                 Reset

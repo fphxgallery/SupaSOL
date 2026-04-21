@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.0-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.3-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -17,7 +17,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 |---|---|
 | **Swap** | Best-route token swaps via Jupiter Ultra v2 (DEX + RFQ) with wallet token selector |
 | **Trending** | Jupiter organic score leaderboard — bot-filtered token rankings with 5m/1h/6h/24h intervals, price, change, volume, and one-click buy |
-| **Lend / Earn** | Deposit & withdraw into Jupiter lending products |
+| **Lend / Earn** | Deposit & withdraw into Jupiter lending products — markets and positions unified in one view, deposited amount shown per market card |
 | **Perps** | Long/short perpetual futures on crypto and equities via Flash Trade — live preview, SL/TP orders, and collateral management |
 | **Limit Orders** | Place and cancel trigger-based limit orders |
 | **DCA** | Set up recurring dollar-cost-averaging purchases |
@@ -27,7 +27,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 | **History** | App transactions + live on-chain signature history via Solana RPC |
 | **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via Pyth Network |
 | **Token Search** | Global search bar — find any Solana token, click to swap |
-| **Auto Trader** | Automated meme coin sniper — configurable entry/exit rules, trailing stop, take profit, max hold time, organic score filter, and live P&L chart |
+| **Auto Trader** | Automated meme coin sniper — configurable entry/exit rules, trailing stop, take profit, max hold time, rebuy cooldown, organic score filter, candidate sorting by score, and live P&L chart |
 | **Settings** | RPC endpoint, cluster, slippage tolerance, priority fee |
 
 ---
@@ -235,6 +235,22 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.3
+- Lend / Earn page redesigned — Available Markets and My Positions merged into a single unified view
+- Deposited amount and USD value now shown bottom-left of each market card inline
+- Total deposited and position count moved to compact inline header strip
+- Deposit/Withdraw mode toggle moved inline with input to reduce vertical space
+- 2-column grid on large screens eliminates wasted whitespace
+
+### v1.7.2
+- Auto Trader: `rebuyCooldownMinutes` added as an independent config field (default: 60m)
+- Cooldown is now separate from max hold time — both can be tuned independently
+- UI input added to Exit card; set to 0 to disable cooldown entirely
+
+### v1.7.1
+- Auto Trader: trending token candidates sorted by organic score (desc) before buying — best signals get position slots first when capacity is limited
+- Auto Trader: rebuy cooldown blocks re-entering a token that was just stopped out within the cooldown window
 
 ### v1.7.0
 - DLMM pool browser overhauled with smarter filtering and scanning

@@ -144,7 +144,7 @@ export function LiquidityPage() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('feetvl');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [tvlMinInput, setTvlMinInput] = useState('');
+  const [tvlMinInput, setTvlMinInput] = useState('25k');
   const [tvlMaxInput, setTvlMaxInput] = useState('');
   const [selectedPool, setSelectedPool] = useState<MeteoraPairInfo | null>(null);
   const [addLiquidityPool, setAddLiquidityPool] = useState<MeteoraPairInfo | null>(null);

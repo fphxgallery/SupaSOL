@@ -22,6 +22,7 @@ export interface BotConfig {
   trailingStopPct: number;
   takeProfitPct: number;
   maxHoldMinutes: number;
+  rebuyCooldownMinutes: number;
 }
 
 export interface BotPosition {
@@ -84,6 +85,7 @@ const DEFAULT_CONFIG: BotConfig = {
   trailingStopPct: 20,
   takeProfitPct: 50,
   maxHoldMinutes: 60,
+  rebuyCooldownMinutes: 60,
 };
 
 interface BotState {

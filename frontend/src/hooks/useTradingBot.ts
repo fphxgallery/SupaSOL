@@ -32,10 +32,21 @@ async function runEntryLoop() {
     const openMints = new Set(openPositions.map((p) => p.mint));
     const pubkey = keypair.publicKey.toBase58();
 
-    for (const token of tokens) {
+    const now = Date.now();
+    const cooldownMs = config.rebuyCooldownMinutes * 60_000;
+    const recentlyExited = new Set(
+      useBotStore.getState().closedPositions
+        .filter((p) => now - p.exitTime < cooldownMs)
+        .map((p) => p.mint)
+    );
+
+    const sorted = [...tokens].sort((a, b) => (b.organicScore ?? 0) - (a.organicScore ?? 0));
+
+    for (const token of sorted) {
       const currentOpen = useBotStore.getState().positions.filter((p) => p.status === 'open').length;
       if (currentOpen >= config.maxPositions) break;
       if (openMints.has(token.address)) continue;
+      if (recentlyExited.has(token.address)) continue;
       if (!token.usdPrice) continue;
 
       if (config.skipSus && token.audit?.isSus) continue;

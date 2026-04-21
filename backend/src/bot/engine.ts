@@ -35,7 +35,7 @@ async function runEntryLoop() {
     const openMints = new Set(openPositions.map((p) => p.mint));
 
     const now = Date.now();
-    const cooldownMs = config.maxHoldMinutes * 60_000;
+    const cooldownMs = config.rebuyCooldownMinutes * 60_000;
     const recentlyExited = new Set(
       botState.getState().closedPositions
         .filter((p) => now - p.exitTime < cooldownMs)

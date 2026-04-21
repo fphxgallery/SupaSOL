@@ -161,14 +161,13 @@ export function LiquidityPage() {
   const minTvl = parseTvlInput(committed.tvlMin);
   const maxTvl = parseTvlInput(committed.tvlMax);
 
-  // Always send user's sort key to server. min_tvl filtered client-side only —
-  // Meteora ignores it for non-tvl sorts anyway, and forcing tvl:desc loses the right pools.
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
     sortKey: committed.sortKey,
     orderBy: committed.sortDir,
+    minTvl: !isNaN(minTvl) ? minTvl : undefined,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);

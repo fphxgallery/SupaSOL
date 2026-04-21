@@ -118,7 +118,7 @@ export async function fetchPairs(opts: {
   qs.set('page', String((opts.page ?? 0) + 1));
   if (opts.limit !== undefined) qs.set('page_size', String(opts.limit));
   if (opts.search) qs.set('query', opts.search);
-  if (opts.minTvl) qs.set('min_tvl', String(opts.minTvl));
+  if (opts.minTvl) qs.set('filter_by', `tvl>${opts.minTvl}`);
   const sortField = SORT_KEY_MAP[opts.sortKey ?? 'feetvl'] ?? 'fee_tvl_ratio_24h';
   qs.set('sort_by', `${sortField}:${opts.orderBy ?? 'desc'}`);
   return apiFetch<MeteoraPairsResponse>(`/api/dlmm/pairs?${qs}`);

@@ -20,10 +20,10 @@ const jupiterLogoCache = new Map<string, string | null>();
 async function fetchJupiterLogo(mint: string): Promise<string | null> {
   if (jupiterLogoCache.has(mint)) return jupiterLogoCache.get(mint)!;
   try {
-    const res = await fetch(`https://tokens.jup.ag/token/${mint}`);
+    const res = await fetch(`https://api.jup.ag/tokens/v2/search?query=${mint}`);
     if (!res.ok) { jupiterLogoCache.set(mint, null); return null; }
     const data = await res.json();
-    const uri = data?.logoURI ?? null;
+    const uri = (Array.isArray(data) ? data[0]?.icon : data?.icon) ?? null;
     jupiterLogoCache.set(mint, uri);
     return uri;
   } catch {
@@ -46,10 +46,9 @@ export function TokenLogo({ mint, symbol, logoURI, size = 'md' }: TokenLogoProps
 
   const sizeClass = SIZE_CLASS[size];
 
-  // Priority: explicit logoURI → static map → Jupiter API logo → CDN fallback → letter fallback
-  const cdnFallback = mint ? `https://img.jup.ag/tokens/${mint}` : undefined;
+  // Priority: explicit logoURI → static map → Jupiter API logo → letter fallback
   const src = !errored
-    ? (logoURI || (mint ? TOKEN_LOGOS[mint] : undefined) || (jupiterLogo !== null ? jupiterLogo : cdnFallback) || undefined)
+    ? (logoURI || (mint ? TOKEN_LOGOS[mint] : undefined) || jupiterLogo || undefined)
     : undefined;
 
   if (src) {

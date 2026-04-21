@@ -53,7 +53,7 @@ function Num({
   return (
     <div className="flex flex-col gap-1">
       <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">{label}</label>
-      <div className="flex items-center gap-1.5">
+      <div className="relative flex items-center">
         <input
           type="number"
           value={value}
@@ -61,9 +61,10 @@ function Num({
           max={max}
           step={step}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full bg-surface-2 border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums"
+          className="w-full bg-surface-2 border border-border rounded-md pl-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums"
+          style={{ paddingRight: suffix ? `${suffix.length * 0.6 + 1.25}rem` : '0.625rem' }}
         />
-        {suffix && <span className="text-xs text-text-dim shrink-0">{suffix}</span>}
+        {suffix && <span className="absolute right-2.5 text-xs text-text-dim pointer-events-none">{suffix}</span>}
       </div>
     </div>
   );
@@ -219,14 +220,19 @@ export function BotPage() {
                 <div className="col-span-2 flex flex-col gap-1">
                   <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Price chg range</label>
                   <div className="flex items-center gap-1.5">
-                    <input type="number" value={config.minPriceChangePct} min={0} step={0.5}
-                      onChange={(e) => updateConfig({ minPriceChangePct: Number(e.target.value) })}
-                      className="w-full bg-surface-2 border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" />
+                    <div className="relative flex items-center flex-1">
+                      <input type="number" value={config.minPriceChangePct} min={0} step={0.5}
+                        onChange={(e) => updateConfig({ minPriceChangePct: Number(e.target.value) })}
+                        className="w-full bg-surface-2 border border-border rounded-md pl-2.5 pr-6 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" />
+                      <span className="absolute right-2.5 text-xs text-text-dim pointer-events-none">%</span>
+                    </div>
                     <span className="text-xs text-text-dim shrink-0">—</span>
-                    <input type="number" value={config.maxPriceChangePct} min={0} step={0.5}
-                      onChange={(e) => updateConfig({ maxPriceChangePct: Number(e.target.value) })}
-                      className="w-full bg-surface-2 border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" />
-                    <span className="text-xs text-text-dim shrink-0">% (0=∞)</span>
+                    <div className="relative flex items-center flex-1">
+                      <input type="number" value={config.maxPriceChangePct} min={0} step={0.5}
+                        onChange={(e) => updateConfig({ maxPriceChangePct: Number(e.target.value) })}
+                        className="w-full bg-surface-2 border border-border rounded-md pl-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" style={{ paddingRight: '4.5rem' }} />
+                      <span className="absolute right-2.5 text-xs text-text-dim pointer-events-none">% (0=∞)</span>
+                    </div>
                   </div>
                 </div>
                 <Num label="Min org buyers" value={config.minOrganicBuyers} onChange={(v) => updateConfig({ minOrganicBuyers: v })} min={0} />
@@ -327,7 +333,7 @@ export function BotPage() {
             {log.length === 0 ? (
               <p className="text-sm text-text-dim text-center py-6">No activity yet</p>
             ) : (
-              <div className="overflow-y-auto divide-y divide-border/40" style={{ maxHeight: '70vh' }}>
+              <div className="overflow-y-auto divide-y divide-border/40" style={{ maxHeight: '420px' }}>
                 {log.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-3 px-4 py-2.5">
                     <span className="text-[10px] text-text-dim tabular-nums shrink-0 pt-0.5 w-16">{timeAgo(entry.time)}</span>

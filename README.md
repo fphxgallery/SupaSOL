@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.3.0-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.6.5-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -27,6 +27,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 | **History** | App transactions + live on-chain signature history via Solana RPC |
 | **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via Pyth Network |
 | **Token Search** | Global search bar — find any Solana token, click to swap |
+| **Auto Trader** | Automated meme coin sniper — configurable entry/exit rules, trailing stop, take profit, max hold time, organic score filter, and live P&L chart |
 | **Settings** | RPC endpoint, cluster, slippage tolerance, priority fee |
 
 ---
@@ -234,6 +235,35 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.6.5
+- Auto Trader entry fields: suffixes/units now displayed inside input fields; all fields uniform width
+- Activity Log card height capped to match other dashboard cards
+
+### v1.6.0
+- Auto Trader: price change filter replaced with a min/max **Price Chg Range** (was single min value)
+- HTTPS support added to bare-metal install — self-signed TLS cert generated automatically
+- `install.sh` now auto-detects and sets `FRONTEND_ORIGIN` to the server IP
+- Fixed relative API base path in production builds
+
+### v1.5.0
+- **Auto Trader** — automated meme coin sniper bot
+  - Configurable entry rules: signal interval, poll rate, buy amount, max positions, min organic score, price change range, price impact, mcap range, slippage, and skip filters (suspicious, mintable, freezable)
+  - Configurable exit rules: trailing stop %, take profit %, max hold time
+  - Live Activity Log with buy/sell events and Solana Explorer links
+  - Cumulative P&L chart with per-trade history
+  - Encrypted private key vault — key never leaves the browser unencrypted
+  - Close empty token accounts utility
+
+### v1.4.3
+- Portfolio tab: token detail panel with quick-sell on row click
+- Portfolio tab: 24h price change column on token holdings
+- Close empty token accounts button (reclaim rent)
+- Fixed stale chart on token switch
+
+### v1.4.2
+- Trending tab: organic buyers column, interval filters, and one-click quick buy buttons
+- DLMM tab redesigned with Trending-style layout
 
 ### v1.3.0
 - **Trending tab** — Jupiter organic score token leaderboard

@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.6.5-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.6.9-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.6.9
+- DLMM token icons now load correctly — icon lookups proxied through backend to fix CORS errors
+- Backend caches token icons 24h in-memory, eliminating repeat Jupiter API calls and 429s
+- Auto Trader runs as a background systemd process — continues trading without browser open
+- `update.sh` skips backend rebuild when no backend files changed (faster redeployment)
 
 ### v1.6.5
 - Auto Trader entry fields: suffixes/units now displayed inside input fields; all fields uniform width

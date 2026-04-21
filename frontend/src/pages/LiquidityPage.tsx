@@ -30,10 +30,10 @@ type SortKey = 'feetvl' | 'volume' | 'apr' | 'tvl';
 type SortDir = 'asc' | 'desc';
 
 const TVL_FILTERS = [
-  { label: 'All',    min: 0 },
-  { label: '>$100K', min: 100_000 },
-  { label: '>$1M',   min: 1_000_000 },
-  { label: '>$10M',  min: 10_000_000 },
+  { label: 'All',          min: 0,          max: Infinity },
+  { label: '$100K–$1M',    min: 100_000,    max: 1_000_000 },
+  { label: '$1M–$10M',     min: 1_000_000,  max: 10_000_000 },
+  { label: '>$10M',        min: 10_000_000, max: Infinity },
 ];
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -144,6 +144,7 @@ export function LiquidityPage() {
 
   // Hooks
   const minTvl = TVL_FILTERS[tvlIdx].min;
+  const maxTvl = TVL_FILTERS[tvlIdx].max;
 
   // When TVL filter active: force tvl:desc + min_tvl server-side (only combo Meteora honours),
   // then sort client-side by user's chosen key.
@@ -169,8 +170,8 @@ export function LiquidityPage() {
   const pools = useMemo(() => {
     let list = poolsResp?.data ?? [];
 
-    if (minTvl > 0) {
-      list = list.filter(p => (p.tvl ?? 0) >= minTvl);
+    if (minTvl > 0 || maxTvl < Infinity) {
+      list = list.filter(p => (p.tvl ?? 0) >= minTvl && (p.tvl ?? 0) < maxTvl);
     }
 
     if (minTvl > 0 || sortKey === 'apr') {
@@ -185,7 +186,7 @@ export function LiquidityPage() {
     }
 
     return list;
-  }, [poolsResp, minTvl, sortKey, sortDir]);
+  }, [poolsResp, minTvl, maxTvl, sortKey, sortDir]);
 
   const posCount = positions?.length ?? 0;
   const hasClaimable = positions?.some(p => hasFees(p)) ?? false;

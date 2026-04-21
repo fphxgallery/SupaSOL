@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.6.9-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,16 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.0
+- DLMM pool browser overhauled with smarter filtering and scanning
+  - TVL filter replaced with min/max range text inputs (supports `25k`, `1m` etc.) — defaults to $25K min
+  - Bin step filter added — filters pools with step ≥ value, defaults to 100
+  - **Scan button** — filters and sort are committed on click, not on every keystroke
+  - Sort buttons (Fee/TVL, Volume, TVL) trigger a fresh server fetch on click
+  - APR sort removed — replaced by Fee/TVL (`fee_tvl_ratio_24h:desc`) which is the correct metric
+  - Fixed Meteora API TVL filter: now uses `filter_by=tvl>VALUE` (was sending unsupported `min_tvl`)
+  - "Other…" wallet button renamed to "Import"
 
 ### v1.6.9
 - DLMM token icons now load correctly — icon lookups proxied through backend to fix CORS errors

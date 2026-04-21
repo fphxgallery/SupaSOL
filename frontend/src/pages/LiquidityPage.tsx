@@ -26,7 +26,7 @@ function formatAmt(raw: string, decimals: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 3 });
 }
 
-type SortKey = 'feetvl' | 'volume' | 'apr' | 'tvl';
+type SortKey = 'feetvl' | 'volume' | 'tvl';
 type SortDir = 'asc' | 'desc';
 
 function parseTvlInput(s: string): number {
@@ -181,7 +181,6 @@ export function LiquidityPage() {
   const { mutate: removeLiquidity, isPending: isRemoving, variables: removeVars } = useRemoveLiquidity();
 
   // Client-side sort when TVL filter is active (server was forced to tvl:desc)
-  // or when APR selected (server-side apr_24h returns 500 on Meteora)
   const pools = useMemo(() => {
     let list = poolsResp?.data ?? [];
 
@@ -190,13 +189,12 @@ export function LiquidityPage() {
     const binStepVal = parseInt(committed.binStep, 10);
     if (!isNaN(binStepVal)) list = list.filter(p => (p.pool_config?.bin_step ?? 0) >= binStepVal);
 
-    if (hasMinTvl || committed.sortKey === 'apr') {
+    if (hasMinTvl) {
       list = [...list].sort((a, b) => {
         let av = 0, bv = 0;
-        if (committed.sortKey === 'apr')         { av = (a.apr ?? 0) + (a.farm_apr ?? 0); bv = (b.apr ?? 0) + (b.farm_apr ?? 0); }
-        else if (committed.sortKey === 'tvl')    { av = a.tvl ?? 0;                        bv = b.tvl ?? 0; }
-        else if (committed.sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;            bv = b.volume?.['24h'] ?? 0; }
-        else if (committed.sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0;    bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
+        if (committed.sortKey === 'tvl')         { av = a.tvl ?? 0;                     bv = b.tvl ?? 0; }
+        else if (committed.sortKey === 'volume') { av = a.volume?.['24h'] ?? 0;         bv = b.volume?.['24h'] ?? 0; }
+        else if (committed.sortKey === 'feetvl') { av = a.fee_tvl_ratio?.['24h'] ?? 0; bv = b.fee_tvl_ratio?.['24h'] ?? 0; }
         return committed.sortDir === 'desc' ? bv - av : av - bv;
       });
     }
@@ -299,7 +297,7 @@ export function LiquidityPage() {
               )}
             </div>
             <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
-              {(['feetvl', 'volume', 'apr', 'tvl'] as SortKey[]).map(key => (
+              {(['feetvl', 'volume', 'tvl'] as SortKey[]).map(key => (
                 <button
                   key={key}
                   onClick={() => handleSort(key)}
@@ -307,7 +305,7 @@ export function LiquidityPage() {
                     sortKey === key ? 'bg-green/20 text-green' : 'text-text-dim hover:text-text'
                   }`}
                 >
-                  {key === 'feetvl' ? 'Fee/TVL' : key === 'volume' ? 'Volume' : key === 'apr' ? 'APR' : 'TVL'}
+                  {key === 'feetvl' ? 'Fee/TVL' : key === 'volume' ? 'Volume' : 'TVL'}
                   {sortKey === key && <SortIcon active dir={sortDir} />}
                 </button>
               ))}
@@ -382,8 +380,8 @@ export function LiquidityPage() {
                   <button onClick={() => handleSort('volume')} className={`text-right flex items-center justify-end gap-0.5 hover:text-text transition-colors ${sortKey === 'volume' ? 'text-text' : ''}`}>
                     24h Vol<SortIcon active={sortKey === 'volume'} dir={sortDir} />
                   </button>
-                  <button onClick={() => handleSort('apr')} className={`text-right flex items-center justify-end gap-0.5 hover:text-text transition-colors ${sortKey === 'apr' ? 'text-text' : ''}`}>
-                    APR<SortIcon active={sortKey === 'apr'} dir={sortDir} />
+                  <button onClick={() => handleSort('feetvl')} className={`text-right flex items-center justify-end gap-0.5 hover:text-text transition-colors ${sortKey === 'feetvl' ? 'text-text' : ''}`}>
+                    Fee/TVL<SortIcon active={sortKey === 'feetvl'} dir={sortDir} />
                   </button>
                 </div>
 

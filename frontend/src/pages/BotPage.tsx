@@ -2,14 +2,20 @@ import { useState } from 'react';
 import { useBotStore } from '../store/botStore';
 import { useActivePublicKey } from '../store/walletStore';
 import { usePrice } from '../hooks/usePrice';
+import { useVaultStatus } from '../hooks/useVaultStatus';
+import { useBackgroundBot, useInvalidateBotStatus } from '../hooks/useBackgroundBot';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PnlChart } from '../components/charts/PnlChart';
+import { UnlockBotModal } from '../components/bot/UnlockBotModal';
 import { formatPct, timeAgo } from '../utils/format';
 import { EXPLORER_BASE } from '../config/constants';
 import { closeAllAndStop } from '../hooks/useTradingBot';
+import { stopBot, closeAllBot, updateBotConfig, clearBotHistory, clearBotLog } from '../api/bot';
+import { useUiStore } from '../store/uiStore';
 import type { TrendingInterval } from '../hooks/useTrendingTokens';
-import type { ClosedPosition } from '../store/botStore';
+import type { ClosedPosition, BotConfig } from '../store/botStore';
+import type { VaultData } from '../api/vault';
 
 const INTERVALS: { label: string; value: TrendingInterval }[] = [
   { label: '5m', value: '5m' },
@@ -34,32 +40,17 @@ const LOG_COLORS: Record<string, string> = {
 };
 
 function Num({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step = 1,
-  suffix,
+  label, value, onChange, min, max, step = 1, suffix,
 }: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  suffix?: string;
+  label: string; value: number; onChange: (v: number) => void;
+  min?: number; max?: number; step?: number; suffix?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">{label}</label>
       <div className="relative flex items-center">
         <input
-          type="number"
-          value={value}
-          min={min}
-          max={max}
-          step={step}
+          type="number" value={value} min={min} max={max} step={step}
           onChange={(e) => onChange(Number(e.target.value))}
           className="w-full bg-surface-2 border border-border rounded-md pl-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums"
           style={{ paddingRight: suffix ? `${suffix.length * 0.6 + 1.25}rem` : '0.625rem' }}
@@ -73,12 +64,7 @@ function Num({
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="accent-green w-3.5 h-3.5"
-      />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-green w-3.5 h-3.5" />
       <span className="text-sm text-text">{label}</span>
     </label>
   );
@@ -92,10 +78,7 @@ function PnlRow({ closed, onClear }: { closed: ClosedPosition[]; onClear: () => 
   const best = total > 0 ? Math.max(...closed.map((p) => p.pnlPct)) : null;
   const worst = total > 0 ? Math.min(...closed.map((p) => p.pnlPct)) : null;
 
-  function fmtSol(v: number) {
-    const s = (v >= 0 ? '+' : '') + v.toFixed(4);
-    return s + ' SOL';
-  }
+  function fmtSol(v: number) { return (v >= 0 ? '+' : '') + v.toFixed(4) + ' SOL'; }
 
   return (
     <Card>
@@ -119,7 +102,6 @@ function PnlRow({ closed, onClear }: { closed: ClosedPosition[]; onClear: () => 
             </div>
           ))}
         </div>
-
         <PnlChart closed={closed} height={180} />
       </CardBody>
     </Card>
@@ -128,16 +110,45 @@ function PnlRow({ closed, onClear }: { closed: ClosedPosition[]; onClear: () => 
 
 export function BotPage() {
   const pubkey = useActivePublicKey();
-  const { config, positions, closedPositions, log, updateConfig, removePosition, clearLog, clearHistory } = useBotStore();
+  const { config, positions, closedPositions, log, updateConfig, clearLog, clearHistory } = useBotStore();
+  const addToast = useUiStore((s) => s.addToast);
   const [stopping, setStopping] = useState(false);
+  const [unlockOpen, setUnlockOpen] = useState(false);
 
-  const openPositions = positions.filter((p) => p.status === 'open' || p.status === 'closing');
+  const { data: vaultStatus } = useVaultStatus();
+  const { data: bgBot } = useBackgroundBot();
+  const invalidateBotStatus = useInvalidateBotStatus();
+
+  const vaultData = vaultStatus?.exists ? vaultStatus as VaultData : null;
+  const bgRunning = bgBot?.running ?? false;
+
+  // When background bot is running, show its state; otherwise use local Zustand state
+  const activePositions = bgRunning ? (bgBot?.positions ?? []) : positions;
+  const activeClosedPositions = bgRunning ? (bgBot?.closedPositions ?? []) : closedPositions;
+  const activeLog = bgRunning ? (bgBot?.log ?? []) : log;
+  const activeConfig = bgRunning ? (bgBot?.config ?? config) : config;
+
+  const openPositions = activePositions.filter((p) => p.status === 'open' || p.status === 'closing');
   const positionMints = openPositions.map((p) => p.mint);
   const { data: prices } = usePrice(positionMints.length > 0 ? positionMints : ['']);
 
+  function handleConfigChange(updates: Partial<BotConfig>) {
+    updateConfig(updates);
+    if (bgRunning) updateBotConfig(updates).catch(() => {});
+  }
+
   async function toggle() {
-    if (!pubkey) return;
-    if (config.enabled) {
+    if (bgRunning) {
+      setStopping(true);
+      try {
+        await closeAllBot();
+        invalidateBotStatus();
+        addToast({ type: 'success', message: 'Background bot stopped' });
+      } catch { addToast({ type: 'error', message: 'Failed to stop background bot' }); }
+      finally { setStopping(false); }
+    } else if (!pubkey) {
+      return;
+    } else if (config.enabled) {
       setStopping(true);
       await closeAllAndStop();
       setStopping(false);
@@ -146,7 +157,36 @@ export function BotPage() {
     }
   }
 
-  const isRunning = config.enabled && !!pubkey;
+  async function handleStopBgOnly() {
+    setStopping(true);
+    try {
+      await stopBot();
+      invalidateBotStatus();
+      addToast({ type: 'success', message: 'Background bot stopped (positions kept open)' });
+    } catch { addToast({ type: 'error', message: 'Failed to stop background bot' }); }
+    finally { setStopping(false); }
+  }
+
+  async function handleClearHistory() {
+    if (bgRunning) {
+      await clearBotHistory().catch(() => {});
+      invalidateBotStatus();
+    } else {
+      clearHistory();
+    }
+  }
+
+  async function handleClearLog() {
+    if (bgRunning) {
+      await clearBotLog().catch(() => {});
+      invalidateBotStatus();
+    } else {
+      clearLog();
+    }
+  }
+
+  const isLocalRunning = config.enabled && !!pubkey && !bgRunning;
+  const isRunning = bgRunning || isLocalRunning;
 
   return (
     <div className="flex flex-col gap-4">
@@ -156,22 +196,48 @@ export function BotPage() {
           <p className="text-xs text-text-dim">Buys trending tokens automatically. Sells via trailing stop.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-1.5 text-xs font-semibold ${stopping ? 'text-orange' : isRunning ? 'text-green' : 'text-text-dim'}`}>
-            <span className={`w-2 h-2 rounded-full ${stopping ? 'bg-orange animate-pulse' : isRunning ? 'bg-green animate-pulse' : 'bg-text-dim/40'}`} />
-            {stopping ? 'Stopping' : isRunning ? 'Running' : 'Stopped'}
-          </div>
-          <Button
-            variant={isRunning ? 'secondary' : 'primary'}
-            size="sm"
-            onClick={toggle}
-            disabled={!pubkey || stopping}
-          >
-            {stopping ? 'Closing…' : isRunning ? 'Stop Bot' : 'Start Bot'}
-          </Button>
+          {bgRunning && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400">
+              <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              Background
+            </div>
+          )}
+          {!bgRunning && (
+            <div className={`flex items-center gap-1.5 text-xs font-semibold ${stopping ? 'text-orange' : isLocalRunning ? 'text-green' : 'text-text-dim'}`}>
+              <span className={`w-2 h-2 rounded-full ${stopping ? 'bg-orange animate-pulse' : isLocalRunning ? 'bg-green animate-pulse' : 'bg-text-dim/40'}`} />
+              {stopping ? 'Stopping' : isLocalRunning ? 'Running' : 'Stopped'}
+            </div>
+          )}
+          {bgRunning ? (
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={handleStopBgOnly} disabled={stopping}>
+                Stop (keep positions)
+              </Button>
+              <Button variant="secondary" size="sm" onClick={toggle} disabled={stopping}>
+                {stopping ? 'Closing…' : 'Close All & Stop'}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              {vaultData && !isLocalRunning && (
+                <Button variant="secondary" size="sm" onClick={() => setUnlockOpen(true)}>
+                  Run in Background
+                </Button>
+              )}
+              <Button
+                variant={isLocalRunning ? 'secondary' : 'primary'}
+                size="sm"
+                onClick={toggle}
+                disabled={!pubkey || stopping}
+              >
+                {stopping ? 'Closing…' : isLocalRunning ? 'Stop Bot' : 'Start Bot'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
-      {!pubkey && (
+      {!pubkey && !bgRunning && (
         <Card>
           <CardBody>
             <p className="text-sm text-text-dim text-center py-2">Connect a wallet to use the auto trader.</p>
@@ -179,12 +245,11 @@ export function BotPage() {
         </Card>
       )}
 
-      <PnlRow closed={closedPositions} onClear={clearHistory} />
+      <PnlRow closed={activeClosedPositions} onClear={handleClearHistory} />
 
       <div className="grid grid-cols-3 gap-4 items-start">
         {/* Col 1: Entry + Exit stacked */}
         <div className="flex flex-col gap-4">
-          {/* Entry Config */}
           <Card>
             <CardHeader title="Entry" subtitle="When to buy" />
             <CardBody className="flex flex-col gap-4">
@@ -193,8 +258,8 @@ export function BotPage() {
                   <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Signal interval</label>
                   <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
                     {INTERVALS.map(({ label, value }) => (
-                      <button key={value} onClick={() => updateConfig({ interval: value })}
-                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${config.interval === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
+                      <button key={value} onClick={() => handleConfigChange({ interval: value })}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${activeConfig.interval === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
                         {label}
                       </button>
                     ))}
@@ -204,8 +269,8 @@ export function BotPage() {
                   <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Poll every</label>
                   <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
                     {POLL_OPTIONS.map(({ label, value }) => (
-                      <button key={value} onClick={() => updateConfig({ pollIntervalMs: value })}
-                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${config.pollIntervalMs === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
+                      <button key={value} onClick={() => handleConfigChange({ pollIntervalMs: value })}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${activeConfig.pollIntervalMs === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
                         {label}
                       </button>
                     ))}
@@ -214,56 +279,55 @@ export function BotPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <Num label="Buy amount" value={config.buyAmountSol} onChange={(v) => updateConfig({ buyAmountSol: v })} min={0.001} step={0.01} suffix="SOL" />
-                <Num label="Max positions" value={config.maxPositions} onChange={(v) => updateConfig({ maxPositions: v })} min={1} max={20} />
-                <Num label="Min score" value={config.minOrganicScore} onChange={(v) => updateConfig({ minOrganicScore: v })} min={0} max={100} />
+                <Num label="Buy amount" value={activeConfig.buyAmountSol} onChange={(v) => handleConfigChange({ buyAmountSol: v })} min={0.001} step={0.01} suffix="SOL" />
+                <Num label="Max positions" value={activeConfig.maxPositions} onChange={(v) => handleConfigChange({ maxPositions: v })} min={1} max={20} />
+                <Num label="Min score" value={activeConfig.minOrganicScore} onChange={(v) => handleConfigChange({ minOrganicScore: v })} min={0} max={100} />
                 <div className="col-span-2 flex flex-col gap-1">
                   <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Price chg range</label>
                   <div className="flex items-center gap-1.5">
                     <div className="relative flex items-center flex-1">
-                      <input type="number" value={config.minPriceChangePct} min={0} step={0.5}
-                        onChange={(e) => updateConfig({ minPriceChangePct: Number(e.target.value) })}
+                      <input type="number" value={activeConfig.minPriceChangePct} min={0} step={0.5}
+                        onChange={(e) => handleConfigChange({ minPriceChangePct: Number(e.target.value) })}
                         className="w-full bg-surface-2 border border-border rounded-md pl-2.5 pr-6 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" />
                       <span className="absolute right-2.5 text-xs text-text-dim pointer-events-none">%</span>
                     </div>
                     <span className="text-xs text-text-dim shrink-0">—</span>
                     <div className="relative flex items-center flex-1">
-                      <input type="number" value={config.maxPriceChangePct} min={0} step={0.5}
-                        onChange={(e) => updateConfig({ maxPriceChangePct: Number(e.target.value) })}
+                      <input type="number" value={activeConfig.maxPriceChangePct} min={0} step={0.5}
+                        onChange={(e) => handleConfigChange({ maxPriceChangePct: Number(e.target.value) })}
                         className="w-full bg-surface-2 border border-border rounded-md pl-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-green/50 tabular-nums" style={{ paddingRight: '4.5rem' }} />
                       <span className="absolute right-2.5 text-xs text-text-dim pointer-events-none">% (0=∞)</span>
                     </div>
                   </div>
                 </div>
-                <Num label="Min org buyers" value={config.minOrganicBuyers} onChange={(v) => updateConfig({ minOrganicBuyers: v })} min={0} />
-                <Num label="Max price impact" value={config.maxPriceImpactPct} onChange={(v) => updateConfig({ maxPriceImpactPct: v })} min={0} step={0.5} suffix="%" />
-                <Num label="Mcap min" value={config.mcapMin} onChange={(v) => updateConfig({ mcapMin: v })} min={0} step={100_000} suffix="$" />
-                <Num label="Mcap max" value={config.mcapMax} onChange={(v) => updateConfig({ mcapMax: v })} min={0} step={1_000_000} suffix="$ (0=∞)" />
-                <Num label="Slippage" value={config.slippageBps} onChange={(v) => updateConfig({ slippageBps: v })} min={1} step={10} suffix="bps" />
+                <Num label="Min org buyers" value={activeConfig.minOrganicBuyers} onChange={(v) => handleConfigChange({ minOrganicBuyers: v })} min={0} />
+                <Num label="Max price impact" value={activeConfig.maxPriceImpactPct} onChange={(v) => handleConfigChange({ maxPriceImpactPct: v })} min={0} step={0.5} suffix="%" />
+                <Num label="Mcap min" value={activeConfig.mcapMin} onChange={(v) => handleConfigChange({ mcapMin: v })} min={0} step={100_000} suffix="$" />
+                <Num label="Mcap max" value={activeConfig.mcapMax} onChange={(v) => handleConfigChange({ mcapMax: v })} min={0} step={1_000_000} suffix="$ (0=∞)" />
+                <Num label="Slippage" value={activeConfig.slippageBps} onChange={(v) => handleConfigChange({ slippageBps: v })} min={1} step={10} suffix="bps" />
               </div>
 
               <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1 border-t border-border">
                 <p className="text-[10px] text-text-dim uppercase tracking-wide font-semibold self-center">Skip</p>
-                <Check label="Suspicious" checked={config.skipSus} onChange={(v) => updateConfig({ skipSus: v })} />
-                <Check label="Mintable supply" checked={config.skipMintable} onChange={(v) => updateConfig({ skipMintable: v })} />
-                <Check label="Freezable" checked={config.skipFreezable} onChange={(v) => updateConfig({ skipFreezable: v })} />
+                <Check label="Suspicious" checked={activeConfig.skipSus} onChange={(v) => handleConfigChange({ skipSus: v })} />
+                <Check label="Mintable supply" checked={activeConfig.skipMintable} onChange={(v) => handleConfigChange({ skipMintable: v })} />
+                <Check label="Freezable" checked={activeConfig.skipFreezable} onChange={(v) => handleConfigChange({ skipFreezable: v })} />
               </div>
             </CardBody>
           </Card>
 
-          {/* Exit Config */}
           <Card>
             <CardHeader title="Exit" subtitle="When to sell" />
             <CardBody className="flex flex-col gap-4">
               <div className="grid grid-cols-3 gap-3">
-                <Num label="Trailing stop" value={config.trailingStopPct} onChange={(v) => updateConfig({ trailingStopPct: v })} min={1} max={99} step={1} suffix="%" />
-                <Num label="Take profit" value={config.takeProfitPct} onChange={(v) => updateConfig({ takeProfitPct: v })} min={1} step={5} suffix="%" />
-                <Num label="Max hold time" value={config.maxHoldMinutes} onChange={(v) => updateConfig({ maxHoldMinutes: v })} min={1} step={5} suffix="min" />
+                <Num label="Trailing stop" value={activeConfig.trailingStopPct} onChange={(v) => handleConfigChange({ trailingStopPct: v })} min={1} max={99} step={1} suffix="%" />
+                <Num label="Take profit" value={activeConfig.takeProfitPct} onChange={(v) => handleConfigChange({ takeProfitPct: v })} min={1} step={5} suffix="%" />
+                <Num label="Max hold time" value={activeConfig.maxHoldMinutes} onChange={(v) => handleConfigChange({ maxHoldMinutes: v })} min={1} step={5} suffix="min" />
               </div>
               <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
-                <p>• Trailing stop sells when price drops <span className="text-text font-medium">{config.trailingStopPct}%</span> from its peak.</p>
-                <p>• Take profit triggers at <span className="text-green font-medium">+{config.takeProfitPct}%</span> above entry.</p>
-                <p>• Force-sells after <span className="text-text font-medium">{config.maxHoldMinutes}m</span> regardless of price.</p>
+                <p>• Trailing stop sells when price drops <span className="text-text font-medium">{activeConfig.trailingStopPct}%</span> from its peak.</p>
+                <p>• Take profit triggers at <span className="text-green font-medium">+{activeConfig.takeProfitPct}%</span> above entry.</p>
+                <p>• Force-sells after <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span> regardless of price.</p>
               </div>
             </CardBody>
           </Card>
@@ -287,9 +351,7 @@ export function BotPage() {
                 </div>
                 {openPositions.map((pos) => {
                   const currentPrice = prices?.[pos.mint]?.usdPrice;
-                  const pnlPct = currentPrice
-                    ? ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100
-                    : null;
+                  const pnlPct = currentPrice ? ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 : null;
                   const heldMin = Math.floor((Date.now() - pos.entryTime) / 60_000);
 
                   function fmtPrice(p: number) {
@@ -326,15 +388,15 @@ export function BotPage() {
         <Card>
           <CardHeader
             title="Activity Log"
-            subtitle={`${log.length} entries`}
-            action={log.length > 0 ? <Button variant="secondary" size="sm" onClick={clearLog}>Clear</Button> : undefined}
+            subtitle={`${activeLog.length} entries`}
+            action={activeLog.length > 0 ? <Button variant="secondary" size="sm" onClick={handleClearLog}>Clear</Button> : undefined}
           />
           <CardBody className="p-0">
-            {log.length === 0 ? (
+            {activeLog.length === 0 ? (
               <p className="text-sm text-text-dim text-center py-6">No activity yet</p>
             ) : (
               <div className="overflow-y-auto divide-y divide-border/40" style={{ maxHeight: '420px' }}>
-                {log.map((entry) => (
+                {activeLog.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-3 px-4 py-2.5">
                     <span className="text-[10px] text-text-dim tabular-nums shrink-0 pt-0.5 w-16">{timeAgo(entry.time)}</span>
                     <span className={`text-[10px] font-semibold uppercase shrink-0 pt-0.5 w-8 ${LOG_COLORS[entry.type]}`}>{entry.type}</span>
@@ -350,6 +412,15 @@ export function BotPage() {
           </CardBody>
         </Card>
       </div>
+
+      {vaultData && (
+        <UnlockBotModal
+          open={unlockOpen}
+          onClose={() => setUnlockOpen(false)}
+          vaultData={vaultData}
+          config={config}
+        />
+      )}
     </div>
   );
 }

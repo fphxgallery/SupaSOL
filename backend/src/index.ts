@@ -13,6 +13,7 @@ import sendRouter from './routes/send';
 import dlmmRouter from './routes/dlmm';
 import perpsRouter from './routes/perps';
 import vaultRouter from './routes/vault';
+import botRouter from './routes/bot';
 
 const app = express();
 
@@ -51,6 +52,7 @@ app.use('/api/send', sendRouter);
 app.use('/api/dlmm', dlmmRouter);
 app.use('/api/perps', perpsRouter);
 app.use('/api/vault', vaultRouter);
+app.use('/api/bot', botRouter);
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

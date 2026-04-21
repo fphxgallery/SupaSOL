@@ -155,10 +155,11 @@ export function LiquidityPage() {
 
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
-    limit: 25,
+    limit: 100,
     search: search.length >= 2 ? search : undefined,
     sortKey,
     orderBy: sortDir,
+    minTvl: !isNaN(minTvl) ? minTvl : undefined,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);

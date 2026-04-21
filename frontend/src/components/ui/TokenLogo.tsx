@@ -20,10 +20,10 @@ const jupiterLogoCache = new Map<string, string | null>();
 async function fetchJupiterLogo(mint: string): Promise<string | null> {
   if (jupiterLogoCache.has(mint)) return jupiterLogoCache.get(mint)!;
   try {
-    const res = await fetch(`https://api.jup.ag/tokens/v2/search?query=${mint}`);
+    const res = await fetch(`/api/tokens/icon/${mint}`);
     if (!res.ok) { jupiterLogoCache.set(mint, null); return null; }
     const data = await res.json();
-    const uri = (Array.isArray(data) ? data[0]?.icon : data?.icon) ?? null;
+    const uri = data?.icon ?? null;
     jupiterLogoCache.set(mint, uri);
     return uri;
   } catch {

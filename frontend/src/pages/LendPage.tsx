@@ -2,19 +2,21 @@ import { useState } from 'react';
 import { useActivePublicKey } from '../store/walletStore';
 import { useLendTokens, useLendPositions, useLendEarnings, useLendDeposit, useLendWithdraw } from '../hooks/useLend';
 import { useSignAndSend } from '../hooks/useSignAndSend';
-import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { formatUsd } from '../utils/format';
-import type { LendToken } from '../api/lend';
+import type { LendToken, LendPosition } from '../api/lend';
 
-function APYBadge({ apy }: { apy?: number }) {
-  if (apy == null) return <span className="text-text-dim text-xs">—</span>;
-  return <span className="text-green text-sm font-semibold">{apy.toFixed(2)}% APY</span>;
-}
-
-function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
+function LendTokenCard({
+  token,
+  wallet,
+  position,
+}: {
+  token: LendToken;
+  wallet: string;
+  position?: LendPosition;
+}) {
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const deposit = useLendDeposit();
@@ -32,21 +34,23 @@ function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
       }
       setAmount('');
     } catch {
-      // errors are surfaced via toast in useSignAndSend
+      // errors surfaced via toast
     }
   }
 
   const isLoading = deposit.isPending || withdraw.isPending;
+  const hasPosition = position != null && (position.depositedAmount ?? 0) > 0;
 
   return (
-    <div className="border border-border rounded-xl p-4 bg-surface-2 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+    <div className="border border-border rounded-xl bg-surface-2 overflow-hidden">
+      {/* Top row: token info + APY/TVL */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <div className="flex items-center gap-3">
           {token.logoURI && (
             <img
               src={token.logoURI}
               alt={token.symbol}
-              className="w-8 h-8 rounded-full"
+              className="w-9 h-9 rounded-full"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )}
@@ -56,40 +60,74 @@ function LendTokenRow({ token, wallet }: { token: LendToken; wallet: string }) {
           </div>
         </div>
         <div className="text-right">
-          <APYBadge apy={token.supplyApy} />
+          {token.supplyApy != null ? (
+            <p className="text-sm font-semibold text-green">{token.supplyApy.toFixed(2)}% APY</p>
+          ) : (
+            <p className="text-sm text-text-dim">—</p>
+          )}
           {token.tvl !== undefined && (
             <p className="text-xs text-text-dim mt-0.5">TVL: {formatUsd(token.tvl)}</p>
           )}
         </div>
       </div>
 
-      <div className="flex gap-1.5">
-        {(['deposit', 'withdraw'] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`flex-1 py-1.5 text-xs rounded-md capitalize cursor-pointer transition-colors ${
-              mode === m
-                ? 'bg-green/10 text-green border border-green/20'
-                : 'text-text-dim hover:text-text bg-surface border border-border'
-            }`}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
+      {/* Divider */}
+      <div className="border-t border-border mx-4" />
 
-      <div className="flex gap-2">
-        <Input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          type="number"
-          placeholder={`Amount (${token.symbol})`}
-          className="flex-1"
-        />
-        <Button onClick={handleAction} loading={isLoading} disabled={!amount || isLoading} size="sm">
-          {mode === 'deposit' ? 'Deposit' : 'Withdraw'}
-        </Button>
+      {/* Bottom row: deposited (left) + action (right) */}
+      <div className="flex items-end gap-3 px-4 py-3">
+        {/* Deposited amount — bottom left */}
+        <div className="shrink-0 min-w-[120px]">
+          <p className="text-[10px] text-text-dim uppercase tracking-wide font-semibold mb-1">Deposited</p>
+          {hasPosition ? (
+            <div>
+              <p className="text-sm font-semibold text-text">
+                {position!.depositedAmount!.toLocaleString('en-US', { maximumFractionDigits: 4 })} {token.symbol}
+              </p>
+              {position!.depositedValue !== undefined && (
+                <p className="text-xs text-text-dim">{formatUsd(position!.depositedValue)}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-text-dim">—</p>
+          )}
+        </div>
+
+        {/* Deposit / Withdraw action */}
+        <div className="flex flex-1 items-center gap-2">
+          {/* Mode toggle */}
+          <div className="flex gap-1 bg-surface rounded-lg p-0.5 border border-border shrink-0">
+            {(['deposit', 'withdraw'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-3 py-1 text-xs rounded-md capitalize cursor-pointer transition-colors ${
+                  mode === m
+                    ? 'bg-green/10 text-green border border-green/20'
+                    : 'text-text-dim hover:text-text'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          <Input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            type="number"
+            placeholder={`Amount (${token.symbol})`}
+            className="flex-1 min-w-0"
+          />
+          <Button
+            onClick={handleAction}
+            loading={isLoading}
+            disabled={!amount || isLoading}
+            size="sm"
+          >
+            {mode === 'deposit' ? 'Deposit' : 'Withdraw'}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -103,98 +141,63 @@ export function LendPage() {
   const { data: earnings } = useLendEarnings(pubkey);
 
   const totalDeposited = earnings?.totalDeposited ?? 0;
+  const activePositions = positions?.length ?? 0;
+
+  // Build a map of mint → position for quick lookup
+  const positionByMint = new Map<string, LendPosition>(
+    (positions ?? []).map((p) => [p.mint, p])
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <h1 className="text-lg font-bold text-text">Lend / Earn</h1>
-        <Badge variant="blue">Jupiter Lend</Badge>
-      </div>
-
-      {/* Summary cards */}
-      {pubkey && (
-        <div className="grid grid-cols-2 gap-3">
-          <Card>
-            <CardBody>
-              <p className="text-xs text-text-dim mb-1">Total Deposited</p>
-              <p className="text-xl font-bold text-green">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold text-text">Lend / Earn</h1>
+          <Badge variant="blue">Jupiter Lend</Badge>
+        </div>
+        {pubkey && (
+          <div className="flex items-center gap-5">
+            <div className="text-right">
+              <p className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Total Deposited</p>
+              <p className="text-sm font-bold text-green">
                 {totalDeposited > 0 ? formatUsd(totalDeposited) : '—'}
               </p>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardBody>
-              <p className="text-xs text-text-dim mb-1">Active Positions</p>
-              <p className="text-xl font-bold text-text">{positions?.length ?? 0}</p>
-            </CardBody>
-          </Card>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Positions</p>
+              <p className="text-sm font-bold text-text">{activePositions}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Markets */}
+      {tokensLoading ? (
+        <div className="flex items-center justify-center py-16 text-text-dim text-sm">
+          <span className="animate-spin mr-2">⟳</span> Loading markets…
+        </div>
+      ) : tokensError ? (
+        <div className="flex flex-col items-center gap-3 py-16 text-center">
+          <p className="text-sm text-text-dim">Failed to load lending markets.</p>
+          <Button variant="secondary" size="sm" onClick={() => refetchTokens()}>Retry</Button>
+        </div>
+      ) : !tokens?.length ? (
+        <p className="text-sm text-text-dim py-8 text-center">No lending markets available</p>
+      ) : !hasWallet ? (
+        <p className="text-sm text-text-dim py-8 text-center">Connect a wallet to deposit</p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {tokens.map((token) => (
+            <LendTokenCard
+              key={token.jlMint}
+              token={token}
+              wallet={pubkey!}
+              position={positionByMint.get(token.mint)}
+            />
+          ))}
         </div>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Available markets */}
-        <Card>
-          <CardHeader title="Available Markets" subtitle="Deposit tokens to earn yield" />
-          <CardBody className="flex flex-col gap-3">
-            {tokensLoading ? (
-              <div className="flex items-center justify-center py-8 text-text-dim text-sm">
-                <span className="animate-spin mr-2">⟳</span> Loading markets...
-              </div>
-            ) : tokensError ? (
-              <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <p className="text-sm text-text-dim">Failed to load lending markets.</p>
-                <Button variant="secondary" size="sm" onClick={() => refetchTokens()}>Retry</Button>
-              </div>
-            ) : !tokens?.length ? (
-              <p className="text-sm text-text-dim py-4 text-center">No lending markets available</p>
-            ) : !hasWallet ? (
-              <p className="text-sm text-text-dim py-4 text-center">Connect a wallet to deposit</p>
-            ) : (
-              tokens.map((token) => (
-                <LendTokenRow key={token.jlMint} token={token} wallet={pubkey!} />
-              ))
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Active positions */}
-        <Card>
-          <CardHeader title="My Positions" />
-          <CardBody>
-            {!pubkey ? (
-              <p className="text-sm text-text-dim py-4 text-center">Connect a wallet to view positions</p>
-            ) : !positions?.length ? (
-              <p className="text-sm text-text-dim py-4 text-center">No active lending positions</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {positions.map((pos) => (
-                  <div
-                    key={pos.jlMint}
-                    className="flex items-center justify-between p-3 bg-surface-2 rounded-lg border border-border"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-text">{pos.symbol ?? pos.mint.slice(0, 8)}</p>
-                      {pos.apy !== undefined && (
-                        <p className="text-xs text-green">{pos.apy.toFixed(2)}% APY</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      {pos.depositedValue !== undefined && (
-                        <p className="text-sm text-text">{formatUsd(pos.depositedValue)}</p>
-                      )}
-                      {pos.depositedAmount !== undefined && pos.symbol && (
-                        <p className="text-xs text-text-dim">
-                          {pos.depositedAmount.toLocaleString('en-US', { maximumFractionDigits: 6 })} {pos.symbol}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardBody>
-        </Card>
-      </div>
     </div>
   );
 }

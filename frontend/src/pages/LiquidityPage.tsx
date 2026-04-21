@@ -153,19 +153,14 @@ export function LiquidityPage() {
   const minTvl = parseTvlInput(tvlMinInput);
   const maxTvl = parseTvlInput(tvlMaxInput);
 
-  // Meteora only honours min_tvl when sort_by=tvl:desc; force it server-side
-  // and re-sort client-side by the user's chosen key.
   const hasMinTvl = !isNaN(minTvl);
-  const serverSortKey = hasMinTvl ? 'tvl' : sortKey;
-  const serverSortDir: 'asc' | 'desc' = hasMinTvl ? 'desc' : sortDir;
 
   const { data: poolsResp, isLoading: poolsLoading } = usePools({
     page: 0,
     limit: 100,
     search: search.length >= 2 ? search : undefined,
-    sortKey: serverSortKey,
-    orderBy: serverSortDir,
-    minTvl: hasMinTvl ? minTvl : undefined,
+    sortKey,
+    orderBy: sortDir,
   });
 
   const { data: positions, isLoading: posLoading, isError: posError, refetch } = useUserPositions(pubkey);

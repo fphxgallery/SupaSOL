@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -6,10 +7,22 @@ import { decryptPrivateKey } from '../lib/vaultCrypto';
 import * as engine from '../bot/engine';
 import * as botState from '../bot/state';
 import type { BotConfig } from '../bot/types';
+import { validateBotConfigPatch } from '../bot/validateConfig';
 import { config as appConfig } from '../config';
 
 const router = Router();
 const VAULT_PATH = path.join(process.cwd(), 'vault.json');
+
+// Brute-force guard on vault unlock: 5 failed attempts per 15 min per IP.
+// Successful unlocks do not count against the limit.
+const unlockLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many failed unlock attempts. Try again later.', code: 'UNLOCK_RATE_LIMITED', retryable: true },
+});
 
 function readVaultPubkey(): string | null {
   try {
@@ -20,9 +33,18 @@ function readVaultPubkey(): string | null {
 }
 
 // POST /api/bot/unlock — decrypt vault + start engine
-router.post('/unlock', async (req, res) => {
-  const { password, config } = req.body as { password?: string; config?: Partial<BotConfig> };
+router.post('/unlock', unlockLimiter, async (req, res) => {
+  const { password, config } = req.body as { password?: string; config?: unknown };
   if (!password) return res.status(400).json({ error: 'password required' });
+
+  let validatedConfig: Partial<BotConfig> = {};
+  if (config !== undefined && config !== null) {
+    const result = validateBotConfigPatch(config);
+    if (!result.ok) {
+      return res.status(400).json({ error: `Invalid config.${result.error.field}: ${result.error.message}` });
+    }
+    validatedConfig = result.value;
+  }
 
   if (!fs.existsSync(VAULT_PATH)) {
     return res.status(404).json({ error: 'No vault found. Save private key to vault first.' });
@@ -42,7 +64,7 @@ router.post('/unlock', async (req, res) => {
     return res.status(401).json({ error: 'Invalid password' });
   }
 
-  engine.start(secretKey, config ?? {});
+  engine.start(secretKey, validatedConfig);
   res.json({ ok: true, pubkey: vault.pubkey });
 });
 
@@ -61,8 +83,12 @@ router.get('/status', (_req, res) => {
 
 // PATCH /api/bot/config
 router.patch('/config', (req, res) => {
-  botState.setConfig(req.body as Partial<BotConfig>);
-  res.json({ ok: true });
+  const result = validateBotConfigPatch(req.body);
+  if (!result.ok) {
+    return res.status(400).json({ error: `Invalid ${result.error.field}: ${result.error.message}` });
+  }
+  botState.setConfig(result.value);
+  res.json({ ok: true, config: botState.getState().config });
 });
 
 // POST /api/bot/stop

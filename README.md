@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.7-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.8-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.8
+- Backend security hardening pass
+- Brute-force guard on `POST /api/bot/unlock` — 5 failed attempts per 15 min per IP (successful unlocks skip the limit)
+- Global error handler now logs full stack + `X-Request-Id` per request; clients get the `requestId` in the error body for traceability
+- New `validateBotConfigPatch()` — strict field-level validation on `PATCH /api/bot/config` and the `config` payload of `/unlock`. Blocks negative `buyAmountSol`, out-of-range `slippageBps`, unknown fields, NaN, wrong types, and `mcapMin > mcapMax`
 
 ### v1.7.7
 - Auto Trader: clear stale Active Positions that aren't in the wallet anymore (sold externally, failed exits, etc.)

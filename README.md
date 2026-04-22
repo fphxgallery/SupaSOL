@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.6-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.7-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.7
+- Auto Trader: clear stale Active Positions that aren't in the wallet anymore (sold externally, failed exits, etc.)
+- Per-row × button on each active position — removes from state without selling
+- "Prune Ghosts" button scans wallet via `getParsedTokenAccountsByOwner` and auto-removes positions with 0 on-chain balance
+- Works with background bot (uses vault pubkey, no unlock required to prune)
 
 ### v1.7.6
 - Portfolio → Token Holdings: SOL row now uses the official Solana icon via `TokenLogo`, matching the style of SPL token rows (was a purple ◎ glyph)

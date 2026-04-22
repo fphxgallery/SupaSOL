@@ -3,6 +3,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import type { BotConfig, BotPosition, BotLogEntry, ClosedPosition } from './types';
 import { DEFAULT_CONFIG } from './types';
+import { atomicWriteFileSync } from '../lib/atomicWrite';
 
 const STATE_PATH = path.join(process.cwd(), 'bot-state.json');
 
@@ -22,7 +23,7 @@ let state: BotStateData = {
 
 function persist() {
   try {
-    fs.writeFileSync(STATE_PATH, JSON.stringify(state), 'utf8');
+    atomicWriteFileSync(STATE_PATH, JSON.stringify(state));
   } catch (e) {
     console.error('[bot-state] save failed:', e);
   }

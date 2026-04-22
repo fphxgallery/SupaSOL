@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config';
+import { requireBase58Param } from '../lib/validators';
 
 const router = Router();
 const JUP_BASE = 'https://api.jup.ag';
@@ -16,12 +17,16 @@ async function proxyToJupiter(req: Request, res: Response, jupPath: string) {
   res.status(upstream.status).set('Content-Type', 'application/json').send(text);
 }
 
-router.get('/positions/:address', (req, res) =>
-  proxyToJupiter(req, res, `/portfolio/v1/positions/${req.params['address']}`)
-);
+router.get('/positions/:address', (req, res) => {
+  const address = requireBase58Param(req, res, 'address');
+  if (!address) return;
+  proxyToJupiter(req, res, `/portfolio/v1/positions/${address}`);
+});
 router.get('/platforms', (req, res) => proxyToJupiter(req, res, '/portfolio/v1/platforms'));
-router.get('/staked-jup/:address', (req, res) =>
-  proxyToJupiter(req, res, `/portfolio/v1/staked-jup/${req.params['address']}`)
-);
+router.get('/staked-jup/:address', (req, res) => {
+  const address = requireBase58Param(req, res, 'address');
+  if (!address) return;
+  proxyToJupiter(req, res, `/portfolio/v1/staked-jup/${address}`);
+});
 
 export default router;

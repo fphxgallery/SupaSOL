@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { requireBase58Param } from '../lib/validators';
 
 const router = Router();
 const METEORA_API = 'https://dlmm.datapi.meteora.ag';
@@ -26,8 +27,10 @@ async function proxyToMeteora(req: Request, res: Response, meteoraPath: string) 
 router.get('/pairs', (req, res) => proxyToMeteora(req, res, '/pools'));
 
 // GET /api/dlmm/pair/:address — single pool metadata
-router.get('/pair/:address', (req, res) =>
-  proxyToMeteora(req, res, `/pools/${req.params.address}`)
-);
+router.get('/pair/:address', (req, res) => {
+  const address = requireBase58Param(req, res, 'address');
+  if (!address) return;
+  proxyToMeteora(req, res, `/pools/${address}`);
+});
 
 export default router;

@@ -111,8 +111,7 @@ router.get('/supply', async (req: Request, res: Response) => {
       return;
     }
 
-    const rpcUrl = process.env['VITE_RPC_URL'] ?? 'https://api.mainnet-beta.solana.com';
-    const rpcRes = await fetch(rpcUrl, {
+    const rpcRes = await fetch(config.solanaRpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

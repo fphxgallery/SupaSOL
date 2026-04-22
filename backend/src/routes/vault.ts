@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import { atomicWriteFileSync } from '../lib/atomicWrite';
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Invalid pubkey' });
   }
   try {
-    fs.writeFileSync(VAULT_PATH, JSON.stringify({ encrypted, pubkey }), 'utf8');
+    atomicWriteFileSync(VAULT_PATH, JSON.stringify({ encrypted, pubkey }));
     res.json({ ok: true });
   } catch (err) {
     console.error('[vault] write failed:', err);

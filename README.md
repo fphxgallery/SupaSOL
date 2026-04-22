@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.3-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.5-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,14 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.5
+- Backend hardening pass from codebase sanity check
+- Path param validation added to proxy routes — base58 regex for wallet/mint/pool addresses (dlmm, tokens/icon, portfolio), whitelist for Jupiter token category/interval, safe charset for trigger orderId
+- Atomic writes (tmp+rename) for `bot-state.json` and `vault.json` — prevents corruption on crash mid-write
+- Icon cache now LRU-bounded at 5000 entries to prevent unbounded memory growth
+- Backend RPC URL moved from frontend-scoped `VITE_RPC_URL` to dedicated `SOLANA_RPC_URL` env var
+- Spot chart bars flattened; auto-fill toggle now renders proportional distribution (from v1.7.4)
 
 ### v1.7.3
 - Lend / Earn page redesigned — Available Markets and My Positions merged into a single unified view

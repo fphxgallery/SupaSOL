@@ -62,8 +62,25 @@ router.get('/vault/register', (req, res) => withJwt(req, res, '/trigger/v2/vault
 router.post('/deposit/craft', (req, res) => withJwt(req, res, '/trigger/v2/deposit/craft'));
 router.post('/orders/price', (req, res) => withJwt(req, res, '/trigger/v2/orders/price'));
 router.patch('/orders/price', (req, res) => withJwt(req, res, '/trigger/v2/orders/price'));
-router.post('/orders/price/cancel/:orderId', (req, res) => withJwt(req, res, `/trigger/v2/orders/price/cancel/${req.params['orderId']}`));
-router.post('/orders/price/confirm-cancel/:orderId', (req, res) => withJwt(req, res, `/trigger/v2/orders/price/confirm-cancel/${req.params['orderId']}`));
+const ORDER_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+function validOrderId(req: Request, res: Response): string | null {
+  const id = req.params['orderId'];
+  if (typeof id !== 'string' || !ORDER_ID_RE.test(id)) {
+    res.status(400).json({ error: 'Invalid orderId' });
+    return null;
+  }
+  return id;
+}
+router.post('/orders/price/cancel/:orderId', (req, res) => {
+  const id = validOrderId(req, res);
+  if (!id) return;
+  withJwt(req, res, `/trigger/v2/orders/price/cancel/${id}`);
+});
+router.post('/orders/price/confirm-cancel/:orderId', (req, res) => {
+  const id = validOrderId(req, res);
+  if (!id) return;
+  withJwt(req, res, `/trigger/v2/orders/price/confirm-cancel/${id}`);
+});
 router.get('/orders/history', (req, res) => withJwt(req, res, '/trigger/v2/orders/history'));
 
 export default router;

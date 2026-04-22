@@ -11,7 +11,7 @@ import { UnlockBotModal } from '../components/bot/UnlockBotModal';
 import { formatPct, timeAgo } from '../utils/format';
 import { EXPLORER_BASE } from '../config/constants';
 import { closeAllAndStop } from '../hooks/useTradingBot';
-import { stopBot, closeAllBot, updateBotConfig, clearBotHistory, clearBotLog } from '../api/bot';
+import { stopBot, closeAllBot, updateBotConfig, clearBotHistory, clearBotLog, removeBotPosition, pruneBotPositions } from '../api/bot';
 import { useUiStore } from '../store/uiStore';
 import type { TrendingInterval } from '../hooks/useTrendingTokens';
 import type { ClosedPosition, BotConfig } from '../store/botStore';
@@ -110,7 +110,7 @@ function PnlRow({ closed, onClear }: { closed: ClosedPosition[]; onClear: () => 
 
 export function BotPage() {
   const pubkey = useActivePublicKey();
-  const { config, positions, closedPositions, log, updateConfig, clearLog, clearHistory } = useBotStore();
+  const { config, positions, closedPositions, log, updateConfig, clearLog, clearHistory, removePosition } = useBotStore();
   const addToast = useUiStore((s) => s.addToast);
   const [stopping, setStopping] = useState(false);
   const [unlockOpen, setUnlockOpen] = useState(false);
@@ -135,6 +135,44 @@ export function BotPage() {
   function handleConfigChange(updates: Partial<BotConfig>) {
     updateConfig(updates);
     if (bgRunning) updateBotConfig(updates).catch(() => {});
+  }
+
+  async function handleRemovePosition(id: string, symbol: string) {
+    if (!confirm(`Remove ${symbol} from Active Positions? This does not sell — it only clears the entry from bot state.`)) return;
+    try {
+      if (bgRunning) {
+        await removeBotPosition(id);
+        invalidateBotStatus();
+      } else {
+        removePosition(id);
+      }
+      addToast({ type: 'success', message: `Removed ${symbol} from state` });
+    } catch (err) {
+      addToast({ type: 'error', message: `Remove failed: ${err instanceof Error ? err.message : 'unknown'}` });
+    }
+  }
+
+  const [pruning, setPruning] = useState(false);
+  async function handlePruneGhosts() {
+    if (!bgRunning) {
+      addToast({ type: 'error', message: 'Prune only available when background bot is unlocked' });
+      return;
+    }
+    if (!confirm('Scan wallet and remove any position whose on-chain balance is 0? Does not sell.')) return;
+    setPruning(true);
+    try {
+      const result = await pruneBotPositions();
+      invalidateBotStatus();
+      if (result.removed.length === 0) {
+        addToast({ type: 'info', message: `No ghosts found (${result.scanned} scanned)` });
+      } else {
+        addToast({ type: 'success', message: `Pruned ${result.removed.length}: ${result.removed.map((r) => r.symbol).join(', ')}` });
+      }
+    } catch (err) {
+      addToast({ type: 'error', message: `Prune failed: ${err instanceof Error ? err.message : 'unknown'}` });
+    } finally {
+      setPruning(false);
+    }
   }
 
   async function toggle() {
@@ -337,19 +375,28 @@ export function BotPage() {
 
         {/* Col 2: Active Positions */}
         <Card>
-          <CardHeader title="Active Positions" subtitle={`${openPositions.length} open`} />
+          <CardHeader
+            title="Active Positions"
+            subtitle={`${openPositions.length} open`}
+            action={bgRunning && openPositions.length > 0 ? (
+              <Button variant="secondary" size="sm" onClick={handlePruneGhosts} disabled={pruning}>
+                {pruning ? 'Pruning…' : 'Prune Ghosts'}
+              </Button>
+            ) : undefined}
+          />
           <CardBody className="p-0">
             {openPositions.length === 0 ? (
               <p className="text-sm text-text-dim text-center py-6">No open positions</p>
             ) : (
               <div className="divide-y divide-border">
-                <div className="grid grid-cols-[1fr_80px_80px_70px_80px_60px] gap-x-2 px-4 py-2 text-[10px] font-semibold text-text-dim uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_80px_80px_70px_80px_60px_28px] gap-x-2 px-4 py-2 text-[10px] font-semibold text-text-dim uppercase tracking-wide">
                   <span>Token</span>
                   <span className="text-right">Entry</span>
                   <span className="text-right">Current</span>
                   <span className="text-right">P&L</span>
                   <span className="text-right">Stop</span>
                   <span className="text-right">Held</span>
+                  <span />
                 </div>
                 {openPositions.map((pos) => {
                   const currentPrice = prices?.[pos.mint]?.usdPrice;
@@ -363,7 +410,7 @@ export function BotPage() {
                   }
 
                   return (
-                    <div key={pos.id} className="grid grid-cols-[1fr_80px_80px_70px_80px_60px] gap-x-2 px-4 py-3 items-center">
+                    <div key={pos.id} className="grid grid-cols-[1fr_80px_80px_70px_80px_60px_28px] gap-x-2 px-4 py-3 items-center">
                       <div>
                         <p className="text-sm font-semibold text-text">{pos.symbol}</p>
                         <p className="text-[10px] text-text-dim font-mono">{pos.amountSolIn} SOL</p>
@@ -378,6 +425,14 @@ export function BotPage() {
                         <p className="text-xs text-text-dim tabular-nums">{heldMin}m</p>
                         {pos.status === 'closing' && <p className="text-[10px] text-orange animate-pulse">closing…</p>}
                       </div>
+                      <button
+                        onClick={() => handleRemovePosition(pos.id, pos.symbol)}
+                        disabled={pos.status === 'closing'}
+                        title="Remove from state (no sell)"
+                        className="text-text-dim hover:text-red text-sm leading-none disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        ×
+                      </button>
                     </div>
                   );
                 })}

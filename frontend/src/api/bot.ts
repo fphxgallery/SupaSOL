@@ -40,3 +40,16 @@ export async function clearBotHistory(): Promise<void> {
 export async function clearBotLog(): Promise<void> {
   await apiFetch('/api/bot/log', { method: 'DELETE' });
 }
+
+export async function removeBotPosition(id: string): Promise<void> {
+  await apiFetch(`/api/bot/positions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export interface PruneResult {
+  removed: { id: string; symbol: string; mint: string }[];
+  scanned: number;
+}
+
+export async function pruneBotPositions(): Promise<PruneResult> {
+  return apiFetch<PruneResult>('/api/bot/positions/prune', { method: 'POST' });
+}

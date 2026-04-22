@@ -1,13 +1,23 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { decryptPrivateKey } from '../lib/vaultCrypto';
 import * as engine from '../bot/engine';
 import * as botState from '../bot/state';
 import type { BotConfig } from '../bot/types';
+import { config as appConfig } from '../config';
 
 const router = Router();
 const VAULT_PATH = path.join(process.cwd(), 'vault.json');
+
+function readVaultPubkey(): string | null {
+  try {
+    if (!fs.existsSync(VAULT_PATH)) return null;
+    const v = JSON.parse(fs.readFileSync(VAULT_PATH, 'utf8')) as { pubkey?: string };
+    return v.pubkey ?? null;
+  } catch { return null; }
+}
 
 // POST /api/bot/unlock — decrypt vault + start engine
 router.post('/unlock', async (req, res) => {
@@ -66,6 +76,70 @@ router.post('/close-all', async (_req, res) => {
   await engine.closeAllPositions('manual close-all');
   engine.stop();
   res.json({ ok: true });
+});
+
+// DELETE /api/bot/positions/:id — drop a single position from state (no swap)
+router.delete('/positions/:id', (req, res) => {
+  const id = req.params['id'];
+  if (!id || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+    return res.status(400).json({ error: 'Invalid id' });
+  }
+  const before = botState.getPositions().length;
+  botState.removePosition(id);
+  const after = botState.getPositions().length;
+  if (after === before) return res.status(404).json({ error: 'Position not found' });
+  botState.addLog({ type: 'info', message: `Position ${id.slice(0, 8)} manually removed from state` });
+  res.json({ ok: true });
+});
+
+// POST /api/bot/positions/prune — remove positions whose on-chain balance is 0
+router.post('/positions/prune', async (_req, res) => {
+  const pubkey = engine.getPubkey() ?? readVaultPubkey();
+  if (!pubkey) return res.status(400).json({ error: 'No wallet pubkey available (vault missing)' });
+
+  const openPositions = botState.getPositions().filter((p) => p.status === 'open');
+  if (openPositions.length === 0) return res.json({ removed: [], scanned: 0 });
+
+  let owner: PublicKey;
+  try { owner = new PublicKey(pubkey); } catch {
+    return res.status(400).json({ error: 'Invalid vault pubkey' });
+  }
+
+  const conn = new Connection(appConfig.solanaRpcUrl, 'confirmed');
+  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+
+  let parsed;
+  try {
+    parsed = await conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID });
+  } catch (err) {
+    return res.status(502).json({ error: `RPC failure: ${err instanceof Error ? err.message : 'unknown'}` });
+  }
+
+  // mint → total raw amount held across all token accounts
+  const heldByMint = new Map<string, bigint>();
+  for (const { account } of parsed.value) {
+    const info = (account.data as { parsed?: { info?: { mint?: string; tokenAmount?: { amount?: string } } } }).parsed?.info;
+    const mint = info?.mint;
+    const amount = info?.tokenAmount?.amount;
+    if (!mint || !amount) continue;
+    heldByMint.set(mint, (heldByMint.get(mint) ?? 0n) + BigInt(amount));
+  }
+
+  const removed: { id: string; symbol: string; mint: string }[] = [];
+  for (const pos of openPositions) {
+    const held = heldByMint.get(pos.mint) ?? 0n;
+    if (held === 0n) {
+      botState.removePosition(pos.id);
+      removed.push({ id: pos.id, symbol: pos.symbol, mint: pos.mint });
+    }
+  }
+  if (removed.length > 0) {
+    botState.addLog({
+      type: 'info',
+      message: `Pruned ${removed.length} ghost position${removed.length !== 1 ? 's' : ''}: ${removed.map((r) => r.symbol).join(', ')}`,
+    });
+  }
+  res.json({ removed, scanned: openPositions.length });
 });
 
 // DELETE /api/bot/history

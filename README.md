@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.5-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.6-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,9 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.6
+- Portfolio → Token Holdings: SOL row now uses the official Solana icon via `TokenLogo`, matching the style of SPL token rows (was a purple ◎ glyph)
 
 ### v1.7.5
 - Backend hardening pass from codebase sanity check

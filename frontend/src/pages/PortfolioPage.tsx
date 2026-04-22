@@ -133,9 +133,7 @@ export function PortfolioPage() {
                         className={`flex items-center justify-between px-4 py-3 border-b border-border cursor-pointer transition-colors ${isSelected ? 'bg-green/5 border-l-2 border-l-green' : 'hover:bg-surface-2'}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center shrink-0">
-                            <span className="text-sm font-bold text-purple">◎</span>
-                          </div>
+                          <TokenLogo mint={MINTS.SOL} symbol="SOL" logoURI={solToken.logoURI} size="lg" />
                           <div>
                             <p className="text-sm font-medium text-text">SOL</p>
                             <p className="text-xs text-text-dim">Native Solana</p>

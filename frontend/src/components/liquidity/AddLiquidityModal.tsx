@@ -29,9 +29,9 @@ const CHART_BIN_COUNT = 70;
 function strategyBinHeights(nBins: number, currentIdx: number, strategy: Strategy): number[] {
   const arr = new Array(nBins).fill(0);
   if (strategy === 'Spot') {
-    // Uniform distribution with a tiny ripple for visual interest
+    // Uniform — every bin gets equal liquidity
     for (let i = 0; i < nBins; i++) {
-      arr[i] = 0.6 + 0.08 * Math.sin(i * 0.6) + 0.08 * Math.cos(i * 0.3);
+      arr[i] = 1.0;
     }
   } else if (strategy === 'Curve') {
     // Gaussian centered on current price
@@ -462,10 +462,10 @@ export function AddLiquidityModal({
           className="flex items-center gap-2 text-[11px] text-text-dim cursor-pointer"
         >
           Auto-Fill
-          <span className={`relative w-8 h-4 rounded-full transition-colors ${autoFill ? 'bg-green' : 'bg-border-2'}`}>
+          <span className={`relative inline-flex w-9 h-5 rounded-full transition-colors ${autoFill ? 'bg-green' : 'bg-border-2'}`}>
             <span
-              className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
-                autoFill ? 'translate-x-4' : 'translate-x-0.5'
+              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                autoFill ? 'translate-x-[18px]' : 'translate-x-0.5'
               }`}
             />
           </span>

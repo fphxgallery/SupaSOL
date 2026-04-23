@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.8.0-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.8.1-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,10 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.8.1
+- AI Advisor system prompt retuned for memecoin context — removed "conservative/skeptical/ignore hype" framing that caused AI to veto nearly every trending token
+- New prompt treats memecoins as momentum plays, weighs signals on balance, and only skips on clear red flags (dumping liquidity, sell-dominated volume, collapsing holders)
 
 ### v1.8.0
 - AI Advisor prompts now feed full Jupiter market context to the model

@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.1-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.2-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.2
+- AI Advisor gains **per-mint rejection memory** — last 3 AI skip/veto/no-confirm decisions on the same mint injected into entry prompts
+- Each rejection line: action, confidence, reason quote, age (e.g. `skip @80% — "sell-dominated volume" (3m ago)`)
+- System prompt updated: if flagged concerns persist in current stats, keep skipping; if conditions materially improved, fresh look OK
+- In-memory only (cleared on bot stop), capped at 3 per mint; cache key includes rejection count
 
 ### v1.9.1
 - AI Advisor now has **per-mint trade memory** — last 5 closed trades on the same mint injected into both entry and exit prompts

@@ -3,6 +3,40 @@ import type { TrendingToken, IntervalStats } from '../lib/jupiterApi';
 import type { AiModel, ClosedPosition } from './types';
 
 const MAX_HISTORY_ENTRIES = 5;
+const MAX_REJECTION_ENTRIES = 3;
+
+export interface AiRejection {
+  action: AiAction;
+  confidence: number;
+  reason: string;
+  time: number;
+}
+
+const rejections = new Map<string, AiRejection[]>();
+
+export function recordRejection(mint: string, r: Omit<AiRejection, 'time'>): void {
+  const entry: AiRejection = { ...r, time: Date.now() };
+  const prev = rejections.get(mint) ?? [];
+  rejections.set(mint, [entry, ...prev].slice(0, MAX_REJECTION_ENTRIES));
+}
+
+export function getRejections(mint: string): AiRejection[] {
+  return rejections.get(mint) ?? [];
+}
+
+function ageStr(ms: number): string {
+  const m = Math.round(ms / 60_000);
+  if (m < 60) return `${m}m ago`;
+  if (m < 1440) return `${Math.round(m / 60)}h ago`;
+  return `${Math.round(m / 1440)}d ago`;
+}
+
+function formatRejections(list: AiRejection[] | undefined): string | null {
+  if (!list || list.length === 0) return null;
+  const now = Date.now();
+  const lines = list.map((r) => `- ${r.action} @${r.confidence}% — "${r.reason}" (${ageStr(now - r.time)})`);
+  return `Prior AI rejections on this mint (most recent first):\n${lines.join('\n')}`;
+}
 
 function formatHistory(history: ClosedPosition[] | undefined): string | null {
   if (!history || history.length === 0) return null;
@@ -39,6 +73,7 @@ export interface EntryContext {
   kind: 'entry';
   token: TrendingToken;
   history?: ClosedPosition[];
+  rejections?: AiRejection[];
 }
 
 export interface ExitContext {
@@ -72,13 +107,17 @@ const rate: RateState = { windowStart: Date.now(), count: 0 };
 
 export function resetAdvisorState(): void {
   cache.clear();
+  rejections.clear();
   rate.windowStart = Date.now();
   rate.count = 0;
 }
 
 function cacheKey(ctx: AdvisorContext): string {
   const histLen = ctx.history?.length ?? 0;
-  if (ctx.kind === 'entry') return `entry:${ctx.token.address}:h${histLen}`;
+  if (ctx.kind === 'entry') {
+    const rejLen = ctx.rejections?.length ?? 0;
+    return `entry:${ctx.token.address}:h${histLen}:r${rejLen}`;
+  }
   return `exit:${ctx.mint}:${Math.round(ctx.pnlPct)}:h${histLen}`;
 }
 
@@ -92,7 +131,7 @@ function checkRate(maxPerHour: number): boolean {
 }
 
 function buildPrompt(ctx: AdvisorContext): { system: string; user: string } {
-  const system = `You are a crypto trading assistant for a Solana memecoin bot. You evaluate trade signals and respond ONLY with strict JSON: {"action":"buy|hold|sell|skip","confidence":0-100,"reason":"<=120 chars"}. Memecoins are momentum plays — strong volume, rising holders, positive net buyers, and organic buy pressure are buy signals. Don't require perfection; weigh signals on balance. Skip only on clear red flags (dumping liquidity, sell-dominated volume, collapsing holders). If prior bot trades on this mint are provided, factor them in: repeated losses suggest caution; recent profitable exits on re-entry are a positive signal but don't guarantee repeat.`;
+  const system = `You are a crypto trading assistant for a Solana memecoin bot. You evaluate trade signals and respond ONLY with strict JSON: {"action":"buy|hold|sell|skip","confidence":0-100,"reason":"<=120 chars"}. Memecoins are momentum plays — strong volume, rising holders, positive net buyers, and organic buy pressure are buy signals. Don't require perfection; weigh signals on balance. Skip only on clear red flags (dumping liquidity, sell-dominated volume, collapsing holders). If prior bot trades on this mint are provided, factor them in: repeated losses suggest caution; recent profitable exits on re-entry are a positive signal but don't guarantee repeat. If prior AI rejections on this mint are provided, check whether the flagged concerns are still present in current stats — if same red flags persist, keep skipping; if conditions materially improved, a fresh look is OK.`;
 
   const historyBlock = formatHistory(ctx.history);
 
@@ -108,6 +147,8 @@ function buildPrompt(ctx: AdvisorContext): { system: string; user: string } {
       formatStats('24h', t.stats['24h']),
     ];
     if (historyBlock) parts.push(historyBlock);
+    const rejectionBlock = formatRejections(ctx.rejections);
+    if (rejectionBlock) parts.push(rejectionBlock);
     parts.push('Answer buy or skip with confidence.');
     return { system, user: parts.join('\n') };
   }

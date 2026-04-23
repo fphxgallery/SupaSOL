@@ -2,7 +2,7 @@ import { VersionedTransaction, Keypair } from '@solana/web3.js';
 import { randomUUID } from 'crypto';
 import * as botState from './state';
 import { getSwapOrder, executeSwap, fetchTrendingTokens, fetchPrices, fetchTokenStats } from '../lib/jupiterApi';
-import { getTradeDecision, resetAdvisorState } from './aiAdvisor';
+import { getTradeDecision, resetAdvisorState, recordRejection, getRejections } from './aiAdvisor';
 import type { BotConfig } from './types';
 import { SOL_MINT } from './types';
 
@@ -79,7 +79,7 @@ async function runEntryLoop() {
         if (rejectedExp) aiRejectedUntil.delete(token.address);
 
         const decision = await getTradeDecision(
-          { kind: 'entry', token, history: historyForMint(token.address) },
+          { kind: 'entry', token, history: historyForMint(token.address), rejections: getRejections(token.address) },
           { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
         );
         if ('error' in decision) {
@@ -98,6 +98,7 @@ async function runEntryLoop() {
               ((decision.action === 'hold') && decision.confidence >= config.aiMinConfidence);
             if (blocks) {
               aiRejectedUntil.set(token.address, now + config.aiCacheMinutes * 60_000);
+              recordRejection(token.address, { action: decision.action, confidence: decision.confidence, reason: decision.reason });
               botState.addLog({ type: 'skip', message: `AI veto ${summary}` });
               continue;
             }
@@ -106,6 +107,7 @@ async function runEntryLoop() {
             const confirmed = decision.action === 'buy' && decision.confidence >= config.aiMinConfidence;
             if (!confirmed) {
               aiRejectedUntil.set(token.address, now + config.aiCacheMinutes * 60_000);
+              recordRejection(token.address, { action: decision.action, confidence: decision.confidence, reason: decision.reason });
               botState.addLog({ type: 'skip', message: `AI no-confirm ${summary}` });
               continue;
             }

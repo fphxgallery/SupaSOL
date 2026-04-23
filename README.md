@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.8.1-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.1-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,13 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.1
+- AI Advisor now has **per-mint trade memory** — last 5 closed trades on the same mint injected into both entry and exit prompts
+- Each history line: PnL%, hold duration, exit reason, age (e.g. `+45.2% (held 12m, exit=take profit +45%, 2h ago)`)
+- System prompt updated: model factors prior bot outcomes when judging repeat signals
+- Cache key includes history length so new closes invalidate stale decisions
+- No behavior change on first trade of a mint; token overhead ~200/call max
 
 ### v1.8.1
 - AI Advisor system prompt retuned for memecoin context — removed "conservative/skeptical/ignore hype" framing that caused AI to veto nearly every trending token

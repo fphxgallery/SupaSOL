@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.4-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.5-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.5
+- Codebase sanity pass: hardened `.env` load in [backend/src/config.ts](backend/src/config.ts) to be `__dirname`-relative (no longer brittle to `process.cwd()`)
+- Warn log emitted at startup when `OPENAI_API_KEY` is missing — AI exit advisor silently no-ops before
+- `docker-compose.yml` `FRONTEND_ORIGIN` now overridable via env (`${FRONTEND_ORIGIN:-http://localhost:3000}`) for hybrid docker-backend + dev-frontend setups
+- `.env.example` documents optional `OPENAI_API_KEY`
 
 ### v1.9.4
 - AI exit prompt rewritten to bias toward **HOLD as default**, countering observed sell-happy behavior

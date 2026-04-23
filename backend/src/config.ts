@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 function required(key: string): string {
   const val = process.env[key];
@@ -17,3 +17,7 @@ export const config = {
   nodeEnv: process.env['NODE_ENV'] ?? 'development',
   solanaRpcUrl: process.env['SOLANA_RPC_URL'] ?? 'https://api.mainnet-beta.solana.com',
 };
+
+if (!config.openaiApiKey) {
+  console.warn('[config] OPENAI_API_KEY not set — AI exit advisor disabled');
+}

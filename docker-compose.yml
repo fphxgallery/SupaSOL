@@ -10,7 +10,7 @@ services:
     environment:
       - JUPITER_API_KEY=${JUPITER_API_KEY}
       - PORT=4000
-      - FRONTEND_ORIGIN=http://localhost:3000
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:-http://localhost:3000}
       - NODE_ENV=production
     restart: unless-stopped
     healthcheck:

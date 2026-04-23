@@ -1,7 +1,7 @@
 import { VersionedTransaction, Keypair } from '@solana/web3.js';
 import { randomUUID } from 'crypto';
 import * as botState from './state';
-import { getSwapOrder, executeSwap, fetchTrendingTokens, fetchPrices } from '../lib/jupiterApi';
+import { getSwapOrder, executeSwap, fetchTrendingTokens, fetchPrices, fetchTokenStats } from '../lib/jupiterApi';
 import { getTradeDecision, resetAdvisorState } from './aiAdvisor';
 import type { BotConfig } from './types';
 import { SOL_MINT } from './types';
@@ -204,43 +204,36 @@ async function runExitLoop() {
       else if (pnlPct >= config.takeProfitPct)     exitReason = `take profit +${pnlPct.toFixed(1)}%`;
       else if (heldMinutes >= config.maxHoldMinutes) exitReason = `max hold ${config.maxHoldMinutes}m`;
 
-      if (!exitReason && config.aiEnabled && config.aiMode !== 'advisory') {
-        const decision = await getTradeDecision(
-          {
-            kind: 'exit',
-            mint: position.mint,
-            symbol: position.symbol,
-            entryPrice: position.entryPrice,
-            currentPrice,
-            peakPrice,
-            pnlPct,
-            heldMinutes,
-          },
-          { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
-        );
-        if (!('error' in decision)) {
-          if (decision.action === 'sell' && decision.confidence >= config.aiMinConfidence) {
-            exitReason = `AI sell @${decision.confidence}% — ${decision.reason}`;
-          } else if (!decision.cached) {
-            botState.addLog({ type: 'info', message: `${position.symbol} AI: ${decision.action} @${decision.confidence}% — ${decision.reason}` });
+      if (!exitReason && config.aiEnabled) {
+        const tokenStats = await fetchTokenStats(position.mint);
+        const exitCtx = {
+          kind: 'exit' as const,
+          mint: position.mint,
+          symbol: position.symbol,
+          entryPrice: position.entryPrice,
+          currentPrice,
+          peakPrice,
+          pnlPct,
+          heldMinutes,
+          stats5m: tokenStats?.stats['5m'],
+          stats1h: tokenStats?.stats['1h'],
+        };
+        const aiOpts = { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes };
+
+        if (config.aiMode !== 'advisory') {
+          const decision = await getTradeDecision(exitCtx, aiOpts);
+          if (!('error' in decision)) {
+            if (decision.action === 'sell' && decision.confidence >= config.aiMinConfidence) {
+              exitReason = `AI sell @${decision.confidence}% — ${decision.reason}`;
+            } else if (!decision.cached) {
+              botState.addLog({ type: 'info', message: `${position.symbol} AI: ${decision.action} @${decision.confidence}% — ${decision.reason}` });
+            }
           }
-        }
-      } else if (!exitReason && config.aiEnabled && config.aiMode === 'advisory') {
-        const decision = await getTradeDecision(
-          {
-            kind: 'exit',
-            mint: position.mint,
-            symbol: position.symbol,
-            entryPrice: position.entryPrice,
-            currentPrice,
-            peakPrice,
-            pnlPct,
-            heldMinutes,
-          },
-          { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
-        );
-        if (!('error' in decision) && !decision.cached) {
-          botState.addLog({ type: 'info', message: `${position.symbol} AI (advisory): ${decision.action} @${decision.confidence}% — ${decision.reason}` });
+        } else {
+          const decision = await getTradeDecision(exitCtx, aiOpts);
+          if (!('error' in decision) && !decision.cached) {
+            botState.addLog({ type: 'info', message: `${position.symbol} AI (advisory): ${decision.action} @${decision.confidence}% — ${decision.reason}` });
+          }
         }
       }
 

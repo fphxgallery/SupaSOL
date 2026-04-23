@@ -1,6 +1,15 @@
 import { chatCompletion, isOpenAIConfigured, OpenAIError } from '../lib/openaiApi';
-import type { TrendingToken } from '../lib/jupiterApi';
+import type { TrendingToken, IntervalStats } from '../lib/jupiterApi';
 import type { AiModel } from './types';
+
+function fmt(n: number | undefined, digits = 2): string {
+  return typeof n === 'number' ? n.toFixed(digits) : '?';
+}
+
+function formatStats(label: string, s: IntervalStats | undefined): string {
+  if (!s) return `${label}: (no data)`;
+  return `${label}: priceChange=${fmt(s.priceChange)}% holderChange=${fmt(s.holderChange)}% liquidityChange=${fmt(s.liquidityChange)}% volumeChange=${fmt(s.volumeChange)}% buyVolume=${fmt(s.buyVolume, 0)} sellVolume=${fmt(s.sellVolume, 0)} buyOrganicVolume=${fmt(s.buyOrganicVolume, 0)} sellOrganicVolume=${fmt(s.sellOrganicVolume, 0)} numBuys=${s.numBuys ?? '?'} numSells=${s.numSells ?? '?'} numTraders=${s.numTraders ?? '?'} numOrganicBuyers=${s.numOrganicBuyers ?? '?'} numNetBuyers=${s.numNetBuyers ?? '?'}`;
+}
 
 export type AiAction = 'buy' | 'hold' | 'sell' | 'skip';
 
@@ -26,6 +35,8 @@ export interface ExitContext {
   peakPrice: number;
   pnlPct: number;
   heldMinutes: number;
+  stats5m?: IntervalStats;
+  stats1h?: IntervalStats;
 }
 
 export type AdvisorContext = EntryContext | ExitContext;
@@ -68,16 +79,13 @@ function buildPrompt(ctx: AdvisorContext): { system: string; user: string } {
 
   if (ctx.kind === 'entry') {
     const t = ctx.token;
-    const s5 = t.stats['5m'];
-    const s1 = t.stats['1h'];
-    const s24 = t.stats['24h'];
     const user = `Evaluate BUY signal for ${t.symbol} (${t.name}).
 mcap: $${t.mcap ?? 'unknown'}
 organicScore: ${t.organicScore ?? 'unknown'}/100
-audit: mintable=${t.audit?.isMintable} freezable=${t.audit?.isFreezable} sus=${t.audit?.isSus}
-5m: change=${s5?.priceChange ?? '?'}% organicBuyers=${s5?.numOrganicBuyers ?? '?'}
-1h: change=${s1?.priceChange ?? '?'}% organicBuyers=${s1?.numOrganicBuyers ?? '?'}
-24h: change=${s24?.priceChange ?? '?'}% organicBuyers=${s24?.numOrganicBuyers ?? '?'}
+${formatStats('5m', t.stats['5m'])}
+${formatStats('1h', t.stats['1h'])}
+${formatStats('6h', t.stats['6h'])}
+${formatStats('24h', t.stats['24h'])}
 Answer buy or skip with confidence.`;
     return { system, user };
   }
@@ -88,6 +96,8 @@ currentPrice: ${ctx.currentPrice}
 peakPrice: ${ctx.peakPrice}
 pnlPct: ${ctx.pnlPct.toFixed(2)}%
 heldMinutes: ${ctx.heldMinutes.toFixed(1)}
+${formatStats('5m', ctx.stats5m)}
+${formatStats('1h', ctx.stats1h)}
 Answer sell or hold with confidence.`;
   return { system, user };
 }

@@ -40,10 +40,23 @@ export interface TrendingToken {
   mcap?: number;
   organicScore?: number;
   audit?: { isMintable?: boolean; isFreezable?: boolean; isSus?: boolean };
-  stats: Partial<Record<'5m' | '1h' | '6h' | '24h', {
-    priceChange?: number;
-    numOrganicBuyers?: number;
-  }>>;
+  stats: Partial<Record<'5m' | '1h' | '6h' | '24h', IntervalStats>>;
+}
+
+export interface IntervalStats {
+  priceChange?: number;
+  holderChange?: number;
+  liquidityChange?: number;
+  volumeChange?: number;
+  buyVolume?: number;
+  sellVolume?: number;
+  buyOrganicVolume?: number;
+  sellOrganicVolume?: number;
+  numBuys?: number;
+  numSells?: number;
+  numTraders?: number;
+  numOrganicBuyers?: number;
+  numNetBuyers?: number;
 }
 
 export interface TokenPrice {
@@ -81,10 +94,10 @@ export async function fetchTrendingTokens(interval: string): Promise<TrendingTok
     id: string; name: string; symbol: string; decimals: number;
     usdPrice?: number; mcap?: number; organicScore?: number;
     audit?: TrendingToken['audit'];
-    stats5m?: { priceChange?: number; numOrganicBuyers?: number };
-    stats1h?: { priceChange?: number; numOrganicBuyers?: number };
-    stats6h?: { priceChange?: number; numOrganicBuyers?: number };
-    stats24h?: { priceChange?: number; numOrganicBuyers?: number };
+    stats5m?: IntervalStats;
+    stats1h?: IntervalStats;
+    stats6h?: IntervalStats;
+    stats24h?: IntervalStats;
   }>;
   return raw.map((t) => ({
     address: t.id,
@@ -96,12 +109,44 @@ export async function fetchTrendingTokens(interval: string): Promise<TrendingTok
     organicScore: t.organicScore,
     audit: t.audit,
     stats: {
-      '5m':  t.stats5m  ? { priceChange: t.stats5m.priceChange,  numOrganicBuyers: t.stats5m.numOrganicBuyers  } : undefined,
-      '1h':  t.stats1h  ? { priceChange: t.stats1h.priceChange,  numOrganicBuyers: t.stats1h.numOrganicBuyers  } : undefined,
-      '6h':  t.stats6h  ? { priceChange: t.stats6h.priceChange,  numOrganicBuyers: t.stats6h.numOrganicBuyers  } : undefined,
-      '24h': t.stats24h ? { priceChange: t.stats24h.priceChange, numOrganicBuyers: t.stats24h.numOrganicBuyers } : undefined,
+      '5m':  t.stats5m,
+      '1h':  t.stats1h,
+      '6h':  t.stats6h,
+      '24h': t.stats24h,
     },
   }));
+}
+
+export async function fetchTokenStats(mint: string): Promise<TrendingToken | null> {
+  const resp = await fetch(`${JUP_BASE}/tokens/v2/search?query=${mint}`, { headers: jupHeaders() });
+  if (!resp.ok) return null;
+  const raw = await resp.json() as Array<{
+    id: string; name: string; symbol: string; decimals: number;
+    usdPrice?: number; mcap?: number; organicScore?: number;
+    audit?: TrendingToken['audit'];
+    stats5m?: IntervalStats;
+    stats1h?: IntervalStats;
+    stats6h?: IntervalStats;
+    stats24h?: IntervalStats;
+  }>;
+  const t = raw.find((x) => x.id === mint) ?? raw[0];
+  if (!t) return null;
+  return {
+    address: t.id,
+    name: t.name,
+    symbol: t.symbol,
+    decimals: t.decimals,
+    usdPrice: t.usdPrice,
+    mcap: t.mcap,
+    organicScore: t.organicScore,
+    audit: t.audit,
+    stats: {
+      '5m':  t.stats5m,
+      '1h':  t.stats1h,
+      '6h':  t.stats6h,
+      '24h': t.stats24h,
+    },
+  };
 }
 
 export async function fetchPrices(mints: string[]): Promise<Record<string, TokenPrice>> {

@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.13-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.8.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,13 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.8.0
+- AI Advisor prompts now feed full Jupiter market context to the model
+- Entry prompt: all 13 stat fields (priceChange, holderChange, liquidityChange, volumeChange, buy/sell volume, organic volumes, num buys/sells/traders/organic buyers/net buyers) across 5m/1h/6h/24h intervals
+- Exit prompt: fetches live token stats via `/tokens/v2/search` before each AI call and includes 5m + 1h intervals alongside entry/current/peak price, PnL, and hold time
+- Field names match Jupiter API exactly (no abbreviations) for self-documenting prompts
+- Added `fetchTokenStats(mint)` helper in `jupiterApi.ts`; exported `IntervalStats` interface
 
 ### v1.7.13
 - Entry loop now tracks mints the AI rejected (veto or no-confirm) and silently skips re-evaluating them for `aiCacheMinutes`

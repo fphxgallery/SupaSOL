@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.3-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.4-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.4
+- AI exit prompt rewritten to bias toward **HOLD as default**, countering observed sell-happy behavior
+- System prompt gains exit-specific guidance: ignore single-candle 5m noise, require sustained reversal across 5m AND 1h, small green P&L is not a sell signal
+- Exit context now includes `trailingStopPct`, `takeProfitPct`, and `drawdownFromPeak` — AI can see the guardrails that already exist
+- User message reframes: "Default action is HOLD unless clear reversal" / "Recommend SELL only on clear sustained reversal"
 
 ### v1.9.3
 - AI exit decisions now **gated by P&L bands** — AI only consulted when `pnlPct <= -aiExitLossPct` or `pnlPct >= aiExitGainPct`

@@ -85,6 +85,8 @@ export interface ExitContext {
   peakPrice: number;
   pnlPct: number;
   heldMinutes: number;
+  trailingStopPct: number;
+  takeProfitPct: number;
   stats5m?: IntervalStats;
   stats1h?: IntervalStats;
   history?: ClosedPosition[];
@@ -131,7 +133,9 @@ function checkRate(maxPerHour: number): boolean {
 }
 
 function buildPrompt(ctx: AdvisorContext): { system: string; user: string } {
-  const system = `You are a crypto trading assistant for a Solana memecoin bot. You evaluate trade signals and respond ONLY with strict JSON: {"action":"buy|hold|sell|skip","confidence":0-100,"reason":"<=120 chars"}. Memecoins are momentum plays — strong volume, rising holders, positive net buyers, and organic buy pressure are buy signals. Don't require perfection; weigh signals on balance. Skip only on clear red flags (dumping liquidity, sell-dominated volume, collapsing holders). If prior bot trades on this mint are provided, factor them in: repeated losses suggest caution; recent profitable exits on re-entry are a positive signal but don't guarantee repeat. If prior AI rejections on this mint are provided, check whether the flagged concerns are still present in current stats — if same red flags persist, keep skipping; if conditions materially improved, a fresh look is OK.`;
+  const system = `You are a crypto trading assistant for a Solana memecoin bot. You evaluate trade signals and respond ONLY with strict JSON: {"action":"buy|hold|sell|skip","confidence":0-100,"reason":"<=120 chars"}. Memecoins are momentum plays — strong volume, rising holders, positive net buyers, and organic buy pressure are buy signals. Don't require perfection; weigh signals on balance. Skip only on clear red flags (dumping liquidity, sell-dominated volume, collapsing holders). If prior bot trades on this mint are provided, factor them in: repeated losses suggest caution; recent profitable exits on re-entry are a positive signal but don't guarantee repeat. If prior AI rejections on this mint are provided, check whether the flagged concerns are still present in current stats — if same red flags persist, keep skipping; if conditions materially improved, a fresh look is OK.
+
+For EXIT decisions, default to HOLD. A trailing stop (auto-sells on drop from peak) and a take-profit target are already enforced outside your decision — you do NOT need to preempt them. Recommend SELL only on clear sustained reversal: negative 1h price change combined with negative holder change, collapsing liquidity, or sell-dominated organic volume across BOTH 5m AND 1h. Ignore single-candle 5m noise. Small green P&L is not a sell signal — let winners run toward the take-profit target. Only sell early if momentum is clearly breaking down at the higher timeframe.`;
 
   const historyBlock = formatHistory(ctx.history);
 
@@ -153,18 +157,22 @@ function buildPrompt(ctx: AdvisorContext): { system: string; user: string } {
     return { system, user: parts.join('\n') };
   }
 
+  const drawdownFromPeak = ctx.peakPrice > 0 ? ((ctx.peakPrice - ctx.currentPrice) / ctx.peakPrice) * 100 : 0;
   const parts = [
-    `Evaluate EXIT for open position ${ctx.symbol}.`,
+    `Evaluate EXIT for open position ${ctx.symbol}. Default action is HOLD unless clear reversal.`,
     `entryPrice: ${ctx.entryPrice}`,
     `currentPrice: ${ctx.currentPrice}`,
     `peakPrice: ${ctx.peakPrice}`,
+    `drawdownFromPeak: ${drawdownFromPeak.toFixed(2)}%`,
     `pnlPct: ${ctx.pnlPct.toFixed(2)}%`,
     `heldMinutes: ${ctx.heldMinutes.toFixed(1)}`,
+    `trailingStopPct: ${ctx.trailingStopPct}% (auto-sells if drawdown from peak hits this)`,
+    `takeProfitPct: ${ctx.takeProfitPct}% (auto-sells at this gain)`,
     formatStats('5m', ctx.stats5m),
     formatStats('1h', ctx.stats1h),
   ];
   if (historyBlock) parts.push(historyBlock);
-  parts.push('Answer sell or hold with confidence.');
+  parts.push('Recommend SELL only on clear sustained reversal across 5m AND 1h. Otherwise HOLD.');
   return { system, user: parts.join('\n') };
 }
 

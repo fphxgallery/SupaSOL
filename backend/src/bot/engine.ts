@@ -222,6 +222,8 @@ async function runExitLoop() {
           peakPrice,
           pnlPct,
           heldMinutes,
+          trailingStopPct: config.trailingStopPct,
+          takeProfitPct: config.takeProfitPct,
           stats5m: tokenStats?.stats['5m'],
           stats1h: tokenStats?.stats['1h'],
           history: historyForMint(position.mint),

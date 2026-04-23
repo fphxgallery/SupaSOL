@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.6-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.7-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,11 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.7
+- AI confidence now explicitly defined as **action certainty, not price prediction** — fixes semantic ambiguity where model rated "likelihood of dump" instead of "certainty skip is correct"
+- Hard floor added: 2+ bearish signals + skip/sell decision → confidence MUST be 80+
+- Low-confidence band (<50) now instructs model to pick `hold` instead of acting with weak conviction
 
 ### v1.9.6
 - AI advisor system prompt gains **explicit confidence calibration rubric** — 90-100 for multi-signal alignment, 80-89 for 2 strong signals, 70-79 for single signal, etc.

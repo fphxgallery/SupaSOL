@@ -425,12 +425,17 @@ export function BotPage() {
                 <Num label="Max calls/hr" value={activeConfig.aiMaxCallsPerHour} onChange={(v) => handleConfigChange({ aiMaxCallsPerHour: v })} min={0} step={10} />
                 <Num label="Cache TTL" value={activeConfig.aiCacheMinutes} onChange={(v) => handleConfigChange({ aiCacheMinutes: v })} min={0} step={1} suffix="min" />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Num label="Exit AI loss gate" value={activeConfig.aiExitLossPct} onChange={(v) => handleConfigChange({ aiExitLossPct: v })} min={0} max={100} step={1} suffix="%" />
+                <Num label="Exit AI gain gate" value={activeConfig.aiExitGainPct} onChange={(v) => handleConfigChange({ aiExitGainPct: v })} min={0} step={1} suffix="%" />
+              </div>
               <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
                 <p>• Requires <code className="text-text font-mono">OPENAI_API_KEY</code> env var on backend.</p>
                 <p>• <span className="text-text font-medium">Veto</span>: AI blocks buys it disapproves; silent approval passes.</p>
                 <p>• <span className="text-text font-medium">Confirm</span>: AI must explicitly approve buys, else skip.</p>
                 <p>• <span className="text-text font-medium">Advisory</span>: AI logs opinion only, never blocks.</p>
                 <p>• Cache reuses decision per token for <span className="text-text font-medium">{activeConfig.aiCacheMinutes}m</span>. Rate cap: <span className="text-text font-medium">{activeConfig.aiMaxCallsPerHour}/hr</span>.</p>
+                <p>• Exit AI only consulted when P&amp;L ≤ <span className="text-text font-medium">-{activeConfig.aiExitLossPct}%</span> or ≥ <span className="text-text font-medium">+{activeConfig.aiExitGainPct}%</span>. Middle band → trailing stop / max hold only.</p>
               </div>
             </CardBody>
           </Card>

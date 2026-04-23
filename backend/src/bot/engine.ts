@@ -210,7 +210,8 @@ async function runExitLoop() {
       else if (pnlPct >= config.takeProfitPct)     exitReason = `take profit +${pnlPct.toFixed(1)}%`;
       else if (heldMinutes >= config.maxHoldMinutes) exitReason = `max hold ${config.maxHoldMinutes}m`;
 
-      if (!exitReason && config.aiEnabled) {
+      const aiExitGateOk = pnlPct <= -config.aiExitLossPct || pnlPct >= config.aiExitGainPct;
+      if (!exitReason && config.aiEnabled && aiExitGateOk) {
         const tokenStats = await fetchTokenStats(position.mint);
         const exitCtx = {
           kind: 'exit' as const,

@@ -29,6 +29,8 @@ export interface BotConfig {
   aiMinConfidence: number;
   aiMaxCallsPerHour: number;
   aiCacheMinutes: number;
+  aiExitLossPct: number;
+  aiExitGainPct: number;
 }
 
 export type AiMode = 'veto' | 'confirm' | 'advisory';
@@ -101,6 +103,8 @@ const DEFAULT_CONFIG: BotConfig = {
   aiMinConfidence: 60,
   aiMaxCallsPerHour: 100,
   aiCacheMinutes: 10,
+  aiExitLossPct: 10,
+  aiExitGainPct: 30,
 };
 
 interface BotState {

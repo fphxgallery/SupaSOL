@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.2-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.3-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.3
+- AI exit decisions now **gated by P&L bands** — AI only consulted when `pnlPct <= -aiExitLossPct` or `pnlPct >= aiExitGainPct`
+- Middle band (small green/red) handled by trailing stop + max-hold only, preventing premature exits on minor wobble
+- Two new config knobs: `aiExitLossPct` (default 10%) and `aiExitGainPct` (default 30%), surfaced in AI Advisor card
+- Fixes issue where AI sold positions at +1% "good exit point" despite 100% TP target — AI was unaware of user strategy
 
 ### v1.9.2
 - AI Advisor gains **per-mint rejection memory** — last 3 AI skip/veto/no-confirm decisions on the same mint injected into entry prompts

@@ -36,6 +36,8 @@ const RULES: Record<keyof BotConfig, Rule> = {
   aiMinConfidence: { kind: 'num', min: 0, max: 100 },
   aiMaxCallsPerHour: { kind: 'num', int: true, min: 0, max: 100_000 },
   aiCacheMinutes: { kind: 'num', min: 0, max: 1_440 },
+  aiExitLossPct: { kind: 'num', min: 0, max: 100 },
+  aiExitGainPct: { kind: 'num', min: 0, max: 100_000 },
 };
 
 export type ValidationError = { field: string; message: string };

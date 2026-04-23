@@ -23,7 +23,16 @@ export interface BotConfig {
   takeProfitPct: number;
   maxHoldMinutes: number;
   rebuyCooldownMinutes: number;
+  aiEnabled: boolean;
+  aiMode: AiMode;
+  aiModel: AiModel;
+  aiMinConfidence: number;
+  aiMaxCallsPerHour: number;
+  aiCacheMinutes: number;
 }
+
+export type AiMode = 'veto' | 'confirm' | 'advisory';
+export type AiModel = 'gpt-4o-mini' | 'gpt-4o';
 
 export interface BotPosition {
   id: string;
@@ -86,6 +95,12 @@ const DEFAULT_CONFIG: BotConfig = {
   takeProfitPct: 50,
   maxHoldMinutes: 60,
   rebuyCooldownMinutes: 60,
+  aiEnabled: false,
+  aiMode: 'veto',
+  aiModel: 'gpt-4o-mini',
+  aiMinConfidence: 60,
+  aiMaxCallsPerHour: 100,
+  aiCacheMinutes: 10,
 };
 
 interface BotState {

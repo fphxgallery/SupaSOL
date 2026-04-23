@@ -2,6 +2,7 @@ import { VersionedTransaction, Keypair } from '@solana/web3.js';
 import { randomUUID } from 'crypto';
 import * as botState from './state';
 import { getSwapOrder, executeSwap, fetchTrendingTokens, fetchPrices } from '../lib/jupiterApi';
+import { getTradeDecision, resetAdvisorState } from './aiAdvisor';
 import type { BotConfig } from './types';
 import { SOL_MINT } from './types';
 
@@ -66,6 +67,41 @@ async function runEntryLoop() {
       if (priceChange < config.minPriceChangePct) continue;
       if (config.maxPriceChangePct > 0 && priceChange > config.maxPriceChangePct) continue;
       if ((stats.numOrganicBuyers ?? 0) < config.minOrganicBuyers) continue;
+
+      if (config.aiEnabled) {
+        const decision = await getTradeDecision(
+          { kind: 'entry', token },
+          { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
+        );
+        if ('error' in decision) {
+          if (config.aiMode === 'confirm') {
+            botState.addLog({ type: 'skip', message: `${token.symbol}: AI unavailable (${decision.error}), confirm mode skips` });
+            continue;
+          }
+          botState.addLog({ type: 'info', message: `${token.symbol}: AI unavailable (${decision.error}), proceeding without AI` });
+        } else {
+          const tag = decision.cached ? ' (cached)' : '';
+          const summary = `${token.symbol} AI: ${decision.action} @${decision.confidence}%${tag} — ${decision.reason}`;
+          if (config.aiMode === 'advisory') {
+            botState.addLog({ type: 'info', message: summary });
+          } else if (config.aiMode === 'veto') {
+            const blocks = decision.action === 'skip' || decision.action === 'sell' ||
+              ((decision.action === 'hold') && decision.confidence >= config.aiMinConfidence);
+            if (blocks) {
+              botState.addLog({ type: 'skip', message: `AI veto ${summary}` });
+              continue;
+            }
+            botState.addLog({ type: 'info', message: summary });
+          } else {
+            const confirmed = decision.action === 'buy' && decision.confidence >= config.aiMinConfidence;
+            if (!confirmed) {
+              botState.addLog({ type: 'skip', message: `AI no-confirm ${summary}` });
+              continue;
+            }
+            botState.addLog({ type: 'info', message: `AI confirm ${summary}` });
+          }
+        }
+      }
 
       try {
         const order = await getSwapOrder({
@@ -160,6 +196,48 @@ async function runExitLoop() {
       if (currentPrice <= trailingStopPrice)       exitReason = `trailing stop (${config.trailingStopPct}% from peak $${peakPrice.toFixed(6)})`;
       else if (pnlPct >= config.takeProfitPct)     exitReason = `take profit +${pnlPct.toFixed(1)}%`;
       else if (heldMinutes >= config.maxHoldMinutes) exitReason = `max hold ${config.maxHoldMinutes}m`;
+
+      if (!exitReason && config.aiEnabled && config.aiMode !== 'advisory') {
+        const decision = await getTradeDecision(
+          {
+            kind: 'exit',
+            mint: position.mint,
+            symbol: position.symbol,
+            entryPrice: position.entryPrice,
+            currentPrice,
+            peakPrice,
+            pnlPct,
+            heldMinutes,
+          },
+          { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
+        );
+        if (!('error' in decision)) {
+          const tag = decision.cached ? ' (cached)' : '';
+          if (decision.action === 'sell' && decision.confidence >= config.aiMinConfidence) {
+            exitReason = `AI sell @${decision.confidence}%${tag} — ${decision.reason}`;
+          } else {
+            botState.addLog({ type: 'info', message: `${position.symbol} AI: ${decision.action} @${decision.confidence}%${tag} — ${decision.reason}` });
+          }
+        }
+      } else if (!exitReason && config.aiEnabled && config.aiMode === 'advisory') {
+        const decision = await getTradeDecision(
+          {
+            kind: 'exit',
+            mint: position.mint,
+            symbol: position.symbol,
+            entryPrice: position.entryPrice,
+            currentPrice,
+            peakPrice,
+            pnlPct,
+            heldMinutes,
+          },
+          { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
+        );
+        if (!('error' in decision)) {
+          const tag = decision.cached ? ' (cached)' : '';
+          botState.addLog({ type: 'info', message: `${position.symbol} AI (advisory): ${decision.action} @${decision.confidence}%${tag} — ${decision.reason}` });
+        }
+      }
 
       if (!exitReason) continue;
       botState.updatePosition(position.id, { status: 'closing' });
@@ -271,6 +349,7 @@ export function start(key: Uint8Array, configOverrides: Partial<BotConfig> = {})
 export function stop() {
   if (entryTimer) { clearInterval(entryTimer); entryTimer = null; }
   if (exitTimer)  { clearInterval(exitTimer);  exitTimer  = null; }
+  resetAdvisorState();
   secretKey = null;
   botState.setConfig({ enabled: false });
   botState.addLog({ type: 'info', message: 'Background bot stopped' });

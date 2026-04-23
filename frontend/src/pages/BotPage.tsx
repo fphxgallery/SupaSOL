@@ -14,7 +14,7 @@ import { closeAllAndStop } from '../hooks/useTradingBot';
 import { stopBot, closeAllBot, updateBotConfig, clearBotHistory, clearBotLog, removeBotPosition, pruneBotPositions } from '../api/bot';
 import { useUiStore } from '../store/uiStore';
 import type { TrendingInterval } from '../hooks/useTrendingTokens';
-import type { ClosedPosition, BotConfig } from '../store/botStore';
+import type { ClosedPosition, BotConfig, AiMode, AiModel } from '../store/botStore';
 import type { VaultData } from '../api/vault';
 
 const INTERVALS: { label: string; value: TrendingInterval }[] = [
@@ -22,6 +22,17 @@ const INTERVALS: { label: string; value: TrendingInterval }[] = [
   { label: '1h', value: '1h' },
   { label: '6h', value: '6h' },
   { label: '24h', value: '24h' },
+];
+
+const AI_MODES: { label: string; value: AiMode; desc: string }[] = [
+  { label: 'Veto', value: 'veto', desc: 'AI can block buys' },
+  { label: 'Confirm', value: 'confirm', desc: 'AI must approve buys' },
+  { label: 'Advisory', value: 'advisory', desc: 'Log only, no block' },
+];
+
+const AI_MODELS: { label: string; value: AiModel; desc: string }[] = [
+  { label: 'Mini', value: 'gpt-4o-mini', desc: 'Cheap, fast' },
+  { label: 'Full', value: 'gpt-4o', desc: 'Smarter, costly' },
 ];
 
 const POLL_OPTIONS = [
@@ -368,6 +379,58 @@ export function BotPage() {
                 <p>• Take profit triggers at <span className="text-green font-medium">+{activeConfig.takeProfitPct}%</span> above entry.</p>
                 <p>• Force-sells after <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span> regardless of price.</p>
                 <p>• Won't rebuy same token for <span className="text-text font-medium">{activeConfig.rebuyCooldownMinutes}m</span> after selling. (0 = no cooldown)</p>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="AI Advisor"
+              subtitle="OpenAI-gated entry decisions"
+              action={
+                <Check
+                  label={activeConfig.aiEnabled ? 'Enabled' : 'Disabled'}
+                  checked={activeConfig.aiEnabled}
+                  onChange={(v) => handleConfigChange({ aiEnabled: v })}
+                />
+              }
+            />
+            <CardBody className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-x-6 gap-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Mode</label>
+                  <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
+                    {AI_MODES.map(({ label, value, desc }) => (
+                      <button key={value} onClick={() => handleConfigChange({ aiMode: value })} title={desc}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${activeConfig.aiMode === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Model</label>
+                  <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
+                    {AI_MODELS.map(({ label, value, desc }) => (
+                      <button key={value} onClick={() => handleConfigChange({ aiModel: value })} title={desc}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${activeConfig.aiModel === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <Num label="Min confidence" value={activeConfig.aiMinConfidence} onChange={(v) => handleConfigChange({ aiMinConfidence: v })} min={0} max={100} suffix="%" />
+                <Num label="Max calls/hr" value={activeConfig.aiMaxCallsPerHour} onChange={(v) => handleConfigChange({ aiMaxCallsPerHour: v })} min={0} step={10} />
+                <Num label="Cache TTL" value={activeConfig.aiCacheMinutes} onChange={(v) => handleConfigChange({ aiCacheMinutes: v })} min={0} step={1} suffix="min" />
+              </div>
+              <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
+                <p>• Requires <code className="text-text font-mono">OPENAI_API_KEY</code> env var on backend.</p>
+                <p>• <span className="text-text font-medium">Veto</span>: AI blocks buys it disapproves; silent approval passes.</p>
+                <p>• <span className="text-text font-medium">Confirm</span>: AI must explicitly approve buys, else skip.</p>
+                <p>• <span className="text-text font-medium">Advisory</span>: AI logs opinion only, never blocks.</p>
+                <p>• Cache reuses decision per token for <span className="text-text font-medium">{activeConfig.aiCacheMinutes}m</span>. Rate cap: <span className="text-text font-medium">{activeConfig.aiMaxCallsPerHour}/hr</span>.</p>
               </div>
             </CardBody>
           </Card>

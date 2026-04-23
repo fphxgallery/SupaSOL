@@ -1,6 +1,8 @@
-import type { BotConfig, TrendingInterval } from './types';
+import type { BotConfig, TrendingInterval, AiMode, AiModel } from './types';
 
 const INTERVALS: TrendingInterval[] = ['5m', '1h', '6h', '24h'];
+const AI_MODES: AiMode[] = ['veto', 'confirm', 'advisory'];
+const AI_MODELS: AiModel[] = ['gpt-4o-mini', 'gpt-4o'];
 
 type Rule =
   | { kind: 'bool' }
@@ -28,6 +30,12 @@ const RULES: Record<keyof BotConfig, Rule> = {
   takeProfitPct: { kind: 'num', min: 0, max: 100_000 },
   maxHoldMinutes: { kind: 'num', min: 0, max: 1_000_000 },
   rebuyCooldownMinutes: { kind: 'num', min: 0, max: 1_000_000 },
+  aiEnabled: { kind: 'bool' },
+  aiMode: { kind: 'enum', values: AI_MODES },
+  aiModel: { kind: 'enum', values: AI_MODELS },
+  aiMinConfidence: { kind: 'num', min: 0, max: 100 },
+  aiMaxCallsPerHour: { kind: 'num', int: true, min: 0, max: 100_000 },
+  aiCacheMinutes: { kind: 'num', min: 0, max: 1_440 },
 };
 
 export type ValidationError = { field: string; message: string };

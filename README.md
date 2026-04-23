@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.7-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.8-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,10 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.8
+- Removed prompt-side instruction that forced `hold` when confidence <50 — was redundant with exit HOLD default and risked converting real low-conf sell signals to hold
+- Confidence gating now handled purely by `aiMinConfidence` threshold in engine (single source of truth)
 
 ### v1.9.7
 - AI confidence now explicitly defined as **action certainty, not price prediction** — fixes semantic ambiguity where model rated "likelihood of dump" instead of "certainty skip is correct"

@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.8-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.9-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,14 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.9
+- Auto Trader: optional AI advisor via OpenAI API (opt-in, `OPENAI_API_KEY` env var)
+- Three modes: **Veto** (AI can block buys it disapproves), **Confirm** (AI must explicitly approve buys), **Advisory** (log-only, no action)
+- Entry gate: runs after Jupiter filters, before swap — decision + confidence + reason logged to Activity Log
+- Exit signals: AI can trigger early sell when no rule-based exit fires. Rule-based stops (trailing, take profit, max hold) always override — AI never blocks safety exits
+- Cost control: per-token decision cache (configurable TTL) + hourly rate cap; model selection between `gpt-4o-mini` (cheap) and `gpt-4o`
+- New UI card in Bot page for all AI config; defaults disabled so existing deploys unchanged
 
 ### v1.7.8
 - Backend security hardening pass

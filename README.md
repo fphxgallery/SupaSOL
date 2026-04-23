@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.9-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.10-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,11 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.10
+- Fix: AI Advisor numeric fields (min confidence, max calls/hr, cache TTL) appeared blank for users upgrading from ≤1.7.8
+- Root cause: Zustand persist shallow-merged old storage over fresh defaults, wiping fields that didn't exist in prior versions
+- Fix: custom `merge` deep-merges persisted `config` over `DEFAULT_CONFIG`, so any new field added later shows its default instead of undefined
 
 ### v1.7.9
 - Auto Trader: optional AI advisor via OpenAI API (opt-in, `OPENAI_API_KEY` env var)

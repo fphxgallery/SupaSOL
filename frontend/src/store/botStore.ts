@@ -144,6 +144,16 @@ export const useBotStore = create<BotState>()(
         })),
       clearLog: () => set({ log: [] }),
     }),
-    { name: 'ftb-bot' }
+    {
+      name: 'ftb-bot',
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<BotState>;
+        return {
+          ...current,
+          ...p,
+          config: { ...DEFAULT_CONFIG, ...(p.config ?? {}) },
+        };
+      },
+    }
   )
 );

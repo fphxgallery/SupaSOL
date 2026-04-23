@@ -212,11 +212,10 @@ async function runExitLoop() {
           { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
         );
         if (!('error' in decision)) {
-          const tag = decision.cached ? ' (cached)' : '';
           if (decision.action === 'sell' && decision.confidence >= config.aiMinConfidence) {
-            exitReason = `AI sell @${decision.confidence}%${tag} — ${decision.reason}`;
-          } else {
-            botState.addLog({ type: 'info', message: `${position.symbol} AI: ${decision.action} @${decision.confidence}%${tag} — ${decision.reason}` });
+            exitReason = `AI sell @${decision.confidence}% — ${decision.reason}`;
+          } else if (!decision.cached) {
+            botState.addLog({ type: 'info', message: `${position.symbol} AI: ${decision.action} @${decision.confidence}% — ${decision.reason}` });
           }
         }
       } else if (!exitReason && config.aiEnabled && config.aiMode === 'advisory') {
@@ -233,9 +232,8 @@ async function runExitLoop() {
           },
           { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
         );
-        if (!('error' in decision)) {
-          const tag = decision.cached ? ' (cached)' : '';
-          botState.addLog({ type: 'info', message: `${position.symbol} AI (advisory): ${decision.action} @${decision.confidence}%${tag} — ${decision.reason}` });
+        if (!('error' in decision) && !decision.cached) {
+          botState.addLog({ type: 'info', message: `${position.symbol} AI (advisory): ${decision.action} @${decision.confidence}% — ${decision.reason}` });
         }
       }
 

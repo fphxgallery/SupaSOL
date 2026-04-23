@@ -389,7 +389,7 @@ export function BotPage() {
               subtitle="OpenAI-gated entry decisions"
               action={
                 <Check
-                  label={activeConfig.aiEnabled ? 'Enabled' : 'Disabled'}
+                  label="Enabled"
                   checked={activeConfig.aiEnabled}
                   onChange={(v) => handleConfigChange({ aiEnabled: v })}
                 />

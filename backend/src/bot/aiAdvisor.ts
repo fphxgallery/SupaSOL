@@ -1,6 +1,20 @@
 import { chatCompletion, isOpenAIConfigured, OpenAIError } from '../lib/openaiApi';
 import type { TrendingToken, IntervalStats } from '../lib/jupiterApi';
-import type { AiModel } from './types';
+import type { AiModel, ClosedPosition } from './types';
+
+const MAX_HISTORY_ENTRIES = 5;
+
+function formatHistory(history: ClosedPosition[] | undefined): string | null {
+  if (!history || history.length === 0) return null;
+  const now = Date.now();
+  const lines = history.slice(0, MAX_HISTORY_ENTRIES).map((p) => {
+    const ageMin = Math.round((now - p.exitTime) / 60_000);
+    const held = Math.round((p.exitTime - p.entryTime) / 60_000);
+    const ageStr = ageMin < 60 ? `${ageMin}m ago` : ageMin < 1440 ? `${Math.round(ageMin / 60)}h ago` : `${Math.round(ageMin / 1440)}d ago`;
+    return `- ${p.pnlPct >= 0 ? '+' : ''}${p.pnlPct.toFixed(1)}% (held ${held}m, exit=${p.exitReason}, ${ageStr})`;
+  });
+  return `Prior bot trades on this mint (most recent first):\n${lines.join('\n')}`;
+}
 
 function fmt(n: number | undefined, digits = 2): string {
   return typeof n === 'number' ? n.toFixed(digits) : '?';
@@ -24,6 +38,7 @@ export interface AiDecision {
 export interface EntryContext {
   kind: 'entry';
   token: TrendingToken;
+  history?: ClosedPosition[];
 }
 
 export interface ExitContext {
@@ -37,6 +52,7 @@ export interface ExitContext {
   heldMinutes: number;
   stats5m?: IntervalStats;
   stats1h?: IntervalStats;
+  history?: ClosedPosition[];
 }
 
 export type AdvisorContext = EntryContext | ExitContext;
@@ -61,8 +77,9 @@ export function resetAdvisorState(): void {
 }
 
 function cacheKey(ctx: AdvisorContext): string {
-  if (ctx.kind === 'entry') return `entry:${ctx.token.address}`;
-  return `exit:${ctx.mint}:${Math.round(ctx.pnlPct)}`;
+  const histLen = ctx.history?.length ?? 0;
+  if (ctx.kind === 'entry') return `entry:${ctx.token.address}:h${histLen}`;
+  return `exit:${ctx.mint}:${Math.round(ctx.pnlPct)}:h${histLen}`;
 }
 
 function checkRate(maxPerHour: number): boolean {
@@ -75,31 +92,39 @@ function checkRate(maxPerHour: number): boolean {
 }
 
 function buildPrompt(ctx: AdvisorContext): { system: string; user: string } {
-  const system = `You are a crypto trading assistant for a Solana memecoin bot. You evaluate trade signals and respond ONLY with strict JSON: {"action":"buy|hold|sell|skip","confidence":0-100,"reason":"<=120 chars"}. Memecoins are momentum plays — strong volume, rising holders, positive net buyers, and organic buy pressure are buy signals. Don't require perfection; weigh signals on balance. Skip only on clear red flags (dumping liquidity, sell-dominated volume, collapsing holders).`;
+  const system = `You are a crypto trading assistant for a Solana memecoin bot. You evaluate trade signals and respond ONLY with strict JSON: {"action":"buy|hold|sell|skip","confidence":0-100,"reason":"<=120 chars"}. Memecoins are momentum plays — strong volume, rising holders, positive net buyers, and organic buy pressure are buy signals. Don't require perfection; weigh signals on balance. Skip only on clear red flags (dumping liquidity, sell-dominated volume, collapsing holders). If prior bot trades on this mint are provided, factor them in: repeated losses suggest caution; recent profitable exits on re-entry are a positive signal but don't guarantee repeat.`;
+
+  const historyBlock = formatHistory(ctx.history);
 
   if (ctx.kind === 'entry') {
     const t = ctx.token;
-    const user = `Evaluate BUY signal for ${t.symbol} (${t.name}).
-mcap: $${t.mcap ?? 'unknown'}
-organicScore: ${t.organicScore ?? 'unknown'}/100
-${formatStats('5m', t.stats['5m'])}
-${formatStats('1h', t.stats['1h'])}
-${formatStats('6h', t.stats['6h'])}
-${formatStats('24h', t.stats['24h'])}
-Answer buy or skip with confidence.`;
-    return { system, user };
+    const parts = [
+      `Evaluate BUY signal for ${t.symbol} (${t.name}).`,
+      `mcap: $${t.mcap ?? 'unknown'}`,
+      `organicScore: ${t.organicScore ?? 'unknown'}/100`,
+      formatStats('5m', t.stats['5m']),
+      formatStats('1h', t.stats['1h']),
+      formatStats('6h', t.stats['6h']),
+      formatStats('24h', t.stats['24h']),
+    ];
+    if (historyBlock) parts.push(historyBlock);
+    parts.push('Answer buy or skip with confidence.');
+    return { system, user: parts.join('\n') };
   }
 
-  const user = `Evaluate EXIT for open position ${ctx.symbol}.
-entryPrice: ${ctx.entryPrice}
-currentPrice: ${ctx.currentPrice}
-peakPrice: ${ctx.peakPrice}
-pnlPct: ${ctx.pnlPct.toFixed(2)}%
-heldMinutes: ${ctx.heldMinutes.toFixed(1)}
-${formatStats('5m', ctx.stats5m)}
-${formatStats('1h', ctx.stats1h)}
-Answer sell or hold with confidence.`;
-  return { system, user };
+  const parts = [
+    `Evaluate EXIT for open position ${ctx.symbol}.`,
+    `entryPrice: ${ctx.entryPrice}`,
+    `currentPrice: ${ctx.currentPrice}`,
+    `peakPrice: ${ctx.peakPrice}`,
+    `pnlPct: ${ctx.pnlPct.toFixed(2)}%`,
+    `heldMinutes: ${ctx.heldMinutes.toFixed(1)}`,
+    formatStats('5m', ctx.stats5m),
+    formatStats('1h', ctx.stats1h),
+  ];
+  if (historyBlock) parts.push(historyBlock);
+  parts.push('Answer sell or hold with confidence.');
+  return { system, user: parts.join('\n') };
 }
 
 function parseDecision(content: string): { action: AiAction; confidence: number; reason: string } | null {

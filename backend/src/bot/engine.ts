@@ -13,6 +13,10 @@ let entryLoopRunning = false;
 let exitLoopRunning = false;
 const aiRejectedUntil = new Map<string, number>();
 
+function historyForMint(mint: string) {
+  return botState.getState().closedPositions.filter((p) => p.mint === mint);
+}
+
 export function isRunning() { return entryTimer !== null; }
 
 export function getPubkey(): string | null {
@@ -75,7 +79,7 @@ async function runEntryLoop() {
         if (rejectedExp) aiRejectedUntil.delete(token.address);
 
         const decision = await getTradeDecision(
-          { kind: 'entry', token },
+          { kind: 'entry', token, history: historyForMint(token.address) },
           { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
         );
         if ('error' in decision) {
@@ -217,6 +221,7 @@ async function runExitLoop() {
           heldMinutes,
           stats5m: tokenStats?.stats['5m'],
           stats1h: tokenStats?.stats['1h'],
+          history: historyForMint(position.mint),
         };
         const aiOpts = { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes };
 

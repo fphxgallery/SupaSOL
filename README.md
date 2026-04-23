@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.5-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.6-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,11 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.6
+- AI advisor system prompt gains **explicit confidence calibration rubric** — 90-100 for multi-signal alignment, 80-89 for 2 strong signals, 70-79 for single signal, etc.
+- Explicit instruction to avoid clustering around 70-80% when reason cites multiple confirming timeframes/signals
+- Fixes observed miscalibration where strong multi-timeframe veto reasons ("negative holder change and declining volume across multiple timeframes") rendered at only 75% confidence
 
 ### v1.9.5
 - Codebase sanity pass: hardened `.env` load in [backend/src/config.ts](backend/src/config.ts) to be `__dirname`-relative (no longer brittle to `process.cwd()`)

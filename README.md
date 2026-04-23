@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.7.12-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.7.13-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,11 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.7.13
+- Entry loop now tracks mints the AI rejected (veto or no-confirm) and silently skips re-evaluating them for `aiCacheMinutes`
+- Eliminates repeated skip logs for the same trending tokens and saves redundant OpenAI calls
+- Rejection list cleared when bot stops
 
 ### v1.7.12
 - AI Advisor toggle label now always reads "Enabled" (checkbox state indicates on/off) — previous "Disabled" label was misleading

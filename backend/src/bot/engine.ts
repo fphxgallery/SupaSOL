@@ -11,6 +11,7 @@ let entryTimer: ReturnType<typeof setInterval> | null = null;
 let exitTimer: ReturnType<typeof setInterval> | null = null;
 let entryLoopRunning = false;
 let exitLoopRunning = false;
+const aiRejectedUntil = new Map<string, number>();
 
 export function isRunning() { return entryTimer !== null; }
 
@@ -69,6 +70,10 @@ async function runEntryLoop() {
       if ((stats.numOrganicBuyers ?? 0) < config.minOrganicBuyers) continue;
 
       if (config.aiEnabled) {
+        const rejectedExp = aiRejectedUntil.get(token.address);
+        if (rejectedExp && rejectedExp > now) continue;
+        if (rejectedExp) aiRejectedUntil.delete(token.address);
+
         const decision = await getTradeDecision(
           { kind: 'entry', token },
           { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
@@ -88,6 +93,7 @@ async function runEntryLoop() {
             const blocks = decision.action === 'skip' || decision.action === 'sell' ||
               ((decision.action === 'hold') && decision.confidence >= config.aiMinConfidence);
             if (blocks) {
+              aiRejectedUntil.set(token.address, now + config.aiCacheMinutes * 60_000);
               botState.addLog({ type: 'skip', message: `AI veto ${summary}` });
               continue;
             }
@@ -95,6 +101,7 @@ async function runEntryLoop() {
           } else {
             const confirmed = decision.action === 'buy' && decision.confidence >= config.aiMinConfidence;
             if (!confirmed) {
+              aiRejectedUntil.set(token.address, now + config.aiCacheMinutes * 60_000);
               botState.addLog({ type: 'skip', message: `AI no-confirm ${summary}` });
               continue;
             }
@@ -348,6 +355,7 @@ export function stop() {
   if (entryTimer) { clearInterval(entryTimer); entryTimer = null; }
   if (exitTimer)  { clearInterval(exitTimer);  exitTimer  = null; }
   resetAdvisorState();
+  aiRejectedUntil.clear();
   secretKey = null;
   botState.setConfig({ enabled: false });
   botState.addLog({ type: 'info', message: 'Background bot stopped' });

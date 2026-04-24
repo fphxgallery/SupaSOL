@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.16-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.0
+- **Notis coverage fix** — tiered take-profit sells (T1/T2) and close-all sells now fire Telegram notifications
+- `doTierSell()` in [engine.ts](backend/src/bot/engine.ts) routes through `notify('bot.exit', …)` on success and `bot.error` on failure
+- `closeAllPositions()` same treatment
+- Previously only the full trailing-stop / take-profit / max-hold exit path notified, so partial tier exits were silent on Telegram
 
 ### v1.9.16
 - **Notis tab — Telegram notifications** — new `/notis` page with BotFather-driven setup flow

@@ -492,13 +492,21 @@ export async function closeAllPositions(reason = 'bot stopped') {
         botState.removePosition(position.id);
         clearDecisionHistory(position.mint);
         botState.addLog({ type: 'sell', message: `Sold ${position.symbol} — ${reason} — P&L: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`, txSig: result.signature });
+        notify('bot.exit', formatExit({
+          symbol: position.symbol, price: currentPrice, pnlPct,
+          reason, txSig: result.signature,
+        }));
       } else {
         botState.updatePosition(position.id, { status: 'open' });
-        botState.addLog({ type: 'error', message: `Sell ${position.symbol} failed: ${result.error ?? 'unknown'}` });
+        const em = result.error ?? 'unknown';
+        botState.addLog({ type: 'error', message: `Sell ${position.symbol} failed: ${em}` });
+        notify('bot.error', formatError(`Sell ${position.symbol} (close-all) failed: ${em}`));
       }
     } catch (err) {
       botState.updatePosition(position.id, { status: 'open' });
-      botState.addLog({ type: 'error', message: `Sell ${position.symbol} error: ${err instanceof Error ? err.message : String(err)}` });
+      const msg = err instanceof Error ? err.message : String(err);
+      botState.addLog({ type: 'error', message: `Sell ${position.symbol} error: ${msg}` });
+      notify('bot.error', formatError(`Sell ${position.symbol} (close-all): ${msg}`));
     }
   }
 }
@@ -571,13 +579,21 @@ async function doTierSell(
         message: `${position.symbol} ${exitReason} — P&L: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`,
         txSig: result.signature,
       });
+      notify('bot.exit', formatExit({
+        symbol: position.symbol, price: currentPrice, pnlPct,
+        reason: exitReason, txSig: result.signature,
+      }));
     } else {
       botState.updatePosition(position.id, { status: 'open' });
-      botState.addLog({ type: 'error', message: `T${tier} sell ${position.symbol} failed: ${result.error ?? 'unknown'}` });
+      const em = result.error ?? 'unknown';
+      botState.addLog({ type: 'error', message: `T${tier} sell ${position.symbol} failed: ${em}` });
+      notify('bot.error', formatError(`T${tier} sell ${position.symbol} failed: ${em}`));
     }
   } catch (err) {
     botState.updatePosition(position.id, { status: 'open' });
-    botState.addLog({ type: 'error', message: `T${tier} sell ${position.symbol} error: ${err instanceof Error ? err.message : String(err)}` });
+    const msg = err instanceof Error ? err.message : String(err);
+    botState.addLog({ type: 'error', message: `T${tier} sell ${position.symbol} error: ${msg}` });
+    notify('bot.error', formatError(`T${tier} sell ${position.symbol}: ${msg}`));
   }
 }
 

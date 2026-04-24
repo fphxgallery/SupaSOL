@@ -282,7 +282,7 @@ async function runExitLoop() {
         const tier: 0 | 1 | 2 = !afterT1 && pnlPct >= config.tp1Pct ? 1
           : (afterT1 && !afterT2 && pnlPct >= config.tp2Pct) ? 2
           : 0;
-        if (tier > 0) {
+        if (tier === 1 || tier === 2) {
           const sellAmount = tier === 1
             ? Math.floor(position.tokenAmountOut * config.tp1SellPct / 100)
             : Math.floor(position.tokenAmountRemaining * config.tp2SellPct / 100);

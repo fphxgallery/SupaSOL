@@ -1,10 +1,16 @@
 import { API_BASE } from '../config/constants';
 
-export interface ApiError {
+export class ApiError extends Error {
   status?: number;
   code: string | number;
-  message: string;
   retryable: boolean;
+  constructor(message: string, opts: { status?: number; code: string | number; retryable: boolean }) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = opts.status;
+    this.code = opts.code;
+    this.retryable = opts.retryable;
+  }
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -15,7 +21,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (res.status === 429) {
     const retryAfter = Number(res.headers.get('Retry-After')) || 10;
-    throw { status: 429, code: 'RATE_LIMITED', message: `Rate limited — retry in ${retryAfter}s`, retryable: true } as ApiError;
+    throw new ApiError(`Rate limited — retry in ${retryAfter}s`, { status: 429, code: 'RATE_LIMITED', retryable: true });
   }
 
   const text = await res.text();
@@ -24,12 +30,14 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (!res.ok) {
     // Flash Trade and some other APIs return error details in an 'err' field
-    throw {
-      status: res.status,
-      code: body['code'] ?? `HTTP_${res.status}`,
-      message: (body['err'] as string) ?? (body['message'] as string) ?? `HTTP ${res.status}`,
-      retryable: res.status >= 500,
-    } as ApiError;
+    throw new ApiError(
+      (body['err'] as string) ?? (body['message'] as string) ?? `HTTP ${res.status}`,
+      {
+        status: res.status,
+        code: (body['code'] as string | number) ?? `HTTP_${res.status}`,
+        retryable: res.status >= 500,
+      },
+    );
   }
 
   return body as T;

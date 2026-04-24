@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.4-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.5-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,11 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.5
+- **Fix `[object Object]` error in Run Bot in Background modal** — `apiFetch` in [client.ts](frontend/src/api/client.ts) now throws a real `ApiError extends Error` instead of a plain object literal
+- Consumers using `err instanceof Error ? err.message : String(err)` (UnlockBotModal, useTradingBot, AddLiquidityModal) now get the actual backend message (e.g. "Wrong password") instead of the `Object.prototype.toString` fallback
+- `withRetry` still reads `.retryable` — unchanged
 
 ### v1.10.4
 - **Exit card consolidated, tiered TP always-on** — merged Exit + Tiered Take-Profit into one card; removed non-tiered `takeProfitPct` and `tieredTpEnabled` from config

@@ -15,6 +15,7 @@ import dlmmRouter from './routes/dlmm';
 import perpsRouter from './routes/perps';
 import vaultRouter from './routes/vault';
 import botRouter from './routes/bot';
+import notisRouter from './routes/notis';
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/dlmm', dlmmRouter);
 app.use('/api/perps', perpsRouter);
 app.use('/api/vault', vaultRouter);
 app.use('/api/bot', botRouter);
+app.use('/api/notis', notisRouter);
 
 // Error handler — logs full stack + request context, returns opaque error to client
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {

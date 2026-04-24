@@ -14,6 +14,7 @@ const navItems = [
   { to: '/perps',      label: 'Perps',        icon: '↕' },
   { to: '/send',       label: 'Send',         icon: '➤' },
   { to: '/history',    label: 'History',      icon: '◷' },
+  { to: '/notis',      label: 'Notis',        icon: '🔔' },
   { to: '/settings',   label: 'Settings',     icon: '⚙' },
 ];
 

@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.14-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.16-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,19 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.16
+- **Notis tab — Telegram notifications** — new `/notis` page with BotFather-driven setup flow
+- Backend [notifier.ts](backend/src/lib/notifier.ts): persistent config at `notis.json`, token masking, per-event toggles (entry / exit / veto / start / stop / error), `sendMessage` via Telegram Bot API, `getUpdates` chat discovery
+- Routes [notis.ts](backend/src/routes/notis.ts): `GET|PUT /api/notis/config`, `POST /api/notis/telegram/chats`, `POST /api/notis/telegram/test` (rate-limited)
+- Engine hooks in [engine.ts](backend/src/bot/engine.ts) fire `notify()` on buy / sell / AI veto / bot start / stop / errors — fire-and-forget, never blocks trade logic
+- Frontend [NotisPage.tsx](frontend/src/pages/NotisPage.tsx): collapsible BotFather guide, token save, fetch-chats button, chat picker, event checkboxes, send-test button, last-send status
+- Disabled by default; stored token is never round-tripped to the frontend (masked as `****last4`)
+
+### v1.9.15
+- **AI Decisions viewer** on Auto Trader page — ring-buffered log (200 cap) of AI entry/exit calls with score, confidence, outcome, reason
+- Backend ring log in [aiAdvisor.ts](backend/src/bot/aiAdvisor.ts); routes `GET|DELETE /api/bot/ai-decisions`
+- Frontend `AiDecisionsPanel` polls every 5s, filterable by kind + outcome; Background mode only, in-memory
 
 ### v1.9.14
 - **AI exit prompt guards** — fixes spurious SELL verdicts that cited fabricated "prior losses" on first exit evaluation

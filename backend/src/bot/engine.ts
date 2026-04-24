@@ -16,6 +16,15 @@ import {
 } from './aiAdvisor';
 import type { BotConfig } from './types';
 import { SOL_MINT } from './types';
+import {
+  notify,
+  formatEntry,
+  formatExit,
+  formatVeto,
+  formatError,
+  formatBotStart,
+  formatBotStop,
+} from '../lib/notifier';
 
 let secretKey: Uint8Array | null = null;
 let entryTimer: ReturnType<typeof setInterval> | null = null;
@@ -119,6 +128,7 @@ async function runEntryLoop() {
               aiRejectedUntil.set(token.address, now + config.aiCacheMinutes * 60_000);
               recordRejection(token.address, { action: decision.action, confidence: decision.confidence, reason: decision.reason });
               botState.addLog({ type: 'skip', message: `AI veto ${summary}` });
+              notify('bot.veto', formatVeto({ symbol: token.symbol, confidence: decision.confidence, reason: decision.reason }));
               recordDecisionLog({
                 kind: 'entry', mint: token.address, symbol: token.symbol,
                 action: decision.action, confidence: decision.confidence, reason: decision.reason,
@@ -207,9 +217,15 @@ async function runEntryLoop() {
           message: `Bought ${token.symbol} @ $${token.usdPrice.toFixed(6)} — ${config.buyAmountSol} SOL in`,
           txSig: result.signature,
         });
+        notify('bot.entry', formatEntry({
+          symbol: token.symbol, price: token.usdPrice,
+          amountSol: config.buyAmountSol, txSig: result.signature,
+        }));
         openMints.add(token.address);
       } catch (err) {
-        botState.addLog({ type: 'error', message: `Buy ${token.symbol} error: ${err instanceof Error ? err.message : String(err)}` });
+        const msg = err instanceof Error ? err.message : String(err);
+        botState.addLog({ type: 'error', message: `Buy ${token.symbol} error: ${msg}` });
+        notify('bot.error', formatError(`Buy ${token.symbol}: ${msg}`));
       }
     }
   } finally {
@@ -410,13 +426,21 @@ async function runExitLoop() {
           botState.removePosition(position.id);
           clearDecisionHistory(position.mint);
           botState.addLog({ type: 'sell', message: `Sold ${position.symbol} — ${exitReason} — P&L: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`, txSig: result.signature });
+          notify('bot.exit', formatExit({
+            symbol: position.symbol, price: currentPrice, pnlPct,
+            reason: exitReason, txSig: result.signature,
+          }));
         } else {
           botState.updatePosition(position.id, { status: 'open' });
-          botState.addLog({ type: 'error', message: `Sell ${position.symbol} failed: ${result.error ?? 'unknown'}` });
+          const em = result.error ?? 'unknown';
+          botState.addLog({ type: 'error', message: `Sell ${position.symbol} failed: ${em}` });
+          notify('bot.error', formatError(`Sell ${position.symbol} failed: ${em}`));
         }
       } catch (err) {
         botState.updatePosition(position.id, { status: 'open' });
-        botState.addLog({ type: 'error', message: `Sell ${position.symbol} error: ${err instanceof Error ? err.message : String(err)}` });
+        const msg = err instanceof Error ? err.message : String(err);
+        botState.addLog({ type: 'error', message: `Sell ${position.symbol} error: ${msg}` });
+        notify('bot.error', formatError(`Sell ${position.symbol}: ${msg}`));
       }
     }
   } finally {
@@ -562,6 +586,8 @@ export function start(key: Uint8Array, configOverrides: Partial<BotConfig> = {})
   secretKey = key;
   botState.setConfig({ ...configOverrides, enabled: true });
   botState.addLog({ type: 'info', message: 'Background bot started' });
+  const pk = Keypair.fromSecretKey(key).publicKey.toBase58();
+  notify('bot.start', formatBotStart(pk));
 
   const pollIntervalMs = botState.getState().config.pollIntervalMs;
   runEntryLoop();
@@ -578,4 +604,5 @@ export function stop() {
   secretKey = null;
   botState.setConfig({ enabled: false });
   botState.addLog({ type: 'info', message: 'Background bot stopped' });
+  notify('bot.stop', formatBotStop('manual stop'));
 }

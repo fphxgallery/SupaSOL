@@ -2,8 +2,10 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { atomicWriteFileSync } from '../lib/atomicWrite';
+import { createLogger } from '../lib/logger';
 
 const router = express.Router();
+const log = createLogger('vault');
 
 const VAULT_PATH = path.join(process.env['BOT_STATE_DIR'] ?? process.cwd(), 'vault.json');
 
@@ -42,7 +44,7 @@ router.post('/', (req, res) => {
     atomicWriteFileSync(VAULT_PATH, JSON.stringify({ encrypted, pubkey }));
     res.json({ ok: true });
   } catch (err) {
-    console.error('[vault] write failed:', err);
+    log.error('write failed', err);
     res.status(500).json({ error: 'Failed to save vault' });
   }
 });
@@ -52,7 +54,7 @@ router.delete('/', (_req, res) => {
     if (fs.existsSync(VAULT_PATH)) fs.unlinkSync(VAULT_PATH);
     res.json({ ok: true });
   } catch (err) {
-    console.error('[vault] delete failed:', err);
+    log.error('delete failed', err);
     res.status(500).json({ error: 'Failed to delete vault' });
   }
 });

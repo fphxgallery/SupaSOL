@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config';
+import { createLogger } from '../lib/logger';
 
 const router = Router();
+const log = createLogger('price');
 
 // ── Jupiter current price ──────────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
@@ -96,7 +98,7 @@ router.get('/history', async (req: Request, res: Response) => {
     historyCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL });
     res.json(result);
   } catch (err) {
-    console.error('[price/history]', err);
+    log.error('history', err);
     res.status(500).json({ error: 'Failed to fetch price history' });
   }
 });
@@ -139,7 +141,7 @@ router.get('/supply', async (req: Request, res: Response) => {
 
     res.json(json.result?.value ?? null);
   } catch (err) {
-    console.error('[price/supply]', err);
+    log.error('supply', err);
     res.status(500).json({ error: 'Failed to fetch token supply' });
   }
 });

@@ -4,6 +4,9 @@ import { randomUUID } from 'crypto';
 import type { BotConfig, BotPosition, BotLogEntry, ClosedPosition } from './types';
 import { DEFAULT_CONFIG } from './types';
 import { atomicWriteFileSync } from '../lib/atomicWrite';
+import { createLogger } from '../lib/logger';
+
+const logger = createLogger('bot');
 
 const STATE_DIR = process.env['BOT_STATE_DIR'] ?? process.cwd();
 if (!fs.existsSync(STATE_DIR)) {
@@ -29,7 +32,7 @@ function persist() {
   try {
     atomicWriteFileSync(STATE_PATH, JSON.stringify(state));
   } catch (e) {
-    console.error('[bot-state] save failed:', e);
+    logger.error('state save failed', e);
   }
 }
 
@@ -98,7 +101,7 @@ export function addLog(entry: Omit<BotLogEntry, 'id' | 'time'>) {
   const log: BotLogEntry = { ...entry, id: randomUUID(), time: Date.now() };
   state.log = [log, ...state.log].slice(0, 500);
   persist();
-  console.log(`[bot] [${entry.type}] ${entry.message}`);
+  logger.info(`[${entry.type}] ${entry.message}`);
 }
 
 export function clearLog() {

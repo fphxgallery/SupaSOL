@@ -3,6 +3,7 @@ import cors from 'cors';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
+import { createLogger } from './lib/logger';
 import swapRouter from './routes/swap';
 import lendRouter from './routes/lend';
 import triggerRouter from './routes/trigger';
@@ -17,6 +18,7 @@ import vaultRouter from './routes/vault';
 import botRouter from './routes/bot';
 import notisRouter from './routes/notis';
 
+const log = createLogger('supasol-backend');
 const app = express();
 
 app.use(cors({
@@ -68,13 +70,12 @@ app.use('/api/notis', notisRouter);
 // Error handler — logs full stack + request context, returns opaque error to client
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const rid = (req as express.Request & { id?: string }).id ?? '-';
-  console.error(`[error] rid=${rid} ${req.method} ${req.originalUrl} — ${err.message}`);
-  if (err.stack) console.error(err.stack);
+  log.error(`rid=${rid} ${req.method} ${req.originalUrl}`, err);
   if (res.headersSent) return;
   res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: rid, retryable: false });
 });
 
 app.listen(config.port, () => {
-  console.log(`[supasol-backend] listening on port ${config.port}`);
-  console.log(`[supasol-backend] CORS origin: ${config.frontendOrigin}`);
+  log.info(`listening on port ${config.port}`);
+  log.info(`CORS origin: ${config.frontendOrigin}`);
 });

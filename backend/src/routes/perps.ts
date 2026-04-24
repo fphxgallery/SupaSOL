@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
+import { createLogger } from '../lib/logger';
 
 const router = Router();
+const log = createLogger('trigger');
 const FLASH_BASE = 'https://flashapi.trade';
 
 // Flash Trade doesn't require an API key — no auth header needed.
@@ -68,17 +70,16 @@ router.get('/orders/:wallet', (req, res) =>
 );
 
 router.post('/trigger', async (req, res) => {
-  console.log('[trigger] request body:', JSON.stringify(req.body, null, 2));
+  log.debug('request body', req.body);
   const origRes = res;
   // Capture response by intercepting
   const send = origRes.send.bind(origRes);
   origRes.send = (body: unknown) => {
     const parsed = typeof body === 'string' ? JSON.parse(body) : body;
-    console.log('[trigger] flash response keys:', Object.keys(parsed));
+    log.debug('flash response keys', Object.keys(parsed));
     if (parsed.transactionBase64) {
       const txBuf = Buffer.from(parsed.transactionBase64, 'base64');
-      console.log('[trigger] tx bytes:', txBuf.length);
-      console.log('[trigger] tx hex:', txBuf.toString('hex'));
+      log.debug(`tx bytes=${txBuf.length}`);
     }
     return send(body);
   };

@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { atomicWriteFileSync } from './atomicWrite';
+import { createLogger } from './logger';
+
+const log = createLogger('notis');
 
 const STATE_DIR = process.env['BOT_STATE_DIR'] ?? process.cwd();
 const NOTIS_PATH = path.join(STATE_DIR, 'notis.json');
@@ -63,7 +66,7 @@ function persist() {
   try {
     atomicWriteFileSync(NOTIS_PATH, JSON.stringify(config));
   } catch (e) {
-    console.error('[notis] save failed:', e);
+    log.error('save failed', e);
   }
 }
 
@@ -166,20 +169,25 @@ export async function testTelegram(): Promise<void> {
   persist();
 }
 
+async function deliver(event: NotisEvent, tg: TelegramConfig, text: string): Promise<void> {
+  try {
+    await sendTelegram(tg.token, tg.chatId, text);
+    config.lastSend = { ok: true, ts: Date.now() };
+    persist();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    config.lastSend = { ok: false, ts: Date.now(), error: msg };
+    persist();
+    log.error(`send failed event=${event}`, msg);
+  }
+}
+
+// Fire-and-forget: callers must not await. All errors handled inside `deliver`.
 export function notify(event: NotisEvent, text: string): void {
   const tg = config.telegram;
   if (!tg.enabled || !tg.token || !tg.chatId) return;
   if (!tg.events[event]) return;
-  sendTelegram(tg.token, tg.chatId, text)
-    .then(() => {
-      config.lastSend = { ok: true, ts: Date.now() };
-      persist();
-    })
-    .catch((err: Error) => {
-      config.lastSend = { ok: false, ts: Date.now(), error: err.message };
-      persist();
-      console.error('[notis] send failed:', err.message);
-    });
+  void deliver(event, tg, text);
 }
 
 export function formatEntry(p: { symbol: string; price: number; amountSol: number; txSig?: string }) {

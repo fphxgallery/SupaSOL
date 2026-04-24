@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { createLogger } from './lib/logger';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+const log = createLogger('config');
 
 function required(key: string): string {
   const val = process.env[key];
@@ -19,5 +22,5 @@ export const config = {
 };
 
 if (!config.openaiApiKey) {
-  console.warn('[config] OPENAI_API_KEY not set — AI exit advisor disabled');
+  log.warn('OPENAI_API_KEY not set — AI exit advisor disabled');
 }

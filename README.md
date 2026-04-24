@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.6-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.7-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.7
+- **Structured backend logger** — new [logger.ts](backend/src/lib/logger.ts) with leveled output (`debug|info|warn|error`), ISO timestamps, scoped prefixes, `LOG_LEVEL` env gate (defaults to `info` in prod, `debug` otherwise); errors/warnings route to stderr
+- All 17 `console.*` call sites in backend prod paths swapped to scoped loggers: [index.ts](backend/src/index.ts), [config.ts](backend/src/config.ts), [routes/perps.ts](backend/src/routes/perps.ts), [routes/price.ts](backend/src/routes/price.ts), [routes/vault.ts](backend/src/routes/vault.ts), [bot/state.ts](backend/src/bot/state.ts), [lib/notifier.ts](backend/src/lib/notifier.ts)
+- Noisy `[trigger] tx hex` dump demoted/removed; `tx bytes` kept at `debug` level
+- [notifier.ts](backend/src/lib/notifier.ts) `notify()` fire-and-forget hardened — delegates to explicit `async deliver()` with `void` marker; all errors captured internally, no unhandled rejection path
 
 ### v1.10.6
 - **Fix HTTP 400 on Run Bot in Background after v1.10.4** — Zustand persist `merge` in [botStore.ts](frontend/src/store/botStore.ts) was preserving legacy `takeProfitPct`/`tieredTpEnabled` keys from localStorage; backend `validateConfig` rejects unknown fields

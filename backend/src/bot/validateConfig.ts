@@ -30,6 +30,7 @@ const RULES: Record<keyof BotConfig, Rule> = {
   trailingStopPct: { kind: 'num', min: 0, max: 100 },
   takeProfitPct: { kind: 'num', min: 0, max: 100_000 },
   maxHoldMinutes: { kind: 'num', min: 0, max: 1_000_000 },
+  maxHoldAiGated: { kind: 'bool' },
   rebuyCooldownMinutes: { kind: 'num', min: 0, max: 1_000_000 },
   tieredTpEnabled: { kind: 'bool' },
   tp1Pct: { kind: 'num', min: 0, max: 100_000 },

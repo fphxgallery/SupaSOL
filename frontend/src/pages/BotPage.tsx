@@ -380,10 +380,19 @@ export function BotPage() {
                 <Num label="Max hold time" value={activeConfig.maxHoldMinutes} onChange={(v) => handleConfigChange({ maxHoldMinutes: v })} min={1} step={5} suffix="min" />
                 <Num label="Rebuy cooldown" value={activeConfig.rebuyCooldownMinutes} onChange={(v) => handleConfigChange({ rebuyCooldownMinutes: v })} min={0} step={5} suffix="min" />
               </div>
+              <Check
+                label="Max hold AI-gated"
+                checked={activeConfig.maxHoldAiGated}
+                onChange={(v) => handleConfigChange({ maxHoldAiGated: v })}
+              />
               <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
                 <p>• Trailing stop sells when price drops <span className="text-text font-medium">{activeConfig.trailingStopPct}%</span> from its peak.</p>
                 <p>• Take profit triggers at <span className="text-green font-medium">+{activeConfig.takeProfitPct}%</span> above entry. {activeConfig.tieredTpEnabled && <span className="text-orange">(disabled when Tiered TP on)</span>}</p>
-                <p>• Force-sells after <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span> regardless of price.</p>
+                {activeConfig.aiEnabled && activeConfig.maxHoldAiGated ? (
+                  <p>• After <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span>, AI Advisor decides: sells on bearish signals, holds if bullish. Force-sells if AI unavailable.</p>
+                ) : (
+                  <p>• Force-sells after <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span> regardless of price.</p>
+                )}
                 <p>• Won't rebuy same token for <span className="text-text font-medium">{activeConfig.rebuyCooldownMinutes}m</span> after selling. (0 = no cooldown)</p>
               </div>
             </CardBody>

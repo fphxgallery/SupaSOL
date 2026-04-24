@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.1-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.2-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,14 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.2
+- **Max-hold AI-gated** — new `maxHoldAiGated` toggle (default on). When AI Advisor enabled, hitting the max-hold cap triggers an AI consult instead of force-selling; strong `hold` verdicts let winners run past the cap
+- [engine.ts](backend/src/bot/engine.ts) defers the max-hold exit reason when gated and opens the AI exit gate even outside loss/gain zones
+- Prompt hint added to exit context: cap-reached positions lean SELL unless 5m+1h signals clearly bullish
+- Exit cache key includes `cap` bucket so cap-hit calls don't reuse a pre-cap cached decision
+- Safety net: if AI unavailable while gated, cap is honored and position force-sells
+- UI: new checkbox under Max Hold with conditional explainer
 
 ### v1.10.1
 - **AI decision history depth 10 → 20** — [aiAdvisor.ts](backend/src/bot/aiAdvisor.ts) `MAX_DECISION_SNAPSHOTS` bumped so exit prompt sees a longer HOLD-streak window on slow bleeders

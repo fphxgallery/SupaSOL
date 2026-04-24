@@ -22,6 +22,7 @@ export interface BotConfig {
   trailingStopPct: number;
   takeProfitPct: number;
   maxHoldMinutes: number;
+  maxHoldAiGated: boolean;
   rebuyCooldownMinutes: number;
   tieredTpEnabled: boolean;
   tp1Pct: number;
@@ -110,6 +111,7 @@ const DEFAULT_CONFIG: BotConfig = {
   trailingStopPct: 20,
   takeProfitPct: 50,
   maxHoldMinutes: 60,
+  maxHoldAiGated: true,
   rebuyCooldownMinutes: 60,
   tieredTpEnabled: true,
   tp1Pct: 30,

@@ -222,6 +222,8 @@ export interface ExitContext {
   stats1h?: IntervalStats;
   history?: ClosedPosition[];
   decisionHistory?: AiDecisionSnapshot[];
+  maxHoldHit?: boolean;
+  maxHoldMinutes?: number;
 }
 
 export type AdvisorContext = EntryContext | ExitContext;
@@ -257,7 +259,8 @@ function cacheKey(ctx: AdvisorContext): string {
   const comp = compositeScore(ctx.stats5m, ctx.stats1h);
   const scoreBucket = Math.round(comp * 10);
   const dhLen = ctx.decisionHistory?.length ?? 0;
-  return `exit:${ctx.mint}:p${Math.round(ctx.pnlPct)}:s${scoreBucket}:h${histLen}:d${dhLen}`;
+  const cap = ctx.maxHoldHit ? ':cap' : '';
+  return `exit:${ctx.mint}:p${Math.round(ctx.pnlPct)}:s${scoreBucket}:h${histLen}:d${dhLen}${cap}`;
 }
 
 function checkRate(maxPerHour: number): boolean {
@@ -330,6 +333,9 @@ CRITICAL GUARDS (must obey):
     ? `Composite score is ${(comp >= 0 ? '+' : '') + comp.toFixed(2)} (neutral/bullish). SCORE-SIGN GUARD applies: SELL requires confidence ≥75 AND explicit citation of a specific metric that contradicts the positive composite. Otherwise HOLD.`
     : `Composite score is ${comp.toFixed(2)} (bearish). Sell rubric may apply per system rules.`;
   parts.push(scoreHint);
+  if (ctx.maxHoldHit) {
+    parts.push(`MAX-HOLD CAP REACHED: position has been held ${ctx.heldMinutes.toFixed(0)}min, past the ${ctx.maxHoldMinutes ?? '?'}min cap. The cap normally force-sells but is now AI-gated. Lean SELL unless composite score and 5m+1h stats are clearly bullish (priceChange positive AND holderChange positive on at least one timeframe). A neutral-to-negative composite at this age should SELL with confidence ≥65.`);
+  }
   parts.push('Recommend SELL only on clear sustained reversal across 5m AND 1h. Otherwise HOLD. If prior-decision history shows a deteriorating HOLD-streak per rubric, SELL.');
   return { system, user: parts.join('\n') };
 }

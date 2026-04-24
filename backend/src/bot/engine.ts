@@ -293,15 +293,18 @@ async function runExitLoop() {
       }
 
       let exitReason: string | null = null;
+      const maxHoldHit = heldMinutes >= config.maxHoldMinutes;
+      const maxHoldAiDefer = maxHoldHit && config.aiEnabled && config.maxHoldAiGated;
       if (currentPrice <= trailingStopPrice)          exitReason = `trailing stop (${activeTrailPct}% from peak $${peakPrice.toFixed(6)})`;
       else if (!config.tieredTpEnabled && pnlPct >= config.takeProfitPct) exitReason = `take profit +${pnlPct.toFixed(1)}%`;
-      else if (heldMinutes >= config.maxHoldMinutes)  exitReason = `max hold ${config.maxHoldMinutes}m`;
+      else if (maxHoldHit && !maxHoldAiDefer)         exitReason = `max hold ${config.maxHoldMinutes}m`;
 
       const inLossZone = pnlPct <= -config.aiExitLossPct;
       const inGainZone = pnlPct >= config.aiExitGainPct;
       const tierGateOk = config.tieredTpEnabled ? afterT2 : true;
-      // Loss-side AI advice always allowed; gain-side gated on tier completion when tiered TP enabled
-      const aiExitGateOk = inLossZone || (inGainZone && tierGateOk);
+      // Loss-side AI advice always allowed; gain-side gated on tier completion when tiered TP enabled.
+      // Max-hold cap also opens the gate when AI-gated.
+      const aiExitGateOk = inLossZone || (inGainZone && tierGateOk) || maxHoldAiDefer;
       if (!exitReason && config.aiEnabled && aiExitGateOk) {
         const tokenStats = await fetchTokenStats(position.mint);
         const prevSnapshots = getDecisionHistory(position.mint);
@@ -320,6 +323,8 @@ async function runExitLoop() {
           stats1h: tokenStats?.stats['1h'],
           history: historyForMint(position.mint),
           decisionHistory: prevSnapshots,
+          maxHoldHit,
+          maxHoldMinutes: config.maxHoldMinutes,
         };
 
         const consecHolds = (() => {
@@ -388,7 +393,14 @@ async function runExitLoop() {
             cached: false, tokensUsed: 0, mode: config.aiMode,
             outcome: 'unavailable', pnlPct, heldMinutes, error: decision.error,
           });
+          // Safety net: if we deferred max-hold to AI and AI is unavailable, honor the cap.
+          if (maxHoldAiDefer && !exitReason) {
+            exitReason = `max hold ${config.maxHoldMinutes}m (AI unavailable)`;
+          }
         }
+      } else if (maxHoldAiDefer && !config.aiEnabled) {
+        // Shouldn't happen (maxHoldAiDefer requires aiEnabled), but guard anyway.
+        exitReason = `max hold ${config.maxHoldMinutes}m`;
       }
 
       if (!exitReason) continue;

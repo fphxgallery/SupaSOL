@@ -1,4 +1,5 @@
 export type TrendingInterval = '5m' | '1h' | '6h' | '24h';
+export type AfterT1Mode = 'breakeven' | 'tighten';
 
 export interface BotConfig {
   enabled: boolean;
@@ -21,6 +22,13 @@ export interface BotConfig {
   takeProfitPct: number;
   maxHoldMinutes: number;
   rebuyCooldownMinutes: number;
+  tieredTpEnabled: boolean;
+  tp1Pct: number;
+  tp1SellPct: number;
+  tp2Pct: number;
+  tp2SellPct: number;
+  afterT1Mode: AfterT1Mode;
+  tightTrailPct: number;
   aiEnabled: boolean;
   aiMode: AiMode;
   aiModel: AiModel;
@@ -44,8 +52,12 @@ export interface BotPosition {
   entryTxSig: string;
   amountSolIn: number;
   tokenAmountOut: number;
+  tokenAmountRemaining: number;
+  tiersHit: number[];
   peakPrice: number;
+  peakPnlPct: number;
   trailingStopPrice: number;
+  breakevenFloor?: number;
   status: 'open' | 'closing';
 }
 
@@ -67,11 +79,13 @@ export interface ClosedPosition {
   solReturned: number;
   pnlSol: number;
   pnlPct: number;
+  peakPnlPct: number;
   exitReason: string;
   entryTime: number;
   exitTime: number;
   entryTxSig: string;
   exitTxSig?: string;
+  tier?: number;
 }
 
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -97,6 +111,13 @@ export const DEFAULT_CONFIG: BotConfig = {
   takeProfitPct: 50,
   maxHoldMinutes: 60,
   rebuyCooldownMinutes: 60,
+  tieredTpEnabled: true,
+  tp1Pct: 30,
+  tp1SellPct: 50,
+  tp2Pct: 60,
+  tp2SellPct: 50,
+  afterT1Mode: 'breakeven',
+  tightTrailPct: 10,
   aiEnabled: false,
   aiMode: 'veto',
   aiModel: 'gpt-4o-mini',

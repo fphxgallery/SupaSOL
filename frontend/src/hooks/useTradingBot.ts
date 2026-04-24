@@ -6,10 +6,103 @@ import { fetchTrendingTokens } from '../api/tokens';
 import { fetchPrices } from '../api/price';
 import { getSwapOrder, executeSwap } from '../api/swap';
 import { MINTS } from '../config/constants';
+import type { BotPosition } from '../store/botStore';
 
 // Guards prevent a new interval tick from running while the previous is still awaiting
 let entryLoopRunning = false;
 let exitLoopRunning = false;
+
+async function doTierSellLocal(
+  position: BotPosition,
+  tier: 1 | 2,
+  sellAmount: number,
+  currentPrice: number,
+  pnlPct: number,
+  peakPnlPct: number,
+  peakPrice: number,
+  trailingStopPrice: number,
+  pubkey: string,
+) {
+  const { config, updatePosition, addClosedPosition, addLog } = useBotStore.getState();
+  const keypair = useWalletStore.getState().keypair;
+  if (!keypair) return;
+
+  updatePosition(position.id, { status: 'closing' });
+  try {
+    const order = await getSwapOrder({
+      inputMint: position.mint,
+      outputMint: MINTS.SOL,
+      amount: sellAmount,
+      userPublicKey: pubkey,
+      slippageBps: config.slippageBps,
+      swapMode: 'ExactIn',
+    });
+    const tx = VersionedTransaction.deserialize(Buffer.from(order.transaction, 'base64'));
+    tx.sign([keypair]);
+    const signed = Buffer.from(tx.serialize()).toString('base64');
+    const result = await executeSwap(signed, order.requestId);
+
+    if (result.status === 'Success') {
+      const solReturned = Number(result.outputAmountResult ?? order.outAmount) / 1e9;
+      const soldFractionOfInitial = sellAmount / position.tokenAmountOut;
+      const carvedSolIn = position.amountSolIn * soldFractionOfInitial;
+      const newRemaining = position.tokenAmountRemaining - sellAmount;
+      const newTiers = [...(position.tiersHit ?? []), tier];
+      const sellPct = tier === 1 ? config.tp1SellPct : config.tp2SellPct;
+      const triggerPct = tier === 1 ? config.tp1Pct : config.tp2Pct;
+      const exitReason = `T${tier} +${triggerPct}% (sold ${sellPct}% of ${tier === 1 ? 'initial' : 'remainder'})`;
+
+      addClosedPosition({
+        id: `${position.id}-t${tier}`,
+        mint: position.mint,
+        symbol: position.symbol,
+        entryPrice: position.entryPrice,
+        exitPrice: currentPrice,
+        amountSolIn: carvedSolIn,
+        solReturned,
+        pnlSol: solReturned - carvedSolIn,
+        pnlPct,
+        peakPnlPct,
+        exitReason,
+        tier,
+        entryTime: position.entryTime,
+        exitTime: Date.now(),
+        entryTxSig: position.entryTxSig,
+        exitTxSig: result.signature,
+      });
+
+      const update: Partial<BotPosition> = {
+        status: 'open',
+        tokenAmountRemaining: newRemaining,
+        tiersHit: newTiers,
+      };
+      if (tier === 1) {
+        if (config.afterT1Mode === 'breakeven') {
+          const floor = position.entryPrice * 1.005;
+          update.breakevenFloor = floor;
+          update.trailingStopPrice = Math.max(trailingStopPrice, floor);
+        } else {
+          update.trailingStopPrice = Math.max(
+            trailingStopPrice,
+            peakPrice * (1 - config.tightTrailPct / 100),
+          );
+        }
+      }
+      updatePosition(position.id, update);
+      addLog({
+        type: 'sell',
+        message: `${position.symbol} ${exitReason} — P&L: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`,
+        txSig: result.signature,
+      });
+    } else {
+      updatePosition(position.id, { status: 'open' });
+      addLog({ type: 'error', message: `T${tier} sell ${position.symbol} failed: ${result.error ?? 'unknown'}` });
+    }
+  } catch (err) {
+    updatePosition(position.id, { status: 'open' });
+    addLog({ type: 'error', message: `T${tier} sell ${position.symbol} error: ${err instanceof Error ? err.message : String(err)}` });
+  }
+}
 
 async function runEntryLoop() {
   if (entryLoopRunning) return;
@@ -110,7 +203,10 @@ async function runEntryLoop() {
           entryTxSig: result.signature,
           amountSolIn: config.buyAmountSol,
           tokenAmountOut,
+          tokenAmountRemaining: tokenAmountOut,
+          tiersHit: [],
           peakPrice: entryPrice,
+          peakPnlPct: 0,
           trailingStopPrice: entryPrice * (1 - config.trailingStopPct / 100),
           status: 'open',
         });
@@ -159,20 +255,48 @@ async function runExitLoop() {
       const currentPrice = prices[position.mint]?.usdPrice;
       if (!currentPrice) continue;
 
+      const tiersHit = position.tiersHit ?? [];
+      const afterT1 = tiersHit.includes(1);
+      const afterT2 = tiersHit.includes(2);
+      const activeTrailPct = (config.tieredTpEnabled && afterT1 && config.afterT1Mode === 'tighten')
+        ? config.tightTrailPct
+        : config.trailingStopPct;
+
       let { peakPrice, trailingStopPrice } = position;
       if (currentPrice > peakPrice) {
         peakPrice = currentPrice;
-        trailingStopPrice = peakPrice * (1 - config.trailingStopPct / 100);
+        const trailBase = peakPrice * (1 - activeTrailPct / 100);
+        trailingStopPrice = Math.max(trailBase, position.breakevenFloor ?? 0);
         updatePosition(position.id, { peakPrice, trailingStopPrice });
       }
 
       const pnlPct = ((currentPrice - position.entryPrice) / position.entryPrice) * 100;
       const heldMinutes = (now - position.entryTime) / 60_000;
 
+      const peakPnlPct = Math.max(position.peakPnlPct ?? 0, pnlPct);
+      if (peakPnlPct !== position.peakPnlPct) {
+        updatePosition(position.id, { peakPnlPct });
+      }
+
+      if (config.tieredTpEnabled) {
+        const tier: 0 | 1 | 2 = !afterT1 && pnlPct >= config.tp1Pct ? 1
+          : (afterT1 && !afterT2 && pnlPct >= config.tp2Pct) ? 2
+          : 0;
+        if (tier > 0) {
+          const sellAmount = tier === 1
+            ? Math.floor(position.tokenAmountOut * config.tp1SellPct / 100)
+            : Math.floor(position.tokenAmountRemaining * config.tp2SellPct / 100);
+          if (sellAmount > 0 && sellAmount <= position.tokenAmountRemaining) {
+            await doTierSellLocal(position, tier, sellAmount, currentPrice, pnlPct, peakPnlPct, peakPrice, trailingStopPrice, pubkey);
+          }
+          continue;
+        }
+      }
+
       let exitReason: string | null = null;
       if (currentPrice <= trailingStopPrice) {
-        exitReason = `trailing stop (${config.trailingStopPct}% from peak $${peakPrice.toFixed(6)})`;
-      } else if (pnlPct >= config.takeProfitPct) {
+        exitReason = `trailing stop (${activeTrailPct}% from peak $${peakPrice.toFixed(6)})`;
+      } else if (!config.tieredTpEnabled && pnlPct >= config.takeProfitPct) {
         exitReason = `take profit +${pnlPct.toFixed(1)}%`;
       } else if (heldMinutes >= config.maxHoldMinutes) {
         exitReason = `max hold ${config.maxHoldMinutes}m`;
@@ -186,7 +310,7 @@ async function runExitLoop() {
         const order = await getSwapOrder({
           inputMint: position.mint,
           outputMint: MINTS.SOL,
-          amount: position.tokenAmountOut,
+          amount: position.tokenAmountRemaining,
           userPublicKey: pubkey,
           slippageBps: config.slippageBps,
           swapMode: 'ExactIn',
@@ -201,6 +325,8 @@ async function runExitLoop() {
 
         if (result.status === 'Success') {
           const solReturned = Number(result.outputAmountResult ?? order.outAmount) / 1e9;
+          const remainingFraction = position.tokenAmountRemaining / position.tokenAmountOut;
+          const carvedSolIn = position.amountSolIn * remainingFraction;
           const exitPrice = currentPrice;
           addClosedPosition({
             id: position.id,
@@ -208,10 +334,11 @@ async function runExitLoop() {
             symbol: position.symbol,
             entryPrice: position.entryPrice,
             exitPrice,
-            amountSolIn: position.amountSolIn,
+            amountSolIn: carvedSolIn,
             solReturned,
-            pnlSol: solReturned - position.amountSolIn,
+            pnlSol: solReturned - carvedSolIn,
             pnlPct,
+            peakPnlPct,
             exitReason,
             entryTime: position.entryTime,
             exitTime: Date.now(),
@@ -274,7 +401,7 @@ export async function closeAllAndStop() {
       const order = await getSwapOrder({
         inputMint: position.mint,
         outputMint: MINTS.SOL,
-        amount: position.tokenAmountOut,
+        amount: position.tokenAmountRemaining,
         userPublicKey: pubkey,
         slippageBps: config.slippageBps,
         swapMode: 'ExactIn',
@@ -289,16 +416,19 @@ export async function closeAllAndStop() {
 
       if (result.status === 'Success') {
         const solReturned = Number(result.outputAmountResult ?? order.outAmount) / 1e9;
+        const remainingFraction = position.tokenAmountRemaining / position.tokenAmountOut;
+        const carvedSolIn = position.amountSolIn * remainingFraction;
         addClosedPosition({
           id: position.id,
           mint: position.mint,
           symbol: position.symbol,
           entryPrice: position.entryPrice,
           exitPrice: currentPrice,
-          amountSolIn: position.amountSolIn,
+          amountSolIn: carvedSolIn,
           solReturned,
-          pnlSol: solReturned - position.amountSolIn,
+          pnlSol: solReturned - carvedSolIn,
           pnlPct,
+          peakPnlPct: Math.max(position.peakPnlPct ?? 0, pnlPct),
           exitReason,
           entryTime: position.entryTime,
           exitTime: Date.now(),

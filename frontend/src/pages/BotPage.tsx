@@ -14,7 +14,7 @@ import { closeAllAndStop } from '../hooks/useTradingBot';
 import { stopBot, closeAllBot, updateBotConfig, clearBotHistory, clearBotLog, removeBotPosition, pruneBotPositions } from '../api/bot';
 import { useUiStore } from '../store/uiStore';
 import type { TrendingInterval } from '../hooks/useTrendingTokens';
-import type { ClosedPosition, BotConfig, AiMode, AiModel } from '../store/botStore';
+import type { ClosedPosition, BotConfig, AiMode, AiModel, AfterT1Mode } from '../store/botStore';
 import type { VaultData } from '../api/vault';
 
 const INTERVALS: { label: string; value: TrendingInterval }[] = [
@@ -33,6 +33,11 @@ const AI_MODES: { label: string; value: AiMode; desc: string }[] = [
 const AI_MODELS: { label: string; value: AiModel; desc: string }[] = [
   { label: 'Mini', value: 'gpt-4o-mini', desc: 'Cheap, fast' },
   { label: 'Full', value: 'gpt-4o', desc: 'Smarter, costly' },
+];
+
+const AFTER_T1_MODES: { label: string; value: AfterT1Mode; desc: string }[] = [
+  { label: 'Breakeven', value: 'breakeven', desc: 'Lock stop at entry + 0.5% after T1' },
+  { label: 'Tighten', value: 'tighten', desc: 'Use tight trail % after T1' },
 ];
 
 const POLL_OPTIONS = [
@@ -376,9 +381,56 @@ export function BotPage() {
               </div>
               <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
                 <p>• Trailing stop sells when price drops <span className="text-text font-medium">{activeConfig.trailingStopPct}%</span> from its peak.</p>
-                <p>• Take profit triggers at <span className="text-green font-medium">+{activeConfig.takeProfitPct}%</span> above entry.</p>
+                <p>• Take profit triggers at <span className="text-green font-medium">+{activeConfig.takeProfitPct}%</span> above entry. {activeConfig.tieredTpEnabled && <span className="text-orange">(disabled when Tiered TP on)</span>}</p>
                 <p>• Force-sells after <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span> regardless of price.</p>
                 <p>• Won't rebuy same token for <span className="text-text font-medium">{activeConfig.rebuyCooldownMinutes}m</span> after selling. (0 = no cooldown)</p>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Tiered Take-Profit"
+              subtitle="Scale out in 2 tiers"
+              action={
+                <Check
+                  label="Enabled"
+                  checked={activeConfig.tieredTpEnabled}
+                  onChange={(v) => handleConfigChange({ tieredTpEnabled: v })}
+                />
+              }
+            />
+            <CardBody className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Num label="T1 trigger" value={activeConfig.tp1Pct} onChange={(v) => handleConfigChange({ tp1Pct: v })} min={1} step={1} suffix="%" />
+                <Num label="T1 sell" value={activeConfig.tp1SellPct} onChange={(v) => handleConfigChange({ tp1SellPct: v })} min={1} max={99} step={5} suffix="% of initial" />
+                <Num label="T2 trigger" value={activeConfig.tp2Pct} onChange={(v) => handleConfigChange({ tp2Pct: v })} min={1} step={1} suffix="%" />
+                <Num label="T2 sell" value={activeConfig.tp2SellPct} onChange={(v) => handleConfigChange({ tp2SellPct: v })} min={1} max={100} step={5} suffix="% of remainder" />
+              </div>
+              <div className="flex flex-wrap gap-x-6 gap-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">After T1</label>
+                  <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
+                    {AFTER_T1_MODES.map(({ label, value, desc }) => (
+                      <button key={value} onClick={() => handleConfigChange({ afterT1Mode: value })} title={desc}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${activeConfig.afterT1Mode === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {activeConfig.afterT1Mode === 'tighten' && (
+                  <Num label="Tight trail" value={activeConfig.tightTrailPct} onChange={(v) => handleConfigChange({ tightTrailPct: v })} min={1} max={99} step={1} suffix="%" />
+                )}
+              </div>
+              <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
+                <p>• T1: at <span className="text-green font-medium">+{activeConfig.tp1Pct}%</span> sell <span className="text-text font-medium">{activeConfig.tp1SellPct}%</span> of initial.</p>
+                <p>• After T1: {activeConfig.afterT1Mode === 'breakeven'
+                  ? <>lock stop at <span className="text-text font-medium">entry + 0.5%</span> (breakeven floor).</>
+                  : <>tighten trail to <span className="text-text font-medium">{activeConfig.tightTrailPct}%</span> from peak.</>}</p>
+                <p>• T2: at <span className="text-green font-medium">+{activeConfig.tp2Pct}%</span> sell <span className="text-text font-medium">{activeConfig.tp2SellPct}%</span> of remainder.</p>
+                <p>• Tail: continues via trailing stop / max hold.</p>
+                <p>• Exit AI gated until after T2.</p>
               </div>
             </CardBody>
           </Card>

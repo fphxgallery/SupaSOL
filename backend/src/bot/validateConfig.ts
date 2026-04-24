@@ -1,8 +1,9 @@
-import type { BotConfig, TrendingInterval, AiMode, AiModel } from './types';
+import type { BotConfig, TrendingInterval, AiMode, AiModel, AfterT1Mode } from './types';
 
 const INTERVALS: TrendingInterval[] = ['5m', '1h', '6h', '24h'];
 const AI_MODES: AiMode[] = ['veto', 'confirm', 'advisory'];
 const AI_MODELS: AiModel[] = ['gpt-4o-mini', 'gpt-4o'];
+const AFTER_T1_MODES: AfterT1Mode[] = ['breakeven', 'tighten'];
 
 type Rule =
   | { kind: 'bool' }
@@ -30,6 +31,13 @@ const RULES: Record<keyof BotConfig, Rule> = {
   takeProfitPct: { kind: 'num', min: 0, max: 100_000 },
   maxHoldMinutes: { kind: 'num', min: 0, max: 1_000_000 },
   rebuyCooldownMinutes: { kind: 'num', min: 0, max: 1_000_000 },
+  tieredTpEnabled: { kind: 'bool' },
+  tp1Pct: { kind: 'num', min: 0, max: 100_000 },
+  tp1SellPct: { kind: 'num', min: 1, max: 99 },
+  tp2Pct: { kind: 'num', min: 0, max: 100_000 },
+  tp2SellPct: { kind: 'num', min: 1, max: 100 },
+  afterT1Mode: { kind: 'enum', values: AFTER_T1_MODES },
+  tightTrailPct: { kind: 'num', min: 1, max: 99 },
   aiEnabled: { kind: 'bool' },
   aiMode: { kind: 'enum', values: AI_MODES },
   aiModel: { kind: 'enum', values: AI_MODELS },
@@ -84,6 +92,13 @@ export function validateBotConfigPatch(
   // Exclusive-zero: buyAmountSol must be strictly > 0
   if ('buyAmountSol' in out && (out['buyAmountSol'] as number) <= 0) {
     return { ok: false, error: { field: 'buyAmountSol', message: 'must be > 0' } };
+  }
+
+  // Cross-field: tp1Pct < tp2Pct when both provided
+  if ('tp1Pct' in out && 'tp2Pct' in out) {
+    if ((out['tp1Pct'] as number) >= (out['tp2Pct'] as number)) {
+      return { ok: false, error: { field: 'tp1Pct', message: 'tp1Pct must be < tp2Pct' } };
+    }
   }
 
   // Cross-field: mcapMin <= mcapMax when both provided

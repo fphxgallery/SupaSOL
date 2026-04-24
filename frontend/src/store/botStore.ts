@@ -23,6 +23,13 @@ export interface BotConfig {
   takeProfitPct: number;
   maxHoldMinutes: number;
   rebuyCooldownMinutes: number;
+  tieredTpEnabled: boolean;
+  tp1Pct: number;
+  tp1SellPct: number;
+  tp2Pct: number;
+  tp2SellPct: number;
+  afterT1Mode: AfterT1Mode;
+  tightTrailPct: number;
   aiEnabled: boolean;
   aiMode: AiMode;
   aiModel: AiModel;
@@ -35,6 +42,7 @@ export interface BotConfig {
 
 export type AiMode = 'veto' | 'confirm' | 'advisory';
 export type AiModel = 'gpt-4o-mini' | 'gpt-4o';
+export type AfterT1Mode = 'breakeven' | 'tighten';
 
 export interface BotPosition {
   id: string;
@@ -45,9 +53,13 @@ export interface BotPosition {
   entryTime: number;
   entryTxSig: string;
   amountSolIn: number;
-  tokenAmountOut: number; // base units
+  tokenAmountOut: number; // base units — initial
+  tokenAmountRemaining: number; // base units — unsold
+  tiersHit: number[];
   peakPrice: number;
+  peakPnlPct: number;
   trailingStopPrice: number;
+  breakevenFloor?: number;
   status: 'open' | 'closing';
 }
 
@@ -69,6 +81,8 @@ export interface ClosedPosition {
   solReturned: number;
   pnlSol: number;
   pnlPct: number;
+  peakPnlPct: number;
+  tier?: number;
   exitReason: string;
   entryTime: number;
   exitTime: number;
@@ -97,6 +111,13 @@ const DEFAULT_CONFIG: BotConfig = {
   takeProfitPct: 50,
   maxHoldMinutes: 60,
   rebuyCooldownMinutes: 60,
+  tieredTpEnabled: true,
+  tp1Pct: 30,
+  tp1SellPct: 50,
+  tp2Pct: 60,
+  tp2SellPct: 50,
+  afterT1Mode: 'breakeven',
+  tightTrailPct: 10,
   aiEnabled: false,
   aiMode: 'veto',
   aiModel: 'gpt-4o-mini',
@@ -152,9 +173,21 @@ export const useBotStore = create<BotState>()(
       name: 'ftb-bot',
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<BotState>;
+        const positions = (p.positions ?? []).map((pos) => ({
+          ...pos,
+          tokenAmountRemaining: pos.tokenAmountRemaining ?? pos.tokenAmountOut,
+          tiersHit: pos.tiersHit ?? [],
+          peakPnlPct: pos.peakPnlPct ?? 0,
+        }));
+        const closedPositions = (p.closedPositions ?? []).map((cp) => ({
+          ...cp,
+          peakPnlPct: cp.peakPnlPct ?? cp.pnlPct,
+        }));
         return {
           ...current,
           ...p,
+          positions,
+          closedPositions,
           config: { ...DEFAULT_CONFIG, ...(p.config ?? {}) },
         };
       },

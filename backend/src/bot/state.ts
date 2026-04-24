@@ -32,10 +32,20 @@ function persist() {
 try {
   if (fs.existsSync(STATE_PATH)) {
     const raw = JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) as Partial<BotStateData>;
+    const positions = (raw.positions ?? []).map((p) => ({
+      ...p,
+      tokenAmountRemaining: p.tokenAmountRemaining ?? p.tokenAmountOut,
+      tiersHit: p.tiersHit ?? [],
+      peakPnlPct: p.peakPnlPct ?? 0,
+    }));
+    const closedPositions = (raw.closedPositions ?? []).map((p) => ({
+      ...p,
+      peakPnlPct: p.peakPnlPct ?? p.pnlPct,
+    }));
     state = {
       config: { ...DEFAULT_CONFIG, ...raw.config, enabled: false },
-      positions: raw.positions ?? [],
-      closedPositions: raw.closedPositions ?? [],
+      positions,
+      closedPositions,
       log: raw.log ?? [],
     };
   }

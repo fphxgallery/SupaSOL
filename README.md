@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.12-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.13-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,16 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.13
+- **AI exit memory + weighted composite score** — fixes loop where losing positions got stuck on repeated `HOLD@65%`
+- Per-position decision history (last 10 snapshots) now injected into exit prompt: prior action, confidence, pnl, composite score, age — AI sees its own HOLD-streak and can break out
+- **Weighted composite signal score** [-1,+1] across 5m/1h in [aiAdvisor.ts](backend/src/bot/aiAdvisor.ts): `holderChange`/`numNetBuyers` 1.2, `priceChange`/organic buy-sell ratio 1.0, `liquidityChange` 0.8, `volumeChange` 0.5, total vol ratio 0.4, trade-count ratio 0.3; blended 40% 5m / 60% 1h
+- System prompt adds HOLD-streak failure-mode rubric — MUST bias SELL when composite trends negative across prior HOLDs with deteriorating pnl; score ≤ -0.3 on 1h = confirmed reversal
+- **Dynamic sell gate**: `effectiveMinConf = max(25, aiMinConfidence − min(20, heldMin/10) − min(15, |lossPct|))` — a -10%, 100-min position drops sell gate from 60 to 25, letting moderate-confidence SELL calls fire
+- **Cache TTL decay**: 2 consecutive HOLDs → cache shrinks to 5 min, 3+ → 2 min (was fixed at `aiCacheMinutes`, typically 10)
+- Cache key now includes composite score bucket → cache auto-invalidates when signals shift, not just pnl
+- Exit log line now shows `[gate=X, score=±Y]` for visibility into why SELL did/didn't fire
 
 ### v1.9.12
 - Codebase sanity pass — hardened Docker deployment + fixed AI exit gate edge case

@@ -4,7 +4,7 @@ import type { AiModel, ClosedPosition } from './types';
 
 const MAX_HISTORY_ENTRIES = 5;
 const MAX_REJECTION_ENTRIES = 3;
-const MAX_DECISION_SNAPSHOTS = 10;
+const MAX_DECISION_SNAPSHOTS = 20;
 const MAX_DECISION_LOG = 200;
 
 export interface AiRejection {

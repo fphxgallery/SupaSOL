@@ -5,7 +5,7 @@ import { atomicWriteFileSync } from '../lib/atomicWrite';
 
 const router = express.Router();
 
-const VAULT_PATH = path.join(process.cwd(), 'vault.json');
+const VAULT_PATH = path.join(process.env['BOT_STATE_DIR'] ?? process.cwd(), 'vault.json');
 
 interface VaultData {
   encrypted: string;

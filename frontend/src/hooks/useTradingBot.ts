@@ -11,6 +11,7 @@ import type { BotPosition } from '../store/botStore';
 // Guards prevent a new interval tick from running while the previous is still awaiting
 let entryLoopRunning = false;
 let exitLoopRunning = false;
+let aiParityWarned = false;
 
 async function doTierSellLocal(
   position: BotPosition,
@@ -111,6 +112,11 @@ async function runEntryLoop() {
     const { config, positions, addPosition, addLog } = useBotStore.getState();
     const keypair = useWalletStore.getState().keypair;
     if (!config.enabled || !keypair) return;
+
+    if (config.aiEnabled && !aiParityWarned) {
+      aiParityWarned = true;
+      addLog({ type: 'info', message: 'AI advisor is backend-only — local browser bot runs without AI. Use the Background bot (vault) for AI-gated trades.' });
+    }
 
     const openPositions = positions.filter((p) => p.status === 'open');
     if (openPositions.length >= config.maxPositions) return;

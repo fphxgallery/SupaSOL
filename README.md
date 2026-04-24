@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.8-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.12-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,28 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.12
+- Codebase sanity pass — hardened Docker deployment + fixed AI exit gate edge case
+- `docker-compose.yml` now passes through `OPENAI_API_KEY` and `SOLANA_RPC_URL` (were silently dropped, disabling AI and falling back to rate-limited public RPC in container)
+- Persistent state: new `BOT_STATE_DIR` env (default `cwd`, Docker: `/data`) honored by [state.ts](backend/src/bot/state.ts), [vault.ts](backend/src/routes/vault.ts), [bot.ts](backend/src/routes/bot.ts) — named volume `bot-state` prevents `bot-state.json` + `vault.json` wipe on container restart
+- `VITE_API_BASE` no longer hardcoded in compose; overridable via env
+- AI exit loss-side gate decoupled from tier completion ([engine.ts:245](backend/src/bot/engine.ts)) — losing trades that never hit T1/T2 can now trigger `aiExitLossPct` instead of being silently skipped when `tieredTpEnabled`
+- Local browser bot now logs a one-time warning when `aiEnabled` is on — AI advisor is backend-only, prevents silent no-AI runs
+
+### v1.9.11
+- `tsc -b` build fix: narrowed tier union type after guard to satisfy strict TS in `doTierSell` call
+
+### v1.9.10
+- **2-tier scale-out take-profit** — sell fraction at T1, second fraction at T2, let remainder ride on trail
+- Config: `tieredTpEnabled`, `tp1Pct`/`tp1SellPct`, `tp2Pct`/`tp2SellPct`, `afterT1Mode` (`tighten` trail vs `breakeven` floor), `tightTrailPct`
+- Position state extends with `tokenAmountRemaining`, `tiersHit`, `breakevenFloor`
+- Closed positions gain `tier` field (1/2) for partial exits; full close keeps existing semantics
+- Available in both backend vault bot and browser local bot
+
+### v1.9.9
+- HOLD-specific confidence rubric in system prompt — scores how certain the hold call is, not bullishness
+- Prevents HOLD decisions from inheriting buy/sell confidence semantics
 
 ### v1.9.8
 - Removed prompt-side instruction that forced `hold` when confidence <50 — was redundant with exit HOLD default and risked converting real low-conf sell signals to hold

@@ -242,8 +242,11 @@ async function runExitLoop() {
       else if (!config.tieredTpEnabled && pnlPct >= config.takeProfitPct) exitReason = `take profit +${pnlPct.toFixed(1)}%`;
       else if (heldMinutes >= config.maxHoldMinutes)  exitReason = `max hold ${config.maxHoldMinutes}m`;
 
-      const aiGateOk = config.tieredTpEnabled ? afterT2 : true;
-      const aiExitGateOk = aiGateOk && (pnlPct <= -config.aiExitLossPct || pnlPct >= config.aiExitGainPct);
+      const inLossZone = pnlPct <= -config.aiExitLossPct;
+      const inGainZone = pnlPct >= config.aiExitGainPct;
+      const tierGateOk = config.tieredTpEnabled ? afterT2 : true;
+      // Loss-side AI advice always allowed; gain-side gated on tier completion when tiered TP enabled
+      const aiExitGateOk = inLossZone || (inGainZone && tierGateOk);
       if (!exitReason && config.aiEnabled && aiExitGateOk) {
         const tokenStats = await fetchTokenStats(position.mint);
         const exitCtx = {

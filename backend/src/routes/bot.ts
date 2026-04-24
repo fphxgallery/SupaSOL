@@ -11,7 +11,7 @@ import { validateBotConfigPatch } from '../bot/validateConfig';
 import { config as appConfig } from '../config';
 
 const router = Router();
-const VAULT_PATH = path.join(process.cwd(), 'vault.json');
+const VAULT_PATH = path.join(process.env['BOT_STATE_DIR'] ?? process.cwd(), 'vault.json');
 
 // Brute-force guard on vault unlock: 5 failed attempts per 15 min per IP.
 // Successful unlocks do not count against the limit.

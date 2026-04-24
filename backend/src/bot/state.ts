@@ -5,7 +5,11 @@ import type { BotConfig, BotPosition, BotLogEntry, ClosedPosition } from './type
 import { DEFAULT_CONFIG } from './types';
 import { atomicWriteFileSync } from '../lib/atomicWrite';
 
-const STATE_PATH = path.join(process.cwd(), 'bot-state.json');
+const STATE_DIR = process.env['BOT_STATE_DIR'] ?? process.cwd();
+if (!fs.existsSync(STATE_DIR)) {
+  try { fs.mkdirSync(STATE_DIR, { recursive: true }); } catch { /* ignore */ }
+}
+const STATE_PATH = path.join(STATE_DIR, 'bot-state.json');
 
 interface BotStateData {
   config: BotConfig;

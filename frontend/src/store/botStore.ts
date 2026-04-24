@@ -193,7 +193,7 @@ export const useBotStore = create<BotState>()(
             const allowed = Object.keys(DEFAULT_CONFIG) as (keyof BotConfig)[];
             const clean: Record<string, unknown> = {};
             for (const k of allowed) clean[k] = merged[k];
-            return clean as BotConfig;
+            return clean as unknown as BotConfig;
           })(),
         };
       },

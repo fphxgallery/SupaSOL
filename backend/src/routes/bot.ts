@@ -6,6 +6,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { decryptPrivateKey } from '../lib/vaultCrypto';
 import * as engine from '../bot/engine';
 import * as botState from '../bot/state';
+import { getDecisionLog, clearDecisionLog } from '../bot/aiAdvisor';
 import type { BotConfig } from '../bot/types';
 import { validateBotConfigPatch } from '../bot/validateConfig';
 import { config as appConfig } from '../config';
@@ -171,6 +172,17 @@ router.post('/positions/prune', async (_req, res) => {
 // DELETE /api/bot/history
 router.delete('/history', (_req, res) => {
   botState.clearClosedPositions();
+  res.json({ ok: true });
+});
+
+// GET /api/bot/ai-decisions
+router.get('/ai-decisions', (_req, res) => {
+  res.json({ decisions: getDecisionLog() });
+});
+
+// DELETE /api/bot/ai-decisions
+router.delete('/ai-decisions', (_req, res) => {
+  clearDecisionLog();
   res.json({ ok: true });
 });
 

@@ -12,6 +12,7 @@ import {
   clearDecisionHistory,
   compositeScore,
   scoreInterval,
+  recordDecisionLog,
 } from './aiAdvisor';
 import type { BotConfig } from './types';
 import { SOL_MINT } from './types';
@@ -93,6 +94,12 @@ async function runEntryLoop() {
           { model: config.aiModel, maxCallsPerHour: config.aiMaxCallsPerHour, cacheMinutes: config.aiCacheMinutes },
         );
         if ('error' in decision) {
+          recordDecisionLog({
+            kind: 'entry', mint: token.address, symbol: token.symbol,
+            action: 'skip', confidence: 0, reason: `AI unavailable: ${decision.error}`,
+            cached: false, tokensUsed: 0, mode: config.aiMode,
+            outcome: 'unavailable', error: decision.error,
+          });
           if (config.aiMode === 'confirm') {
             botState.addLog({ type: 'skip', message: `${token.symbol}: AI unavailable (${decision.error}), confirm mode skips` });
             continue;
@@ -101,7 +108,9 @@ async function runEntryLoop() {
         } else {
           const tag = decision.cached ? ' (cached)' : '';
           const summary = `${token.symbol} AI: ${decision.action} @${decision.confidence}%${tag} — ${decision.reason}`;
+          let outcome: 'buy' | 'veto' | 'no-confirm' | 'advisory';
           if (config.aiMode === 'advisory') {
+            outcome = 'advisory';
             botState.addLog({ type: 'info', message: summary });
           } else if (config.aiMode === 'veto') {
             const blocks = decision.action === 'skip' || decision.action === 'sell' ||
@@ -110,8 +119,15 @@ async function runEntryLoop() {
               aiRejectedUntil.set(token.address, now + config.aiCacheMinutes * 60_000);
               recordRejection(token.address, { action: decision.action, confidence: decision.confidence, reason: decision.reason });
               botState.addLog({ type: 'skip', message: `AI veto ${summary}` });
+              recordDecisionLog({
+                kind: 'entry', mint: token.address, symbol: token.symbol,
+                action: decision.action, confidence: decision.confidence, reason: decision.reason,
+                cached: decision.cached, tokensUsed: decision.tokensUsed, mode: config.aiMode,
+                outcome: 'veto', gate: config.aiMinConfidence,
+              });
               continue;
             }
+            outcome = 'buy';
             botState.addLog({ type: 'info', message: summary });
           } else {
             const confirmed = decision.action === 'buy' && decision.confidence >= config.aiMinConfidence;
@@ -119,10 +135,23 @@ async function runEntryLoop() {
               aiRejectedUntil.set(token.address, now + config.aiCacheMinutes * 60_000);
               recordRejection(token.address, { action: decision.action, confidence: decision.confidence, reason: decision.reason });
               botState.addLog({ type: 'skip', message: `AI no-confirm ${summary}` });
+              recordDecisionLog({
+                kind: 'entry', mint: token.address, symbol: token.symbol,
+                action: decision.action, confidence: decision.confidence, reason: decision.reason,
+                cached: decision.cached, tokensUsed: decision.tokensUsed, mode: config.aiMode,
+                outcome: 'no-confirm', gate: config.aiMinConfidence,
+              });
               continue;
             }
+            outcome = 'buy';
             botState.addLog({ type: 'info', message: `AI confirm ${summary}` });
           }
+          recordDecisionLog({
+            kind: 'entry', mint: token.address, symbol: token.symbol,
+            action: decision.action, confidence: decision.confidence, reason: decision.reason,
+            cached: decision.cached, tokensUsed: decision.tokensUsed, mode: config.aiMode,
+            outcome, gate: config.aiMinConfidence,
+          });
         }
       }
 
@@ -314,17 +343,35 @@ async function runExitLoop() {
           }
           const gateTag = `gate=${effectiveMinConf.toFixed(0)}`;
           const compTag = `score=${(comp >= 0 ? '+' : '') + comp.toFixed(2)}`;
+          let outcome: 'advisory' | 'sell' | 'hold' = 'hold';
           if (config.aiMode === 'advisory') {
+            outcome = 'advisory';
             if (!decision.cached) {
               botState.addLog({ type: 'info', message: `${position.symbol} AI (advisory): ${decision.action} @${decision.confidence}% [${compTag}] — ${decision.reason}` });
             }
           } else {
             if (decision.action === 'sell' && decision.confidence >= effectiveMinConf) {
               exitReason = `AI sell @${decision.confidence}% (${gateTag}, ${compTag}) — ${decision.reason}`;
+              outcome = 'sell';
             } else if (!decision.cached) {
               botState.addLog({ type: 'info', message: `${position.symbol} AI: ${decision.action} @${decision.confidence}% [${gateTag}, ${compTag}] — ${decision.reason}` });
             }
           }
+          if (!decision.cached) {
+            recordDecisionLog({
+              kind: 'exit', mint: position.mint, symbol: position.symbol,
+              action: decision.action, confidence: decision.confidence, reason: decision.reason,
+              cached: decision.cached, tokensUsed: decision.tokensUsed, mode: config.aiMode,
+              outcome, gate: effectiveMinConf, composite: comp, pnlPct, heldMinutes,
+            });
+          }
+        } else {
+          recordDecisionLog({
+            kind: 'exit', mint: position.mint, symbol: position.symbol,
+            action: 'hold', confidence: 0, reason: `AI unavailable: ${decision.error}`,
+            cached: false, tokensUsed: 0, mode: config.aiMode,
+            outcome: 'unavailable', pnlPct, heldMinutes, error: decision.error,
+          });
         }
       }
 

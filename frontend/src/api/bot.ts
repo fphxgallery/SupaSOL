@@ -53,3 +53,31 @@ export interface PruneResult {
 export async function pruneBotPositions(): Promise<PruneResult> {
   return apiFetch<PruneResult>('/api/bot/positions/prune', { method: 'POST' });
 }
+
+export interface AiDecisionLogEntry {
+  id: string;
+  ts: number;
+  kind: 'entry' | 'exit';
+  mint: string;
+  symbol: string;
+  action: 'buy' | 'hold' | 'sell' | 'skip';
+  confidence: number;
+  reason: string;
+  cached: boolean;
+  tokensUsed: number;
+  mode?: string;
+  outcome: 'buy' | 'veto' | 'no-confirm' | 'advisory' | 'sell' | 'hold' | 'unavailable';
+  gate?: number;
+  composite?: number;
+  pnlPct?: number;
+  heldMinutes?: number;
+  error?: string;
+}
+
+export async function getAiDecisions(): Promise<{ decisions: AiDecisionLogEntry[] }> {
+  return apiFetch<{ decisions: AiDecisionLogEntry[] }>('/api/bot/ai-decisions');
+}
+
+export async function clearAiDecisions(): Promise<void> {
+  await apiFetch('/api/bot/ai-decisions', { method: 'DELETE' });
+}

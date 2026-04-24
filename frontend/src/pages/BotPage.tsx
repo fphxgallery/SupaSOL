@@ -8,6 +8,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PnlChart } from '../components/charts/PnlChart';
 import { UnlockBotModal } from '../components/bot/UnlockBotModal';
+import { AiDecisionsPanel } from '../components/bot/AiDecisionsPanel';
 import { formatPct, timeAgo } from '../utils/format';
 import { EXPLORER_BASE } from '../config/constants';
 import { closeAllAndStop } from '../hooks/useTradingBot';
@@ -589,6 +590,8 @@ export function BotPage() {
           </CardBody>
         </Card>
       </div>
+
+      <AiDecisionsPanel enabled={bgRunning} />
 
       {vaultData && (
         <UnlockBotModal

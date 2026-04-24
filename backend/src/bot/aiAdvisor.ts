@@ -5,6 +5,7 @@ import type { AiModel, ClosedPosition } from './types';
 const MAX_HISTORY_ENTRIES = 5;
 const MAX_REJECTION_ENTRIES = 3;
 const MAX_DECISION_SNAPSHOTS = 10;
+const MAX_DECISION_LOG = 200;
 
 export interface AiRejection {
   action: AiAction;
@@ -26,6 +27,42 @@ export interface AiDecisionSnapshot {
 
 const rejections = new Map<string, AiRejection[]>();
 const decisionHistory = new Map<string, AiDecisionSnapshot[]>();
+
+export interface AiDecisionLogEntry {
+  id: string;
+  ts: number;
+  kind: 'entry' | 'exit';
+  mint: string;
+  symbol: string;
+  action: AiAction;
+  confidence: number;
+  reason: string;
+  cached: boolean;
+  tokensUsed: number;
+  mode?: string;
+  outcome: 'buy' | 'veto' | 'no-confirm' | 'advisory' | 'sell' | 'hold' | 'unavailable';
+  gate?: number;
+  composite?: number;
+  pnlPct?: number;
+  heldMinutes?: number;
+  error?: string;
+}
+
+const decisionLog: AiDecisionLogEntry[] = [];
+
+export function recordDecisionLog(entry: Omit<AiDecisionLogEntry, 'id' | 'ts'>): void {
+  const rec: AiDecisionLogEntry = { ...entry, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, ts: Date.now() };
+  decisionLog.unshift(rec);
+  if (decisionLog.length > MAX_DECISION_LOG) decisionLog.length = MAX_DECISION_LOG;
+}
+
+export function getDecisionLog(): AiDecisionLogEntry[] {
+  return decisionLog;
+}
+
+export function clearDecisionLog(): void {
+  decisionLog.length = 0;
+}
 
 const SIGNAL_WEIGHTS = {
   priceChange: 1.0,
@@ -206,6 +243,7 @@ export function resetAdvisorState(): void {
   cache.clear();
   rejections.clear();
   decisionHistory.clear();
+  decisionLog.length = 0;
   rate.windowStart = Date.now();
   rate.count = 0;
 }

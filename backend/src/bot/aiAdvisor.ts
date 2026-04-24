@@ -237,11 +237,27 @@ interface RateState {
   count: number;
 }
 
+interface LastCallEntry {
+  ts: number;
+  decision: AiDecision;
+}
+
+// Per-mint hard floor between fresh AI calls. Prevents spam when the
+// signal-bucket cache key churns (e.g. decisionHistory length grows each
+// call, making every key unique → every poll = fresh call).
+const MIN_CALL_INTERVAL_MS = 90_000;
+
 const cache = new Map<string, CacheEntry>();
+const lastCallByMint = new Map<string, LastCallEntry>();
 const rate: RateState = { windowStart: Date.now(), count: 0 };
+
+function ctxMint(ctx: AdvisorContext): string {
+  return ctx.kind === 'entry' ? ctx.token.address : ctx.mint;
+}
 
 export function resetAdvisorState(): void {
   cache.clear();
+  lastCallByMint.clear();
   rejections.clear();
   decisionHistory.clear();
   decisionLog.length = 0;
@@ -372,6 +388,15 @@ export async function getTradeDecision(
     return { ...hit.decision, cached: true };
   }
 
+  // Per-mint min-interval floor: if the last fresh call for this mint was
+  // <MIN_CALL_INTERVAL_MS ago, return that decision as cached and skip the
+  // new call. Stops spam when signal-bucket cache key churns each poll.
+  const mint = ctxMint(ctx);
+  const last = lastCallByMint.get(mint);
+  if (last && now - last.ts < MIN_CALL_INTERVAL_MS) {
+    return { ...last.decision, cached: true };
+  }
+
   if (!checkRate(opts.maxCallsPerHour)) {
     return { error: 'rate-limited' };
   }
@@ -404,6 +429,7 @@ export async function getTradeDecision(
     if (opts.cacheMinutes > 0) {
       cache.set(key, { decision, expiresAt: now + opts.cacheMinutes * 60_000 });
     }
+    lastCallByMint.set(mint, { ts: now, decision });
 
     return decision;
   } catch (err) {

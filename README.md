@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.7-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.8-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.8
+- **Per-mint AI call floor (90s)** — fixes log spam where 4 SELL@70% calls fired in 1 minute on the same blocked-by-gate position
+- Root cause: exit cache key in [aiAdvisor.ts](backend/src/bot/aiAdvisor.ts) includes `dhLen` (decisionHistory length); each fresh call records a snapshot, so the next key always misses → every poll = new OpenAI call
+- Fix: `lastCallByMint` map with `MIN_CALL_INTERVAL_MS = 90_000`. On cache miss, if last fresh call for this mint was <90s ago, return last decision as `cached: true` — engine skips logging cached decisions and gate math (effectiveMinConf) decays locally without burning OpenAI calls
+- Cleared via `resetAdvisorState()` on bot stop, alongside existing cache/rejections/history
 
 ### v1.10.7
 - **Structured backend logger** — new [logger.ts](backend/src/lib/logger.ts) with leveled output (`debug|info|warn|error`), ISO timestamps, scoped prefixes, `LOG_LEVEL` env gate (defaults to `info` in prod, `debug` otherwise); errors/warnings route to stderr

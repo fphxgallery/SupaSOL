@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.2-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.3-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.3
+- **Min token age filter** — new `minTokenAgeHours` config (default 0 = off) skips tokens younger than X hours during entry evaluation
+- Backend [engine.ts](backend/src/bot/engine.ts) + frontend [useTradingBot.ts](frontend/src/hooks/useTradingBot.ts) entry loops drop candidates where `(now - createdAt) < minTokenAgeHours`
+- Uses Jupiter top-level `createdAt` from `tokens/v2/toptrending` response; exposed as `TrendingToken.createdAt` (ms epoch)
+- UI: "Min token age" input on BotPage under Min org buyers
 
 ### v1.10.2
 - **Max-hold AI-gated** — new `maxHoldAiGated` toggle (default on). When AI Advisor enabled, hitting the max-hold cap triggers an AI consult instead of force-selling; strong `hold` verdicts let winners run past the cap

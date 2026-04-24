@@ -356,6 +356,7 @@ export function BotPage() {
                   </div>
                 </div>
                 <Num label="Min org buyers" value={activeConfig.minOrganicBuyers} onChange={(v) => handleConfigChange({ minOrganicBuyers: v })} min={0} />
+                <Num label="Min token age" value={activeConfig.minTokenAgeHours} onChange={(v) => handleConfigChange({ minTokenAgeHours: v })} min={0} step={1} suffix="hr (0=off)" />
                 <Num label="Max price impact" value={activeConfig.maxPriceImpactPct} onChange={(v) => handleConfigChange({ maxPriceImpactPct: v })} min={0} step={0.5} suffix="%" />
                 <Num label="Mcap min" value={activeConfig.mcapMin} onChange={(v) => handleConfigChange({ mcapMin: v })} min={0} step={100_000} suffix="$" />
                 <Num label="Mcap max" value={activeConfig.mcapMax} onChange={(v) => handleConfigChange({ mcapMax: v })} min={0} step={1_000_000} suffix="$ (0=∞)" />

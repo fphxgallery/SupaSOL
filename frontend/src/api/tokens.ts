@@ -81,6 +81,7 @@ interface JupTrendingRaw {
   holderCount?: number;
   organicScore?: number;
   tags?: string[];
+  createdAt?: string;
   audit?: TokenInfo['audit'];
   stats5m?: JupStats;
   stats1h?: JupStats;
@@ -94,6 +95,7 @@ export interface TrendingToken extends TokenInfo {
   fdv?: number;
   liquidity?: number;
   holderCount?: number;
+  createdAt?: number;
   stats: Partial<Record<'5m' | '1h' | '6h' | '24h', { priceChange?: number; volume?: number; numOrganicBuyers?: number }>>;
 }
 
@@ -115,6 +117,7 @@ function normalizeTrending(t: JupTrendingRaw): TrendingToken {
     fdv: t.fdv,
     liquidity: t.liquidity,
     holderCount: t.holderCount,
+    createdAt: t.createdAt ? Date.parse(t.createdAt) || undefined : undefined,
     stats: {
       '5m':  t.stats5m  ? { priceChange: t.stats5m.priceChange,  volume: vol(t.stats5m),  numOrganicBuyers: t.stats5m.numOrganicBuyers  } : undefined,
       '1h':  t.stats1h  ? { priceChange: t.stats1h.priceChange,  volume: vol(t.stats1h),  numOrganicBuyers: t.stats1h.numOrganicBuyers  } : undefined,

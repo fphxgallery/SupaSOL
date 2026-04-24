@@ -20,6 +20,7 @@ const RULES: Record<keyof BotConfig, Rule> = {
   minPriceChangePct: { kind: 'num', finite: true },
   maxPriceChangePct: { kind: 'num', finite: true },
   minOrganicBuyers: { kind: 'num', int: true, min: 0, max: 1_000_000 },
+  minTokenAgeHours: { kind: 'num', min: 0, max: 10_000 },
   mcapMin: { kind: 'num', min: 0, max: 1e15 },
   mcapMax: { kind: 'num', min: 0, max: 1e15 },
   skipSus: { kind: 'bool' },

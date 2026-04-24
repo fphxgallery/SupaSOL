@@ -39,6 +39,7 @@ export interface TrendingToken {
   usdPrice?: number;
   mcap?: number;
   organicScore?: number;
+  createdAt?: number;
   audit?: { isMintable?: boolean; isFreezable?: boolean; isSus?: boolean };
   stats: Partial<Record<'5m' | '1h' | '6h' | '24h', IntervalStats>>;
 }
@@ -93,6 +94,7 @@ export async function fetchTrendingTokens(interval: string): Promise<TrendingTok
   const raw = await resp.json() as Array<{
     id: string; name: string; symbol: string; decimals: number;
     usdPrice?: number; mcap?: number; organicScore?: number;
+    createdAt?: string;
     audit?: TrendingToken['audit'];
     stats5m?: IntervalStats;
     stats1h?: IntervalStats;
@@ -107,6 +109,7 @@ export async function fetchTrendingTokens(interval: string): Promise<TrendingTok
     usdPrice: t.usdPrice,
     mcap: t.mcap,
     organicScore: t.organicScore,
+    createdAt: parseIso(t.createdAt),
     audit: t.audit,
     stats: {
       '5m':  t.stats5m,
@@ -117,12 +120,19 @@ export async function fetchTrendingTokens(interval: string): Promise<TrendingTok
   }));
 }
 
+function parseIso(s?: string): number | undefined {
+  if (!s) return undefined;
+  const ms = Date.parse(s);
+  return Number.isFinite(ms) ? ms : undefined;
+}
+
 export async function fetchTokenStats(mint: string): Promise<TrendingToken | null> {
   const resp = await fetch(`${JUP_BASE}/tokens/v2/search?query=${mint}`, { headers: jupHeaders() });
   if (!resp.ok) return null;
   const raw = await resp.json() as Array<{
     id: string; name: string; symbol: string; decimals: number;
     usdPrice?: number; mcap?: number; organicScore?: number;
+    firstPool?: { createdAt?: string };
     audit?: TrendingToken['audit'];
     stats5m?: IntervalStats;
     stats1h?: IntervalStats;

@@ -93,6 +93,11 @@ async function runEntryLoop() {
       if (config.maxPriceChangePct > 0 && priceChange > config.maxPriceChangePct) continue;
       if ((stats.numOrganicBuyers ?? 0) < config.minOrganicBuyers) continue;
 
+      if (config.minTokenAgeHours > 0 && token.createdAt) {
+        const ageHours = (now - token.createdAt) / 3_600_000;
+        if (ageHours < config.minTokenAgeHours) continue;
+      }
+
       if (config.aiEnabled) {
         const rejectedExp = aiRejectedUntil.get(token.address);
         if (rejectedExp && rejectedExp > now) continue;

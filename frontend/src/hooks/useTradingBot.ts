@@ -164,6 +164,11 @@ async function runEntryLoop() {
       if (config.maxPriceChangePct > 0 && priceChange > config.maxPriceChangePct) continue;
       if ((stats.numOrganicBuyers ?? 0) < config.minOrganicBuyers) continue;
 
+      if (config.minTokenAgeHours > 0 && token.createdAt) {
+        const ageHours = (now - token.createdAt) / 3_600_000;
+        if (ageHours < config.minTokenAgeHours) continue;
+      }
+
       try {
         const order = await getSwapOrder({
           inputMint: MINTS.SOL,

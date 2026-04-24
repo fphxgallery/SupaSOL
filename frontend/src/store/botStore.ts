@@ -12,6 +12,7 @@ export interface BotConfig {
   minPriceChangePct: number;
   maxPriceChangePct: number; // 0 = unlimited
   minOrganicBuyers: number;
+  minTokenAgeHours: number;
   mcapMin: number;
   mcapMax: number; // 0 = unlimited
   skipSus: boolean;
@@ -101,6 +102,7 @@ const DEFAULT_CONFIG: BotConfig = {
   minPriceChangePct: 5,
   maxPriceChangePct: 0,
   minOrganicBuyers: 3,
+  minTokenAgeHours: 0,
   mcapMin: 0,
   mcapMax: 10_000_000,
   skipSus: true,

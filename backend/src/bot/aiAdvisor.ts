@@ -217,7 +217,6 @@ export interface ExitContext {
   pnlPct: number;
   heldMinutes: number;
   trailingStopPct: number;
-  takeProfitPct: number;
   stats5m?: IntervalStats;
   stats1h?: IntervalStats;
   history?: ClosedPosition[];
@@ -319,7 +318,6 @@ CRITICAL GUARDS (must obey):
     `pnlPct: ${ctx.pnlPct.toFixed(2)}%`,
     `heldMinutes: ${ctx.heldMinutes.toFixed(1)}`,
     `trailingStopPct: ${ctx.trailingStopPct}% (auto-sells if drawdown from peak hits this)`,
-    `takeProfitPct: ${ctx.takeProfitPct}% (auto-sells at this gain)`,
     formatStats('5m', ctx.stats5m),
     formatStats('1h', ctx.stats1h),
     `compositeScore: 5m=${(s5 >= 0 ? '+' : '') + s5.toFixed(2)} 1h=${(s1 >= 0 ? '+' : '') + s1.toFixed(2)} blended=${(comp >= 0 ? '+' : '') + comp.toFixed(2)} (weights: holderChange/netBuyers 1.2, price/organicRatio 1.0, liquidity 0.8, volume 0.5, volRatio 0.4, countRatio 0.3; blend 40% 5m / 60% 1h)`,

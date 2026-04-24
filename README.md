@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.3-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.4-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,12 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.4
+- **Exit card consolidated, tiered TP always-on** — merged Exit + Tiered Take-Profit into one card; removed non-tiered `takeProfitPct` and `tieredTpEnabled` from config
+- Backend [types.ts](backend/src/bot/types.ts), [validateConfig.ts](backend/src/bot/validateConfig.ts), [engine.ts](backend/src/bot/engine.ts), [aiAdvisor.ts](backend/src/bot/aiAdvisor.ts) drop both fields; tiered sell path runs unconditionally; AI exit context no longer carries `takeProfitPct`
+- Frontend [botStore.ts](frontend/src/store/botStore.ts), [useTradingBot.ts](frontend/src/hooks/useTradingBot.ts), [BotPage.tsx](frontend/src/pages/BotPage.tsx) same strip; single Exit card lays trailing/maxhold/rebuy above T1/T2 with AI-gated + AfterT1 controls below
+- Zustand persist will drop the legacy keys on next load; no migration needed
 
 ### v1.10.3
 - **Min token age filter** — new `minTokenAgeHours` config (default 0 = off) skips tokens younger than X hours during entry evaluation

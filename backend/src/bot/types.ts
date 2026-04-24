@@ -20,11 +20,9 @@ export interface BotConfig {
   maxPriceImpactPct: number;
   slippageBps: number;
   trailingStopPct: number;
-  takeProfitPct: number;
   maxHoldMinutes: number;
   maxHoldAiGated: boolean;
   rebuyCooldownMinutes: number;
-  tieredTpEnabled: boolean;
   tp1Pct: number;
   tp1SellPct: number;
   tp2Pct: number;
@@ -111,11 +109,9 @@ export const DEFAULT_CONFIG: BotConfig = {
   maxPriceImpactPct: 3,
   slippageBps: 100,
   trailingStopPct: 20,
-  takeProfitPct: 50,
   maxHoldMinutes: 60,
   maxHoldAiGated: true,
   rebuyCooldownMinutes: 60,
-  tieredTpEnabled: true,
   tp1Pct: 30,
   tp1SellPct: 50,
   tp2Pct: 60,

@@ -375,50 +375,23 @@ export function BotPage() {
           <Card>
             <CardHeader title="Exit" subtitle="When to sell" />
             <CardBody className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Num label="Trailing stop" value={activeConfig.trailingStopPct} onChange={(v) => handleConfigChange({ trailingStopPct: v })} min={1} max={99} step={1} suffix="%" />
-                <Num label="Take profit" value={activeConfig.takeProfitPct} onChange={(v) => handleConfigChange({ takeProfitPct: v })} min={1} step={5} suffix="%" />
                 <Num label="Max hold time" value={activeConfig.maxHoldMinutes} onChange={(v) => handleConfigChange({ maxHoldMinutes: v })} min={1} step={5} suffix="min" />
                 <Num label="Rebuy cooldown" value={activeConfig.rebuyCooldownMinutes} onChange={(v) => handleConfigChange({ rebuyCooldownMinutes: v })} min={0} step={5} suffix="min" />
               </div>
-              <Check
-                label="Max hold AI-gated"
-                checked={activeConfig.maxHoldAiGated}
-                onChange={(v) => handleConfigChange({ maxHoldAiGated: v })}
-              />
-              <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
-                <p>• Trailing stop sells when price drops <span className="text-text font-medium">{activeConfig.trailingStopPct}%</span> from its peak.</p>
-                <p>• Take profit triggers at <span className="text-green font-medium">+{activeConfig.takeProfitPct}%</span> above entry. {activeConfig.tieredTpEnabled && <span className="text-orange">(disabled when Tiered TP on)</span>}</p>
-                {activeConfig.aiEnabled && activeConfig.maxHoldAiGated ? (
-                  <p>• After <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span>, AI Advisor decides: sells on bearish signals, holds if bullish. Force-sells if AI unavailable.</p>
-                ) : (
-                  <p>• Force-sells after <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span> regardless of price.</p>
-                )}
-                <p>• Won't rebuy same token for <span className="text-text font-medium">{activeConfig.rebuyCooldownMinutes}m</span> after selling. (0 = no cooldown)</p>
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader
-              title="Tiered Take-Profit"
-              subtitle="Scale out in 2 tiers"
-              action={
-                <Check
-                  label="Enabled"
-                  checked={activeConfig.tieredTpEnabled}
-                  onChange={(v) => handleConfigChange({ tieredTpEnabled: v })}
-                />
-              }
-            />
-            <CardBody className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <Num label="T1 trigger" value={activeConfig.tp1Pct} onChange={(v) => handleConfigChange({ tp1Pct: v })} min={1} step={1} suffix="%" />
                 <Num label="T1 sell" value={activeConfig.tp1SellPct} onChange={(v) => handleConfigChange({ tp1SellPct: v })} min={1} max={99} step={5} suffix="% of initial" />
                 <Num label="T2 trigger" value={activeConfig.tp2Pct} onChange={(v) => handleConfigChange({ tp2Pct: v })} min={1} step={1} suffix="%" />
                 <Num label="T2 sell" value={activeConfig.tp2SellPct} onChange={(v) => handleConfigChange({ tp2SellPct: v })} min={1} max={100} step={5} suffix="% of remainder" />
               </div>
-              <div className="flex flex-wrap gap-x-6 gap-y-3">
+              <div className="flex flex-wrap gap-x-6 gap-y-3 items-end">
+                <Check
+                  label="Max hold AI-gated"
+                  checked={activeConfig.maxHoldAiGated}
+                  onChange={(v) => handleConfigChange({ maxHoldAiGated: v })}
+                />
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">After T1</label>
                   <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
@@ -435,13 +408,19 @@ export function BotPage() {
                 )}
               </div>
               <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
+                <p>• Trailing stop sells when price drops <span className="text-text font-medium">{activeConfig.trailingStopPct}%</span> from its peak.</p>
                 <p>• T1: at <span className="text-green font-medium">+{activeConfig.tp1Pct}%</span> sell <span className="text-text font-medium">{activeConfig.tp1SellPct}%</span> of initial.</p>
                 <p>• After T1: {activeConfig.afterT1Mode === 'breakeven'
                   ? <>lock stop at <span className="text-text font-medium">entry + 0.5%</span> (breakeven floor).</>
                   : <>tighten trail to <span className="text-text font-medium">{activeConfig.tightTrailPct}%</span> from peak.</>}</p>
-                <p>• T2: at <span className="text-green font-medium">+{activeConfig.tp2Pct}%</span> sell <span className="text-text font-medium">{activeConfig.tp2SellPct}%</span> of remainder.</p>
-                <p>• Tail: continues via trailing stop / max hold.</p>
+                <p>• T2: at <span className="text-green font-medium">+{activeConfig.tp2Pct}%</span> sell <span className="text-text font-medium">{activeConfig.tp2SellPct}%</span> of remainder. Tail continues via trailing stop / max hold.</p>
+                {activeConfig.aiEnabled && activeConfig.maxHoldAiGated ? (
+                  <p>• After <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span>, AI Advisor decides: sells on bearish signals, holds if bullish. Force-sells if AI unavailable.</p>
+                ) : (
+                  <p>• Force-sells after <span className="text-text font-medium">{activeConfig.maxHoldMinutes}m</span> regardless of price.</p>
+                )}
                 <p>• Exit AI gated until after T2.</p>
+                <p>• Won't rebuy same token for <span className="text-text font-medium">{activeConfig.rebuyCooldownMinutes}m</span> after selling. (0 = no cooldown)</p>
               </div>
             </CardBody>
           </Card>

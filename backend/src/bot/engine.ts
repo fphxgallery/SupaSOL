@@ -261,7 +261,7 @@ async function runExitLoop() {
       const tiersHit = position.tiersHit ?? [];
       const afterT1 = tiersHit.includes(1);
       const afterT2 = tiersHit.includes(2);
-      const activeTrailPct = (config.tieredTpEnabled && afterT1 && config.afterT1Mode === 'tighten')
+      const activeTrailPct = (afterT1 && config.afterT1Mode === 'tighten')
         ? config.tightTrailPct
         : config.trailingStopPct;
 
@@ -282,31 +282,28 @@ async function runExitLoop() {
       }
 
       // Tiered take-profit: T1 then T2
-      if (config.tieredTpEnabled) {
-        const tier: 0 | 1 | 2 = !afterT1 && pnlPct >= config.tp1Pct ? 1
-          : (afterT1 && !afterT2 && pnlPct >= config.tp2Pct) ? 2
-          : 0;
-        if (tier === 1 || tier === 2) {
-          const sellAmount = tier === 1
-            ? Math.floor(position.tokenAmountOut * config.tp1SellPct / 100)
-            : Math.floor(position.tokenAmountRemaining * config.tp2SellPct / 100);
-          if (sellAmount > 0 && sellAmount <= position.tokenAmountRemaining) {
-            await doTierSell(position, tier, sellAmount, currentPrice, pnlPct, peakPnlPct, peakPrice, trailingStopPrice, config, keypair, pubkey);
-          }
-          continue;
+      const tier: 0 | 1 | 2 = !afterT1 && pnlPct >= config.tp1Pct ? 1
+        : (afterT1 && !afterT2 && pnlPct >= config.tp2Pct) ? 2
+        : 0;
+      if (tier === 1 || tier === 2) {
+        const sellAmount = tier === 1
+          ? Math.floor(position.tokenAmountOut * config.tp1SellPct / 100)
+          : Math.floor(position.tokenAmountRemaining * config.tp2SellPct / 100);
+        if (sellAmount > 0 && sellAmount <= position.tokenAmountRemaining) {
+          await doTierSell(position, tier, sellAmount, currentPrice, pnlPct, peakPnlPct, peakPrice, trailingStopPrice, config, keypair, pubkey);
         }
+        continue;
       }
 
       let exitReason: string | null = null;
       const maxHoldHit = heldMinutes >= config.maxHoldMinutes;
       const maxHoldAiDefer = maxHoldHit && config.aiEnabled && config.maxHoldAiGated;
       if (currentPrice <= trailingStopPrice)          exitReason = `trailing stop (${activeTrailPct}% from peak $${peakPrice.toFixed(6)})`;
-      else if (!config.tieredTpEnabled && pnlPct >= config.takeProfitPct) exitReason = `take profit +${pnlPct.toFixed(1)}%`;
       else if (maxHoldHit && !maxHoldAiDefer)         exitReason = `max hold ${config.maxHoldMinutes}m`;
 
       const inLossZone = pnlPct <= -config.aiExitLossPct;
       const inGainZone = pnlPct >= config.aiExitGainPct;
-      const tierGateOk = config.tieredTpEnabled ? afterT2 : true;
+      const tierGateOk = afterT2;
       // Loss-side AI advice always allowed; gain-side gated on tier completion when tiered TP enabled.
       // Max-hold cap also opens the gate when AI-gated.
       const aiExitGateOk = inLossZone || (inGainZone && tierGateOk) || maxHoldAiDefer;
@@ -323,7 +320,6 @@ async function runExitLoop() {
           pnlPct,
           heldMinutes,
           trailingStopPct: config.trailingStopPct,
-          takeProfitPct: config.takeProfitPct,
           stats5m: tokenStats?.stats['5m'],
           stats1h: tokenStats?.stats['1h'],
           history: historyForMint(position.mint),

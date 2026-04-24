@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.9.13-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.9.14-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,13 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.9.14
+- **AI exit prompt guards** — fixes spurious SELL verdicts that cited fabricated "prior losses" on first exit evaluation
+- **Hallucination guard**: system prompt forbids citing prior trades, HOLDs, or losses unless a history block is actually present in the user message; exit prompt now explicitly says "No prior AI calls…" / "No prior bot trades…" when absent so model cannot invent history
+- **Score-sign guard**: if blended composite score ≥ 0 (neutral/bullish), SELL requires confidence ≥75 AND the reason MUST explicitly cite a specific metric contradicting the positive composite — otherwise default HOLD
+- **Grounding rule**: narrated reasons must match cited numbers (e.g. claim of "negative 1h" requires 1h price/holder change to actually be negative)
+- Dynamic composite-sign hint appended to exit user prompt per call — model sees which regime applies before responding
 
 ### v1.9.13
 - **AI exit memory + weighted composite score** — fixes loop where losing positions got stuck on repeated `HOLD@65%`

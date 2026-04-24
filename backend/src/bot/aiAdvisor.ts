@@ -238,7 +238,12 @@ For EXIT decisions, default to HOLD. A trailing stop (auto-sells on drop from pe
 
 A weighted composite score is provided per call, combining price, holders, net buyers, organic buy/sell ratio, liquidity, volume, and trade counts across 5m and 1h. Range [-1,+1]. Treat score ≤ -0.3 on 1h as confirmed bearish reversal — SELL with confidence 70+. Score ≤ -0.15 with held>30min and negative pnl trajectory = SELL candidate.
 
-If a decision history is provided showing your prior calls on this position, USE IT. Repeating HOLD while composite score trends negative AND pnl deteriorates is a known failure mode — this is how the bot bleeds out losing positions. If the last 3+ calls were HOLD and composite is more negative now than then, AND pnl has worsened ≥5pct since the first of those HOLDs, you MUST bias toward SELL. Do not anchor to your own prior decisions when conditions have materially degraded. Breaking out of a HOLD-streak on deteriorating signals is the correct behavior, not inconsistency.`;
+If a decision history is provided showing your prior calls on this position, USE IT. Repeating HOLD while composite score trends negative AND pnl deteriorates is a known failure mode — this is how the bot bleeds out losing positions. If the last 3+ calls were HOLD and composite is more negative now than then, AND pnl has worsened ≥5pct since the first of those HOLDs, you MUST bias toward SELL. Do not anchor to your own prior decisions when conditions have materially degraded. Breaking out of a HOLD-streak on deteriorating signals is the correct behavior, not inconsistency.
+
+CRITICAL GUARDS (must obey):
+1. Do NOT reference prior trades, prior losses, or prior HOLDs in your reason UNLESS the user message explicitly includes a "Recent AI calls on this position" block or a "Prior bot trades on this mint" block. If neither block is present, treat this as the FIRST decision on this position and do not invent history. Phrases like "prior trades show losses" or "recent losses" are forbidden when no history block was provided.
+2. SCORE-SIGN GUARD: If blended composite score is ≥ 0 (neutral or bullish), SELL requires confidence ≥ 75 AND your reason MUST explicitly cite which specific metrics contradict the positive composite (e.g. "1h price -8% despite bullish 5m skew"). Do not call "sell" while narrating bearish signals that the numeric composite does not support. If you cannot cite a concrete contradicting metric, default to HOLD.
+3. Your reason MUST be consistent with the numbers. If you write "negative 1h" your cited 1h priceChange or holderChange MUST actually be negative. Grounded reasons only.`;
 
   const historyBlock = formatHistory(ctx.history);
 
@@ -280,7 +285,13 @@ If a decision history is provided showing your prior calls on this position, USE
   ];
   const decisionBlock = formatDecisionHistory(ctx.decisionHistory, comp, ctx.pnlPct);
   if (decisionBlock) parts.push(decisionBlock);
+  else parts.push('No prior AI calls on this position — this is the FIRST exit evaluation. Do NOT reference prior HOLDs or prior losses in your reason.');
   if (historyBlock) parts.push(historyBlock);
+  else parts.push('No prior bot trades on this mint.');
+  const scoreHint = comp >= 0
+    ? `Composite score is ${(comp >= 0 ? '+' : '') + comp.toFixed(2)} (neutral/bullish). SCORE-SIGN GUARD applies: SELL requires confidence ≥75 AND explicit citation of a specific metric that contradicts the positive composite. Otherwise HOLD.`
+    : `Composite score is ${comp.toFixed(2)} (bearish). Sell rubric may apply per system rules.`;
+  parts.push(scoreHint);
   parts.push('Recommend SELL only on clear sustained reversal across 5m AND 1h. Otherwise HOLD. If prior-decision history shows a deteriorating HOLD-streak per rubric, SELL.');
   return { system, user: parts.join('\n') };
 }

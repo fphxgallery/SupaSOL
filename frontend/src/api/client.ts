@@ -31,7 +31,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (!res.ok) {
     // Flash Trade and some other APIs return error details in an 'err' field
     throw new ApiError(
-      (body['err'] as string) ?? (body['message'] as string) ?? `HTTP ${res.status}`,
+      (body['error'] as string) ?? (body['err'] as string) ?? (body['message'] as string) ?? `HTTP ${res.status}`,
       {
         status: res.status,
         code: (body['code'] as string | number) ?? `HTTP_${res.status}`,

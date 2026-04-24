@@ -188,7 +188,13 @@ export const useBotStore = create<BotState>()(
           ...p,
           positions,
           closedPositions,
-          config: { ...DEFAULT_CONFIG, ...(p.config ?? {}) },
+          config: (() => {
+            const merged = { ...DEFAULT_CONFIG, ...(p.config ?? {}) } as Record<string, unknown>;
+            const allowed = Object.keys(DEFAULT_CONFIG) as (keyof BotConfig)[];
+            const clean: Record<string, unknown> = {};
+            for (const k of allowed) clean[k] = merged[k];
+            return clean as BotConfig;
+          })(),
         };
       },
     }

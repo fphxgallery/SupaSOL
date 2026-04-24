@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.5-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.6-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,11 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.6
+- **Fix HTTP 400 on Run Bot in Background after v1.10.4** — Zustand persist `merge` in [botStore.ts](frontend/src/store/botStore.ts) was preserving legacy `takeProfitPct`/`tieredTpEnabled` keys from localStorage; backend `validateConfig` rejects unknown fields
+- Config hydration now whitelists to `DEFAULT_CONFIG` keys, so removed fields are dropped on load
+- `apiFetch` in [client.ts](frontend/src/api/client.ts) also reads `body.error` (not just `err`/`message`), matching backend's error shape
 
 ### v1.10.5
 - **Fix `[object Object]` error in Run Bot in Background modal** — `apiFetch` in [client.ts](frontend/src/api/client.ts) now throws a real `ApiError extends Error` instead of a plain object literal

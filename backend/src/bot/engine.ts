@@ -14,6 +14,7 @@ import {
   scoreInterval,
   recordDecisionLog,
 } from './aiAdvisor';
+import { computeMarketSentiment } from './marketSentiment';
 import type { BotConfig } from './types';
 import { SOL_MINT } from './types';
 import {
@@ -57,6 +58,7 @@ async function runEntryLoop() {
 
     let tokens: Awaited<ReturnType<typeof fetchTrendingTokens>>;
     try { tokens = await fetchTrendingTokens(config.interval); } catch { return; }
+    computeMarketSentiment(tokens);
 
     const openMints = new Set(openPositions.map((p) => p.mint));
 

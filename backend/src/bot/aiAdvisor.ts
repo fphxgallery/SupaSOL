@@ -1,6 +1,14 @@
 import { chatCompletion, isOpenAIConfigured, OpenAIError } from '../lib/openaiApi';
 import type { TrendingToken, IntervalStats } from '../lib/jupiterApi';
 import type { AiModel, ClosedPosition } from './types';
+import * as botState from './state';
+import {
+  getMarketSentiment,
+  computeBotPerformance,
+  formatMarketSentimentBlock,
+  formatBotPerformanceBlock,
+} from './marketSentiment';
+import type { MarketSentimentSnapshot, BotPerformanceSnapshot } from './marketSentiment';
 
 const MAX_HISTORY_ENTRIES = 5;
 const MAX_REJECTION_ENTRIES = 3;
@@ -46,12 +54,20 @@ export interface AiDecisionLogEntry {
   pnlPct?: number;
   heldMinutes?: number;
   error?: string;
+  marketSentiment?: MarketSentimentSnapshot | null;
+  botPerformance?: BotPerformanceSnapshot | null;
 }
 
 const decisionLog: AiDecisionLogEntry[] = [];
 
-export function recordDecisionLog(entry: Omit<AiDecisionLogEntry, 'id' | 'ts'>): void {
-  const rec: AiDecisionLogEntry = { ...entry, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, ts: Date.now() };
+export function recordDecisionLog(entry: Omit<AiDecisionLogEntry, 'id' | 'ts' | 'marketSentiment' | 'botPerformance'>): void {
+  const rec: AiDecisionLogEntry = {
+    ...entry,
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    ts: Date.now(),
+    marketSentiment: getMarketSentiment(),
+    botPerformance: computeBotPerformance(botState.getState().closedPositions),
+  };
   decisionLog.unshift(rec);
   if (decisionLog.length > MAX_DECISION_LOG) decisionLog.length = MAX_DECISION_LOG;
 }
@@ -299,9 +315,15 @@ If a decision history is provided showing your prior calls on this position, USE
 CRITICAL GUARDS (must obey):
 1. Do NOT reference prior trades, prior losses, or prior HOLDs in your reason UNLESS the user message explicitly includes a "Recent AI calls on this position" block or a "Prior bot trades on this mint" block. If neither block is present, treat this as the FIRST decision on this position and do not invent history. Phrases like "prior trades show losses" or "recent losses" are forbidden when no history block was provided.
 2. SCORE-SIGN GUARD: If blended composite score is ≥ 0 (neutral or bullish), SELL requires confidence ≥ 75 AND your reason MUST explicitly cite which specific metrics contradict the positive composite (e.g. "1h price -8% despite bullish 5m skew"). Do not call "sell" while narrating bearish signals that the numeric composite does not support. If you cannot cite a concrete contradicting metric, default to HOLD.
-3. Your reason MUST be consistent with the numbers. If you write "negative 1h" your cited 1h priceChange or holderChange MUST actually be negative. Grounded reasons only.`;
+3. Your reason MUST be consistent with the numbers. If you write "negative 1h" your cited 1h priceChange or holderChange MUST actually be negative. Grounded reasons only.
+
+If a "Market context" block is present, treat it as ADVISORY macro regime (not a hard gate): broad-red 6h+24h, weekend, or low net-buyer breadth (<40% positive) warrants tighter entry confidence and faster exit on weakening setups. Do not veto on macro alone if per-token signals are strong. If a "Bot recent performance" block is present, treat it as ADVISORY: a losing streak (≥3) warrants tighter entry confidence and bias toward skip on borderline; a winning streak is not license to relax thresholds. Sample is small — do not overweight.`;
 
   const historyBlock = formatHistory(ctx.history);
+  const marketSnap = getMarketSentiment();
+  const marketBlock = marketSnap ? formatMarketSentimentBlock(marketSnap) : null;
+  const perfSnap = computeBotPerformance(botState.getState().closedPositions);
+  const perfBlock = perfSnap ? formatBotPerformanceBlock(perfSnap) : null;
 
   if (ctx.kind === 'entry') {
     const t = ctx.token;
@@ -317,6 +339,8 @@ CRITICAL GUARDS (must obey):
     if (historyBlock) parts.push(historyBlock);
     const rejectionBlock = formatRejections(ctx.rejections);
     if (rejectionBlock) parts.push(rejectionBlock);
+    if (marketBlock) parts.push(marketBlock);
+    if (perfBlock) parts.push(perfBlock);
     parts.push('Answer buy or skip with confidence.');
     return { system, user: parts.join('\n') };
   }
@@ -343,6 +367,8 @@ CRITICAL GUARDS (must obey):
   else parts.push('No prior AI calls on this position — this is the FIRST exit evaluation. Do NOT reference prior HOLDs or prior losses in your reason.');
   if (historyBlock) parts.push(historyBlock);
   else parts.push('No prior bot trades on this mint.');
+  if (marketBlock) parts.push(marketBlock);
+  if (perfBlock) parts.push(perfBlock);
   const scoreHint = comp >= 0
     ? `Composite score is ${(comp >= 0 ? '+' : '') + comp.toFixed(2)} (neutral/bullish). SCORE-SIGN GUARD applies: SELL requires confidence ≥75 AND explicit citation of a specific metric that contradicts the positive composite. Otherwise HOLD.`
     : `Composite score is ${comp.toFixed(2)} (bearish). Sell rubric may apply per system rules.`;

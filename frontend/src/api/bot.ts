@@ -72,6 +72,30 @@ export interface AiDecisionLogEntry {
   pnlPct?: number;
   heldMinutes?: number;
   error?: string;
+  marketSentiment?: MarketSentimentSnapshot | null;
+  botPerformance?: BotPerformanceSnapshot | null;
+}
+
+export interface MarketSentimentSnapshot {
+  ts: number;
+  sampleSize: number;
+  avg6hPriceChange: number;
+  avg24hPriceChange: number;
+  pctPositiveNetBuyers6h: number;
+  avgOrganicScore: number;
+  dayUtc: string;
+  weekend: boolean;
+}
+
+export interface BotPerformanceSnapshot {
+  closedCount: number;
+  wins: number;
+  losses: number;
+  winRatePct: number;
+  avgPnlPct: number;
+  avgHeldMinutes: number;
+  streak: { sign: 'win' | 'loss' | 'flat'; count: number };
+  topExitReasons: Array<{ reason: string; count: number }>;
 }
 
 export async function getAiDecisions(): Promise<{ decisions: AiDecisionLogEntry[] }> {

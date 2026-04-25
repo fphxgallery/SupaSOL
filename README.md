@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.12.2-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.13.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -236,6 +236,13 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.13.0
+- **Market sentiment context for AI** — new [marketSentiment.ts](backend/src/bot/marketSentiment.ts) computes a per-tick macro snapshot from the trending list (top 25 by organicScore, filtered to mcap ≥ $200k & organicScore ≥ 70). Tracks avg 6h + 24h price change, 6h net-buyer breadth %, avg organicScore, day-of-week (UTC) and weekend flag. 15min TTL.
+- **Bot recent performance context for AI** — same module derives last-20-closed stats: win/loss split, win-rate, avg pnl, avg held minutes, consecutive same-sign streak from newest, top exit reasons.
+- **Both blocks injected into entry + exit prompts** — system prompt updated to treat them as advisory (broad-red regime → tighter entries; losing streak → bias skip on borderline). Will not hard-veto on macro alone.
+- **AI Decisions log captures snapshots** — `AiDecisionLogEntry` gains `marketSentiment` and `botPerformance` fields, written by `recordDecisionLog` ([aiAdvisor.ts](backend/src/bot/aiAdvisor.ts)).
+- **AI Decisions panel — expandable rows** — rows with context show ▸/▾ indicator; click to reveal market regime + bot performance snapshot the AI saw at decision time ([AiDecisionsPanel.tsx](frontend/src/components/bot/AiDecisionsPanel.tsx))
 
 ### v1.12.2
 - **Logs tab — Copy + Download** — every log tab (Backend / Frontend / Network) gains export buttons that emit the currently filtered rows as ISO-timestamped plaintext, ready to paste into a bug report or save as `.log` ([LogsPage.tsx](frontend/src/pages/LogsPage.tsx))

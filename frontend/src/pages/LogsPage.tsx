@@ -13,6 +13,43 @@ import { AiDecisionsPanel } from '../components/bot/AiDecisionsPanel';
 
 type Tab = 'backend' | 'frontend' | 'network' | 'ai';
 
+function downloadText(filename: string, text: string) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // ignore; clipboard may be unavailable
+  }
+}
+
+function ExportButtons({ text, filename }: { text: string; filename: string }) {
+  const disabled = text.length === 0;
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Export</label>
+      <div className="flex gap-1">
+        <Button variant="secondary" size="sm" onClick={() => copyText(text)} disabled={disabled}>Copy</Button>
+        <Button variant="secondary" size="sm" onClick={() => downloadText(filename, text)} disabled={disabled}>Download</Button>
+      </div>
+    </div>
+  );
+}
+
+function tsIso(ts: number): string {
+  return new Date(ts).toISOString();
+}
+
 const LEVEL_COLOR: Record<LogLevel | FrontendLogLevel, string> = {
   debug: 'text-text-dim',
   log:   'text-text-dim',
@@ -112,6 +149,10 @@ function BackendTab() {
     return true;
   }), [entries, search, level]);
 
+  const exportText = useMemo(() => filtered.map((e) =>
+    `${tsIso(e.ts)} [${e.level.toUpperCase()}] ${e.scope} ${e.msg}${e.meta ? ` | ${e.meta.replace(/\s+/g, ' ')}` : ''}`
+  ).join('\n'), [filtered]);
+
   async function handleClear() {
     if (!confirm('Clear backend log buffer?')) return;
     await clearBackendLogs().catch(() => {});
@@ -136,6 +177,7 @@ function BackendTab() {
             { label: 'Warn', value: 'warn' },
             { label: 'Error', value: 'error' },
           ]}
+          rightSlot={<ExportButtons text={exportText} filename={`backend-logs-${Date.now()}.log`} />}
         />
         <LogList rows={filtered} render={(e) => <BackendRow key={e.id} e={e} />} empty="No backend logs match filter" />
       </CardBody>
@@ -173,6 +215,10 @@ function FrontendTab() {
     return true;
   }), [entries, search, level]);
 
+  const exportText = useMemo(() => filtered.map((e) =>
+    `${tsIso(e.ts)} [${e.level.toUpperCase()}]${e.source ? ` ${e.source}` : ''} ${e.msg}`
+  ).join('\n'), [filtered]);
+
   return (
     <Card>
       <CardHeader
@@ -191,6 +237,7 @@ function FrontendTab() {
             { label: 'Warn', value: 'warn' },
             { label: 'Error', value: 'error' },
           ]}
+          rightSlot={<ExportButtons text={exportText} filename={`frontend-logs-${Date.now()}.log`} />}
         />
         <LogList rows={filtered} render={(e) => (
           <div key={e.id} className="grid grid-cols-[70px_56px_1fr] gap-x-2 px-3 py-2 items-start text-xs border-b border-border/40">
@@ -223,6 +270,10 @@ function NetworkTab() {
     return true;
   }), [entries, search, source]);
 
+  const exportText = useMemo(() => filtered.map((e) =>
+    `${tsIso(e.ts)} [${e.source}] ${e.method} ${e.status ?? 'ERR'} ${e.durationMs}ms ${e.url}${e.error ? ` | ${e.error}` : ''}`
+  ).join('\n'), [filtered]);
+
   async function handleClear() {
     if (!confirm('Clear network log buffer?')) return;
     await clearNetworkLogs().catch(() => {});
@@ -248,6 +299,7 @@ function NetworkTab() {
             { label: 'Telegram', value: 'telegram' },
             { label: 'Other', value: 'other' },
           ]}
+          rightSlot={<ExportButtons text={exportText} filename={`network-logs-${Date.now()}.log`} />}
         />
         <LogList rows={filtered} render={(e) => <NetRow key={e.id} e={e} />} empty="No network calls yet" />
       </CardBody>

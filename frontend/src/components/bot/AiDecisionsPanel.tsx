@@ -7,6 +7,7 @@ import { timeAgo } from '../../utils/format';
 
 type KindFilter = 'all' | 'entry' | 'exit';
 type OutcomeFilter = 'all' | AiDecisionLogEntry['outcome'];
+type ActionFilter = 'all' | AiDecisionLogEntry['action'];
 
 const OUTCOME_COLORS: Record<AiDecisionLogEntry['outcome'], string> = {
   buy: 'text-green',
@@ -33,15 +34,27 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
   const invalidate = useInvalidateAiDecisions();
   const [kind, setKind] = useState<KindFilter>('all');
   const [outcome, setOutcome] = useState<OutcomeFilter>('all');
+  const [action, setAction] = useState<ActionFilter>('all');
+  const [search, setSearch] = useState('');
 
   const decisions = data?.decisions ?? [];
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return decisions.filter((d) => {
       if (kind !== 'all' && d.kind !== kind) return false;
       if (outcome !== 'all' && d.outcome !== outcome) return false;
+      if (action !== 'all' && d.action !== action) return false;
+      if (q) {
+        if (
+          !d.mint.toLowerCase().includes(q) &&
+          !d.symbol.toLowerCase().includes(q) &&
+          !d.reason.toLowerCase().includes(q) &&
+          !d.action.toLowerCase().includes(q)
+        ) return false;
+      }
       return true;
     });
-  }, [decisions, kind, outcome]);
+  }, [decisions, kind, outcome, action, search]);
 
   async function handleClear() {
     if (!confirm('Clear AI decision log?')) return;
@@ -53,6 +66,13 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
     { label: 'All', value: 'all' },
     { label: 'Entry', value: 'entry' },
     { label: 'Exit', value: 'exit' },
+  ];
+  const actionOpts: { label: string; value: ActionFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Buy', value: 'buy' },
+    { label: 'Sell', value: 'sell' },
+    { label: 'Hold', value: 'hold' },
+    { label: 'Skip', value: 'skip' },
   ];
   const outcomeOpts: { label: string; value: OutcomeFilter }[] = [
     { label: 'All', value: 'all' },
@@ -73,13 +93,33 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
         action={decisions.length > 0 ? <Button variant="secondary" size="sm" onClick={handleClear}>Clear</Button> : undefined}
       />
       <CardBody className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <div className="flex flex-col gap-1 min-w-[200px] flex-1">
+            <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Search</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="mint, symbol, reason…"
+              className="bg-surface-2 border border-border rounded-md px-3 py-1.5 text-xs text-text placeholder:text-text-dim focus:outline-none focus:border-green/60"
+            />
+          </div>
           <div className="flex flex-col gap-1">
             <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Kind</label>
             <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
               {kindOpts.map(({ label, value }) => (
                 <button key={value} onClick={() => setKind(value)}
                   className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${kind === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-text-dim uppercase tracking-wide font-semibold">Action</label>
+            <div className="flex gap-1 bg-surface-2 rounded-lg p-1 border border-border">
+              {actionOpts.map(({ label, value }) => (
+                <button key={value} onClick={() => setAction(value)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${action === value ? 'bg-green text-bg' : 'text-text-dim hover:text-text'}`}>
                   {label}
                 </button>
               ))}

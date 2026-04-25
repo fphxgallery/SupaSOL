@@ -300,7 +300,7 @@ export function BotPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)_640px] gap-4 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_560px] gap-4 items-start">
         {/* Right col: Entry + Exit + AI Advisor stacked */}
         <div className="flex flex-col gap-4 order-2">
           <Card>

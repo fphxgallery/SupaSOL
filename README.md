@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.11.1-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.11.2-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,9 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.11.2
+- **Auto Trader responsive layout** — outer grid now `grid-cols-1 xl:grid-cols-[minmax(0,1fr)_560px]`. Below the `xl` breakpoint (1280px) the right column stacks under the left so Active Positions table no longer gets squeezed on mid-size screens. At ≥1280px, side-by-side with right column fixed at 560px (down from 640px). ([BotPage.tsx](frontend/src/pages/BotPage.tsx))
 
 ### v1.11.1
 - **Width-cap pass continued** — Portfolio, Dashboard, and Perps capped at 1200px; Limit Orders, DCA, and Send capped at 1080px; all centered with `mx-auto w-full`. Swap intentionally left full-width. ([PortfolioPage.tsx](frontend/src/pages/PortfolioPage.tsx), [DashboardPage.tsx](frontend/src/pages/DashboardPage.tsx), [PerpsPage.tsx](frontend/src/pages/PerpsPage.tsx), [TriggerPage.tsx](frontend/src/pages/TriggerPage.tsx), [RecurringPage.tsx](frontend/src/pages/RecurringPage.tsx), [SendPage.tsx](frontend/src/pages/SendPage.tsx))

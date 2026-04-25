@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.11.3-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.12.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -28,6 +28,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 | **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via Pyth Network |
 | **Token Search** | Global search bar — find any Solana token, click to swap |
 | **Auto Trader** | Automated meme coin sniper — configurable entry/exit rules, trailing stop, take profit, max hold time, rebuy cooldown, organic score filter, candidate sorting by score, and live P&L chart |
+| **Logs** | Unified troubleshooting view — backend stdout/stderr, frontend console + window errors, and outbound network/RPC calls (Jupiter / OpenAI / Solana / Telegram) with search, level/source filter, and per-tab clear |
 | **Settings** | RPC endpoint, cluster, slippage tolerance, priority fee |
 
 ---
@@ -235,6 +236,13 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.12.0
+- **Logs tab** — new `/logs` route with three sub-tabs (Backend / Frontend / Network) for end-to-end troubleshooting without tailing journalctl or opening DevTools
+- **Backend log ring** — [logRing.ts](backend/src/lib/logRing.ts) keeps last 2000 entries; [logger.ts](backend/src/lib/logger.ts) `emit()` patched to push every leveled log into the ring (stdout/stderr writes unchanged)
+- **Network log ring + global fetch interceptor** — [networkRing.ts](backend/src/lib/networkRing.ts) monkey-patches `globalThis.fetch` once at boot; captures method, URL, status, duration, error for all outbound calls. Auto-classifies source (Jupiter / OpenAI / Solana / Telegram / Other). Redacts `api_key`, `token`, `secret` query params. Last 1000 entries.
+- **Frontend log capture** — [captureFrontendLogs.ts](frontend/src/lib/captureFrontendLogs.ts) wraps `console.{log,info,warn,error}` and hooks `window.error` + `unhandledrejection`; entries land in [frontendLogStore.ts](frontend/src/store/frontendLogStore.ts) (Zustand, in-memory, last 1000). Real console output preserved.
+- **API surface** — `GET|DELETE /api/logs/backend`, `GET|DELETE /api/logs/network` ([routes/logs.ts](backend/src/routes/logs.ts)); polled every 3s by [LogsPage.tsx](frontend/src/pages/LogsPage.tsx) with text search + level/source filter + clear button per tab
 
 ### v1.11.3
 - **AI-unavailable sell threshold raised 3 → 5** — `aiUnavailableStreak` must hit 5 consecutive failed AI exit calls before force-sell (`AI unavailable x5`). Combined with the 90s per-mint AI call floor, this gives ~7.5 minutes of AI-provider downtime tolerance before a position is dumped on transient errors. Streak still resets on any successful AI response. ([engine.ts](backend/src/bot/engine.ts))

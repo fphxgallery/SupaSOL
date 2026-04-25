@@ -1,3 +1,5 @@
+import { pushLog } from './logRing';
+
 type Level = 'debug' | 'info' | 'warn' | 'error';
 
 const LEVELS: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -22,6 +24,7 @@ function emit(level: Level, scope: string, msg: string, meta?: unknown) {
   const line = fmt(level, scope, msg, meta);
   const sink = level === 'error' || level === 'warn' ? process.stderr : process.stdout;
   sink.write(line + '\n');
+  pushLog(level, scope, msg, meta);
 }
 
 export interface Logger {

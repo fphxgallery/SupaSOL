@@ -16,6 +16,7 @@ import { PerpsPage } from './pages/PerpsPage';
 import { TrendingPage } from './pages/TrendingPage';
 import { BotPage } from './pages/BotPage';
 import { NotisPage } from './pages/NotisPage';
+import { LogsPage } from './pages/LogsPage';
 
 function PageBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary>{children}</ErrorBoundary>;
@@ -38,6 +39,7 @@ export function App() {
         <Route path="trending" element={<PageBoundary><TrendingPage /></PageBoundary>} />
         <Route path="bot" element={<PageBoundary><BotPage /></PageBoundary>} />
         <Route path="notis" element={<PageBoundary><NotisPage /></PageBoundary>} />
+        <Route path="logs" element={<PageBoundary><LogsPage /></PageBoundary>} />
         <Route path="settings" element={<PageBoundary><SettingsPage /></PageBoundary>} />
       </Route>
     </Routes>

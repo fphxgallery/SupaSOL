@@ -3,6 +3,8 @@ import cors from 'cors';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
+import { installFetchInterceptor } from './lib/networkRing';
+installFetchInterceptor();
 import { createLogger } from './lib/logger';
 import swapRouter from './routes/swap';
 import lendRouter from './routes/lend';
@@ -17,6 +19,7 @@ import perpsRouter from './routes/perps';
 import vaultRouter from './routes/vault';
 import botRouter from './routes/bot';
 import notisRouter from './routes/notis';
+import logsRouter from './routes/logs';
 
 const log = createLogger('supasol-backend');
 const app = express();
@@ -66,6 +69,7 @@ app.use('/api/perps', perpsRouter);
 app.use('/api/vault', vaultRouter);
 app.use('/api/bot', botRouter);
 app.use('/api/notis', notisRouter);
+app.use('/api/logs', logsRouter);
 
 // Error handler — logs full stack + request context, returns opaque error to client
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {

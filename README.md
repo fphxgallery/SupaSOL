@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.12.0-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.12.2-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -28,7 +28,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 | **Price Charts** | Live OHLCV charts (1H / 4H / 1D / 1W / 1M) via Pyth Network |
 | **Token Search** | Global search bar — find any Solana token, click to swap |
 | **Auto Trader** | Automated meme coin sniper — configurable entry/exit rules, trailing stop, take profit, max hold time, rebuy cooldown, organic score filter, candidate sorting by score, and live P&L chart |
-| **Logs** | Unified troubleshooting view — backend stdout/stderr, frontend console + window errors, and outbound network/RPC calls (Jupiter / OpenAI / Solana / Telegram) with search, level/source filter, and per-tab clear |
+| **Logs** | Unified troubleshooting view — backend stdout/stderr, frontend console + window errors, outbound network/RPC calls (Jupiter / OpenAI / Solana / Telegram), and AI Decisions tail — with search, level/source filter, per-tab clear, and Copy/Download export |
 | **Settings** | RPC endpoint, cluster, slippage tolerance, priority fee |
 
 ---
@@ -236,6 +236,13 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.12.2
+- **Logs tab — Copy + Download** — every log tab (Backend / Frontend / Network) gains export buttons that emit the currently filtered rows as ISO-timestamped plaintext, ready to paste into a bug report or save as `.log` ([LogsPage.tsx](frontend/src/pages/LogsPage.tsx))
+- **AI Decisions search + Action filter** — new search box matches mint, symbol, reason, and action; new Action filter chips (buy / sell / hold / skip) sit alongside the existing Kind and Outcome filters ([AiDecisionsPanel.tsx](frontend/src/components/bot/AiDecisionsPanel.tsx))
+
+### v1.12.1
+- **AI Decisions panel relocated** — moved from the Auto Trader page into the Logs tab as a 4th sub-tab, consolidating all troubleshooting surfaces in one place ([LogsPage.tsx](frontend/src/pages/LogsPage.tsx), [BotPage.tsx](frontend/src/pages/BotPage.tsx))
 
 ### v1.12.0
 - **Logs tab** — new `/logs` route with three sub-tabs (Backend / Frontend / Network) for end-to-end troubleshooting without tailing journalctl or opening DevTools

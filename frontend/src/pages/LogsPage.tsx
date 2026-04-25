@@ -9,8 +9,9 @@ import {
   type BackendLogEntry, type NetEntry, type LogLevel, type NetSource,
 } from '../api/logs';
 import { useFrontendLogStore, type FrontendLogLevel } from '../store/frontendLogStore';
+import { AiDecisionsPanel } from '../components/bot/AiDecisionsPanel';
 
-type Tab = 'backend' | 'frontend' | 'network';
+type Tab = 'backend' | 'frontend' | 'network' | 'ai';
 
 const LEVEL_COLOR: Record<LogLevel | FrontendLogLevel, string> = {
   debug: 'text-text-dim',
@@ -288,6 +289,7 @@ export function LogsPage() {
     { key: 'backend',  label: 'Backend' },
     { key: 'frontend', label: 'Frontend' },
     { key: 'network',  label: 'Network / RPC' },
+    { key: 'ai',       label: 'AI Decisions' },
   ];
 
   return (
@@ -303,6 +305,7 @@ export function LogsPage() {
       {tab === 'backend' && <BackendTab />}
       {tab === 'frontend' && <FrontendTab />}
       {tab === 'network' && <NetworkTab />}
+      {tab === 'ai' && <AiDecisionsPanel enabled={true} />}
     </div>
   );
 }

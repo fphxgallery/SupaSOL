@@ -206,7 +206,7 @@ export function LiquidityPage() {
   // ── No wallet ──────────────────────────────────────────────────────────────
   if (!pubkey && tab === 'positions') {
     return (
-      <div className="flex flex-col h-full min-h-0 p-4 gap-4">
+      <div className="flex flex-col h-full min-h-0 p-4 gap-4 max-w-[1200px] mx-auto w-full">
         <h1 className="text-lg font-bold text-text">DLMM</h1>
         <div className="bg-surface border border-border rounded-xl p-8 text-center">
           <p className="text-sm text-text-dim">Connect a wallet to view your positions.</p>
@@ -216,7 +216,7 @@ export function LiquidityPage() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 p-4 gap-3">
+    <div className="flex flex-col h-full min-h-0 p-4 gap-3 max-w-[1200px] mx-auto w-full">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">

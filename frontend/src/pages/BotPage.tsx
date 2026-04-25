@@ -300,11 +300,9 @@ export function BotPage() {
         </Card>
       )}
 
-      <PnlRow closed={activeClosedPositions} onClear={handleClearHistory} />
-
-      <div className="grid grid-cols-3 gap-4 items-start">
-        {/* Col 1: Entry + Exit stacked */}
-        <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)_640px] gap-4 items-start">
+        {/* Right col: Entry + Exit + AI Advisor stacked */}
+        <div className="flex flex-col gap-4 order-2">
           <Card>
             <CardHeader title="Entry" subtitle="When to buy" />
             <CardBody className="flex flex-col gap-4">
@@ -483,8 +481,11 @@ export function BotPage() {
           </Card>
         </div>
 
-        {/* Col 2: Active Positions */}
-        <Card>
+        {/* Left col: PnL on top, then Active Positions + Activity Log side-by-side */}
+        <div className="flex flex-col gap-4 order-1">
+          <PnlRow closed={activeClosedPositions} onClear={handleClearHistory} />
+          <div className="grid grid-cols-2 gap-4 items-start">
+            <Card>
           <CardHeader
             title="Active Positions"
             subtitle={`${openPositions.length} open`}
@@ -578,6 +579,8 @@ export function BotPage() {
             )}
           </CardBody>
         </Card>
+          </div>
+        </div>
       </div>
 
       <AiDecisionsPanel enabled={bgRunning} />

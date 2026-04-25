@@ -114,7 +114,7 @@ export function TrendingPage() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 p-4 gap-3">
+    <div className="flex flex-col h-full min-h-0 p-4 gap-3 max-w-[1200px] mx-auto w-full">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

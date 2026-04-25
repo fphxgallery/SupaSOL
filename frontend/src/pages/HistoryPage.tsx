@@ -20,7 +20,7 @@ export function HistoryPage() {
   const explorerBase = `https://solscan.io`;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-[1080px] mx-auto w-full">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-text">Transaction History</h1>
         {txs.length > 0 && (

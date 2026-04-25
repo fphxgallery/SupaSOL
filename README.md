@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.9-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.11.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,10 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.11.0
+- **Auto Trader layout reflow** — settings cards (Entry, Exit, AI Advisor) moved to a fixed 640px right column on the bot page; PnL History now sits on the same row as Entry, with Active Positions + Activity Log side-by-side under PnL on the left. AI Decisions Panel stays full-width below. Right column no longer stretches on wide displays. ([BotPage.tsx](frontend/src/pages/BotPage.tsx))
+- **Centered, width-capped page containers** — Lend/Earn, Transaction History, Trending Tokens, and DLMM pages now cap content at 1080–1200px and center horizontally so cards/tables stay readable on ultrawide monitors instead of stretching edge-to-edge. ([LendPage.tsx](frontend/src/pages/LendPage.tsx), [HistoryPage.tsx](frontend/src/pages/HistoryPage.tsx), [TrendingPage.tsx](frontend/src/pages/TrendingPage.tsx), [LiquidityPage.tsx](frontend/src/pages/LiquidityPage.tsx))
 
 ### v1.10.9
 - **Sell on 3rd consecutive AI-unavailable** — exit engine now tracks `aiUnavailableStreak` per position; when AI exit gate is open and the API call fails 3 times in a row, force-sell with reason `AI unavailable x3`. Streak resets on any successful AI call. Previously a stuck-unavailable position would only exit at max-hold cap. Fields: [types.ts](backend/src/bot/types.ts), increment/reset in [engine.ts](backend/src/bot/engine.ts), hydrate default in [state.ts](backend/src/bot/state.ts)

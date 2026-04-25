@@ -348,6 +348,9 @@ async function runExitLoop() {
 
         const decision = await getTradeDecision(exitCtx, aiOpts);
         if (!('error' in decision)) {
+          if ((position.aiUnavailableStreak ?? 0) > 0) {
+            botState.updatePosition(position.id, { aiUnavailableStreak: 0 });
+          }
           const s5 = scoreInterval(tokenStats?.stats['5m']);
           const s1 = scoreInterval(tokenStats?.stats['1h']);
           const comp = compositeScore(tokenStats?.stats['5m'], tokenStats?.stats['1h']);
@@ -394,9 +397,13 @@ async function runExitLoop() {
             cached: false, tokensUsed: 0, mode: config.aiMode,
             outcome: 'unavailable', pnlPct, heldMinutes, error: decision.error,
           });
+          const newStreak = (position.aiUnavailableStreak ?? 0) + 1;
+          botState.updatePosition(position.id, { aiUnavailableStreak: newStreak });
           // Safety net: if we deferred max-hold to AI and AI is unavailable, honor the cap.
           if (maxHoldAiDefer && !exitReason) {
             exitReason = `max hold ${config.maxHoldMinutes}m (AI unavailable)`;
+          } else if (!exitReason && newStreak >= 3) {
+            exitReason = `AI unavailable x${newStreak}`;
           }
         }
       } else if (maxHoldAiDefer && !config.aiEnabled) {

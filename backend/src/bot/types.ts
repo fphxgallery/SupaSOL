@@ -59,6 +59,7 @@ export interface BotPosition {
   trailingStopPrice: number;
   breakevenFloor?: number;
   status: 'open' | 'closing';
+  aiUnavailableStreak?: number;
 }
 
 export interface BotLogEntry {

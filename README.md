@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.10.8-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.10.9-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,10 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.10.9
+- **Sell on 3rd consecutive AI-unavailable** — exit engine now tracks `aiUnavailableStreak` per position; when AI exit gate is open and the API call fails 3 times in a row, force-sell with reason `AI unavailable x3`. Streak resets on any successful AI call. Previously a stuck-unavailable position would only exit at max-hold cap. Fields: [types.ts](backend/src/bot/types.ts), increment/reset in [engine.ts](backend/src/bot/engine.ts), hydrate default in [state.ts](backend/src/bot/state.ts)
+- **Sidebar branding** — replaced ⚡ glyph with the official Solana mark (inline SVG, green→purple gradient) in both desktop and mobile sidebar headers ([Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx))
 
 ### v1.10.8
 - **Per-mint AI call floor (90s)** — fixes log spam where 4 SELL@70% calls fired in 1 minute on the same blocked-by-gate position

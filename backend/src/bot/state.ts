@@ -44,6 +44,7 @@ try {
       tokenAmountRemaining: p.tokenAmountRemaining ?? p.tokenAmountOut,
       tiersHit: p.tiersHit ?? [],
       peakPnlPct: p.peakPnlPct ?? 0,
+      aiUnavailableStreak: p.aiUnavailableStreak ?? 0,
     }));
     const closedPositions = (raw.closedPositions ?? []).map((p) => ({
       ...p,

@@ -1,6 +1,22 @@
 import { NavLink } from 'react-router-dom';
 import { useUiStore } from '../../store/uiStore';
 
+function SolanaLogo({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 397.7 311.7" className={`w-5 h-5 ${className}`} aria-hidden="true">
+      <defs>
+        <linearGradient id="sol-grad" x1="360.879" y1="351.455" x2="141.213" y2="-69.294" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#00FFA3" />
+          <stop offset="1" stopColor="#DC1FFF" />
+        </linearGradient>
+      </defs>
+      <path fill="url(#sol-grad)" d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z" />
+      <path fill="url(#sol-grad)" d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z" />
+      <path fill="url(#sol-grad)" d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.6z" />
+    </svg>
+  );
+}
+
 const navItems = [
   { to: '/',           label: 'Dashboard',   icon: '⊞', exact: true },
   { to: '/trending',   label: 'Trending',     icon: '🔥' },
@@ -86,7 +102,7 @@ export function Sidebar() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-green font-bold text-lg shrink-0">⚡</span>
+          <SolanaLogo className="shrink-0" />
           {!collapsed && (
             <span className="text-text font-bold text-sm tracking-wide truncate">SupaSOL</span>
           )}
@@ -115,7 +131,7 @@ export function Sidebar() {
           {/* Logo + close */}
           <div className="flex items-center justify-between px-4 border-b border-border h-14 shrink-0">
             <div className="flex items-center gap-2">
-              <span className="text-green font-bold text-lg">⚡</span>
+              <SolanaLogo />
               <span className="text-text font-bold text-sm tracking-wide">SupaSOL</span>
             </div>
             <button

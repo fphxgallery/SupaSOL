@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.11.2-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.11.3-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -235,6 +235,9 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.11.3
+- **AI-unavailable sell threshold raised 3 → 5** — `aiUnavailableStreak` must hit 5 consecutive failed AI exit calls before force-sell (`AI unavailable x5`). Combined with the 90s per-mint AI call floor, this gives ~7.5 minutes of AI-provider downtime tolerance before a position is dumped on transient errors. Streak still resets on any successful AI response. ([engine.ts](backend/src/bot/engine.ts))
 
 ### v1.11.2
 - **Auto Trader responsive layout** — outer grid now `grid-cols-1 xl:grid-cols-[minmax(0,1fr)_560px]`. Below the `xl` breakpoint (1280px) the right column stacks under the left so Active Positions table no longer gets squeezed on mid-size screens. At ≥1280px, side-by-side with right column fixed at 560px (down from 640px). ([BotPage.tsx](frontend/src/pages/BotPage.tsx))

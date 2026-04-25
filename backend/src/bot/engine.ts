@@ -402,7 +402,7 @@ async function runExitLoop() {
           // Safety net: if we deferred max-hold to AI and AI is unavailable, honor the cap.
           if (maxHoldAiDefer && !exitReason) {
             exitReason = `max hold ${config.maxHoldMinutes}m (AI unavailable)`;
-          } else if (!exitReason && newStreak >= 3) {
+          } else if (!exitReason && newStreak >= 5) {
             exitReason = `AI unavailable x${newStreak}`;
           }
         }

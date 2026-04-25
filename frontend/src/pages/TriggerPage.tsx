@@ -91,7 +91,7 @@ export function TriggerPage() {
   const formValid = !!pubkey && !!inAmount && !!outAmount && !!triggerPrice && parseFloat(inAmount) > 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-[1080px] mx-auto w-full">
       <div className="flex items-center gap-2">
         <h1 className="text-lg font-bold text-text">Limit Orders</h1>
         <Badge variant="orange">Jupiter Trigger v2</Badge>

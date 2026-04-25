@@ -155,7 +155,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-[1200px] mx-auto w-full">
       {/* RPC warning banner — shown when using the default public endpoint */}
       {isUsingPublicRpc && (solError || tokensError) && (
         <div className="flex items-center justify-between gap-3 bg-orange/10 border border-orange/30 rounded-xl px-4 py-3">

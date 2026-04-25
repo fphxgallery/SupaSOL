@@ -92,7 +92,7 @@ export function RecurringPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-[1080px] mx-auto w-full">
       <div className="flex items-center gap-2">
         <h1 className="text-lg font-bold text-text">DCA / Recurring</h1>
         <Badge variant="purple">Jupiter Recurring</Badge>

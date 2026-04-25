@@ -342,7 +342,7 @@ export function PerpsPage() {
   const canOpen = !!pubkey && !!selectedMarket && !!collateral && parseFloat(collateral) > 0 && !open.isPending;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-[1200px] mx-auto w-full">
       {/* Header */}
       <div className="flex items-center gap-2">
         <h1 className="text-lg font-bold text-text">Perps</h1>

@@ -61,7 +61,7 @@ export function PortfolioPage() {
   const totalUsd = (solUsd ?? 0) + splUsd + jupiterUsd;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-[1200px] mx-auto w-full">
       <h1 className="text-lg font-bold text-text">Portfolio</h1>
 
       {!pubkey ? (

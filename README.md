@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.13.1-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.13.2-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -236,6 +236,9 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.13.2
+- **Fix Jupiter price 400s when no open positions** — Auto Trader was calling `usePrice([''])` as a placeholder, producing `GET /price/v3?ids=` (empty `ids`) every 10s and returning HTTP 400. Now passes `[]` directly; `fetchPrices` already short-circuits to `{}` ([BotPage.tsx](frontend/src/pages/BotPage.tsx))
 
 ### v1.13.1
 - **Market sentiment chip in Auto Trader header** — single composite glance (`0.4·avg6h + 0.3·avg24h + 0.3·breadth`, clipped) labeled Bullish / Neutral / Bearish at ±0.15 thresholds. Tooltip exposes raw avg 6h/24h price change, 6h net-buyer breadth, and sample size. New `GET /api/bot/market-sentiment` endpoint, polled every 30s while bot runs ([MarketSentimentChip.tsx](frontend/src/components/bot/MarketSentimentChip.tsx), [routes/bot.ts](backend/src/routes/bot.ts), [useMarketSentiment.ts](frontend/src/hooks/useMarketSentiment.ts))

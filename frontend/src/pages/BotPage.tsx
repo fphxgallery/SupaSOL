@@ -147,7 +147,7 @@ export function BotPage() {
 
   const openPositions = activePositions.filter((p) => p.status === 'open' || p.status === 'closing');
   const positionMints = openPositions.map((p) => p.mint);
-  const { data: prices } = usePrice(positionMints.length > 0 ? positionMints : ['']);
+  const { data: prices } = usePrice(positionMints);
 
   function handleConfigChange(updates: Partial<BotConfig>) {
     updateConfig(updates);

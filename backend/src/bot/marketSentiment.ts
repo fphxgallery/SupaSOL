@@ -3,6 +3,7 @@ import type { ClosedPosition } from './types';
 
 const MIN_MCAP = 200_000;
 const MIN_ORGANIC_SCORE = 70;
+const MIN_TOKEN_AGE_MS = 6 * 3600_000;
 const TOP_N = 25;
 const SNAPSHOT_TTL_MS = 15 * 60_000;
 const PERF_WINDOW = 20;
@@ -36,8 +37,14 @@ let latestMarket: MarketSentimentSnapshot | null = null;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function computeMarketSentiment(tokens: TrendingToken[]): MarketSentimentSnapshot | null {
+  const now = Date.now();
   const filtered = tokens
-    .filter((t) => (t.mcap ?? 0) >= MIN_MCAP && (t.organicScore ?? 0) >= MIN_ORGANIC_SCORE)
+    .filter((t) =>
+      (t.mcap ?? 0) >= MIN_MCAP &&
+      (t.organicScore ?? 0) >= MIN_ORGANIC_SCORE &&
+      typeof t.createdAt === 'number' &&
+      now - t.createdAt >= MIN_TOKEN_AGE_MS,
+    )
     .sort((a, b) => (b.organicScore ?? 0) - (a.organicScore ?? 0))
     .slice(0, TOP_N);
 
@@ -63,8 +70,7 @@ export function computeMarketSentiment(tokens: TrendingToken[]): MarketSentiment
     sumOrganic += t.organicScore ?? 0;
   }
 
-  const now = new Date();
-  const dow = now.getUTCDay();
+  const dow = new Date(now).getUTCDay();
 
   const snap: MarketSentimentSnapshot = {
     ts: Date.now(),
@@ -134,7 +140,7 @@ export function formatMarketSentimentBlock(snap: MarketSentimentSnapshot): strin
   const sign6 = snap.avg6hPriceChange >= 0 ? '+' : '';
   const sign24 = snap.avg24hPriceChange >= 0 ? '+' : '';
   return [
-    `Market context (top ${TOP_N} trending, mcap>$${MIN_MCAP / 1000}k, organicScore≥${MIN_ORGANIC_SCORE}, n=${snap.sampleSize}, age=${ageMin}m):`,
+    `Market context (top ${TOP_N} trending, mcap>$${MIN_MCAP / 1000}k, organicScore≥${MIN_ORGANIC_SCORE}, age≥${MIN_TOKEN_AGE_MS / 3600_000}h, n=${snap.sampleSize}, age=${ageMin}m):`,
     `- avg 6h price: ${sign6}${snap.avg6hPriceChange.toFixed(2)}% | avg 24h price: ${sign24}${snap.avg24hPriceChange.toFixed(2)}%`,
     `- 6h net-buyer breadth: ${snap.pctPositiveNetBuyers6h.toFixed(0)}% positive | avg organicScore: ${snap.avgOrganicScore.toFixed(0)}`,
     `- day: ${snap.dayUtc} (UTC) | weekend: ${snap.weekend ? 'yes' : 'no'}`,

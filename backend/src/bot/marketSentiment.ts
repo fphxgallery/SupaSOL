@@ -3,7 +3,7 @@ import type { ClosedPosition } from './types';
 
 const MIN_MCAP = 200_000;
 const MIN_ORGANIC_SCORE = 70;
-const MIN_TOKEN_AGE_MS = 6 * 3600_000;
+const MIN_TOKEN_AGE_MS = 48 * 3600_000;
 const TOP_N = 25;
 const SNAPSHOT_TTL_MS = 15 * 60_000;
 const PERF_WINDOW = 20;

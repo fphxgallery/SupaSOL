@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.13.3-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.13.4-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -236,6 +236,9 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.13.4
+- **Market sentiment — token age floor raised 6h → 48h** — macro sample now drawn from tokens established for at least 2 days, further insulating the regime signal from new-launch volatility ([marketSentiment.ts](backend/src/bot/marketSentiment.ts))
 
 ### v1.13.3
 - **Market sentiment — 6h token age filter** — `computeMarketSentiment` now also requires `createdAt` known and ≥ 6h, on top of `mcap ≥ $200k` and `organicScore ≥ 70`. Stops brand-new launches from skewing the macro 6h/24h price-change avg and 6h net-buyer breadth. Constraint surfaced in the prompt header line so AI sees the cap ([marketSentiment.ts](backend/src/bot/marketSentiment.ts))

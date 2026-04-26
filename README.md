@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.13.4-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.14.0-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -236,6 +236,10 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.14.0
+- **Dependency hygiene — drop unused `@solana/wallet-adapter-*`** — `@solana/wallet-adapter-base/react/react-ui/wallets` were declared in [frontend/package.json](frontend/package.json) but never imported (app uses its own zustand `walletStore` + raw `Keypair`). Removing them eliminates the entire particle / torus / walletconnect / reown transitive chain.
+- **Result** — 640 packages removed; `node_modules` 810M → 186M (-77%); `npm audit` 56 vulns (8 critical, 5 high) → 17 (0 critical, 4 high); frontend build 5.26s → 2.00s; rollup PURE-comment warnings gone. Dead `wallet` entry also removed from [vite.config.ts](frontend/vite.config.ts) `manualChunks`.
 
 ### v1.13.4
 - **Market sentiment — token age floor raised 6h → 48h** — macro sample now drawn from tokens established for at least 2 days, further insulating the regime signal from new-launch volatility ([marketSentiment.ts](backend/src/bot/marketSentiment.ts))

@@ -21,7 +21,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           solana: ['@solana/web3.js', '@solana/spl-token'],
-          wallet: ['@solana/wallet-adapter-react', '@solana/wallet-adapter-wallets'],
           charts: ['lightweight-charts'],
           meteora: ['@meteora-ag/dlmm', '@coral-xyz/anchor'],
         },

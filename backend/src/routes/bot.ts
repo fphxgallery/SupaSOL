@@ -7,6 +7,7 @@ import { decryptPrivateKey } from '../lib/vaultCrypto';
 import * as engine from '../bot/engine';
 import * as botState from '../bot/state';
 import { getDecisionLog, clearDecisionLog } from '../bot/aiAdvisor';
+import { getMarketSentiment } from '../bot/marketSentiment';
 import type { BotConfig } from '../bot/types';
 import { validateBotConfigPatch } from '../bot/validateConfig';
 import { config as appConfig } from '../config';
@@ -190,6 +191,11 @@ router.delete('/ai-decisions', (_req, res) => {
 router.delete('/log', (_req, res) => {
   botState.clearLog();
   res.json({ ok: true });
+});
+
+// GET /api/bot/market-sentiment
+router.get('/market-sentiment', (_req, res) => {
+  res.json({ sentiment: getMarketSentiment() });
 });
 
 export default router;

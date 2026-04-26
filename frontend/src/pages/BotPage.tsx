@@ -8,6 +8,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PnlChart } from '../components/charts/PnlChart';
 import { UnlockBotModal } from '../components/bot/UnlockBotModal';
+import { MarketSentimentChip } from '../components/bot/MarketSentimentChip';
 import { formatPct, timeAgo } from '../utils/format';
 import { EXPLORER_BASE } from '../config/constants';
 import { closeAllAndStop } from '../hooks/useTradingBot';
@@ -250,6 +251,7 @@ export function BotPage() {
           <p className="text-xs text-text-dim">Buys trending tokens automatically. Sells via trailing stop.</p>
         </div>
         <div className="flex items-center gap-3">
+          <MarketSentimentChip enabled={bgRunning || isLocalRunning} />
           {bgRunning && (
             <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400">
               <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />

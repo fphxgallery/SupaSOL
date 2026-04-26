@@ -105,3 +105,7 @@ export async function getAiDecisions(): Promise<{ decisions: AiDecisionLogEntry[
 export async function clearAiDecisions(): Promise<void> {
   await apiFetch('/api/bot/ai-decisions', { method: 'DELETE' });
 }
+
+export async function getMarketSentiment(): Promise<{ sentiment: MarketSentimentSnapshot | null }> {
+  return apiFetch<{ sentiment: MarketSentimentSnapshot | null }>('/api/bot/market-sentiment');
+}

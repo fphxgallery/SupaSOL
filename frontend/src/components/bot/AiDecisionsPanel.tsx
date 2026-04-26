@@ -29,6 +29,37 @@ function fmtScore(n: number | undefined): string {
   return (n >= 0 ? '+' : '') + n.toFixed(2);
 }
 
+async function copyJson(d: AiDecisionLogEntry, setCopied: (id: string | null) => void) {
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(d, null, 2));
+    setCopied(d.id);
+    setTimeout(() => setCopied(null), 1200);
+  } catch {
+    /* clipboard blocked */
+  }
+}
+
+interface DiffField {
+  label: string;
+  prev: string;
+  curr: string;
+}
+
+function buildDiff(curr: AiDecisionLogEntry, prev: AiDecisionLogEntry): DiffField[] {
+  const out: DiffField[] = [];
+  if (curr.action !== prev.action) out.push({ label: 'action', prev: prev.action, curr: curr.action });
+  if (curr.outcome !== prev.outcome) out.push({ label: 'outcome', prev: prev.outcome, curr: curr.outcome });
+  if (curr.confidence !== prev.confidence) out.push({ label: 'conf', prev: `${prev.confidence}%`, curr: `${curr.confidence}%` });
+  if ((curr.composite ?? null) !== (prev.composite ?? null)) {
+    out.push({ label: 'composite', prev: fmtScore(prev.composite), curr: fmtScore(curr.composite) });
+  }
+  if ((curr.pnlPct ?? null) !== (prev.pnlPct ?? null)) {
+    out.push({ label: 'pnl', prev: fmtPct(prev.pnlPct), curr: fmtPct(curr.pnlPct) });
+  }
+  if (curr.reason !== prev.reason) out.push({ label: 'reason', prev: prev.reason, curr: curr.reason });
+  return out;
+}
+
 export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
   const { data } = useAiDecisions(enabled);
   const invalidate = useInvalidateAiDecisions();
@@ -37,6 +68,7 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
   const [action, setAction] = useState<ActionFilter>('all');
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -47,6 +79,20 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
   }
 
   const decisions = data?.decisions ?? [];
+
+  // Map id -> prior entry for same mint (next-older). decisions is newest-first.
+  const prevByIdMap = useMemo(() => {
+    const lastByMint = new Map<string, AiDecisionLogEntry>();
+    const map = new Map<string, AiDecisionLogEntry>();
+    for (let i = decisions.length - 1; i >= 0; i--) {
+      const d = decisions[i];
+      const prior = lastByMint.get(d.mint);
+      if (prior) map.set(d.id, prior);
+      lastByMint.set(d.mint, d);
+    }
+    return map;
+  }, [decisions]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return decisions.filter((d) => {
@@ -153,7 +199,7 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
           </p>
         ) : (
           <div className="overflow-y-auto divide-y divide-border/40 border border-border rounded-lg" style={{ maxHeight: '480px' }}>
-            <div className="grid grid-cols-[70px_52px_90px_56px_80px_80px_1fr] gap-x-2 px-3 py-2 text-[10px] font-semibold text-text-dim uppercase tracking-wide bg-surface-2 sticky top-0">
+            <div className="grid grid-cols-[70px_52px_90px_56px_80px_80px_1fr_44px] gap-x-2 px-3 py-2 text-[10px] font-semibold text-text-dim uppercase tracking-wide bg-surface-2 sticky top-0">
               <span>Age</span>
               <span>Kind</span>
               <span>Token</span>
@@ -161,17 +207,20 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
               <span className="text-right">Score</span>
               <span className="text-right">P&L</span>
               <span>Outcome / Reason</span>
+              <span className="text-right">Copy</span>
             </div>
             {filtered.map((d) => {
               const color = OUTCOME_COLORS[d.outcome] ?? 'text-text';
               const gateBits = d.gate != null ? ` gate=${d.gate.toFixed(0)}` : '';
               const cachedBits = d.cached ? ' (cached)' : '';
               const isOpen = expanded.has(d.id);
-              const hasContext = d.marketSentiment || d.botPerformance;
+              const prev = prevByIdMap.get(d.id);
+              const diff = prev ? buildDiff(d, prev) : [];
+              const hasContext = !!(d.marketSentiment || d.botPerformance || (prev && diff.length > 0));
               return (
                 <div key={d.id}>
                   <div
-                    className={`grid grid-cols-[70px_52px_90px_56px_80px_80px_1fr] gap-x-2 px-3 py-2 items-start text-xs ${hasContext ? 'cursor-pointer hover:bg-surface-2/50' : ''}`}
+                    className={`grid grid-cols-[70px_52px_90px_56px_80px_80px_1fr_44px] gap-x-2 px-3 py-2 items-start text-xs ${hasContext ? 'cursor-pointer hover:bg-surface-2/50' : ''}`}
                     onClick={() => hasContext && toggle(d.id)}
                   >
                     <span className="text-[10px] text-text-dim tabular-nums">{timeAgo(d.ts)}</span>
@@ -183,12 +232,35 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
                     <div className="min-w-0">
                       <span className={`text-[10px] font-semibold uppercase ${color}`}>{d.outcome}</span>
                       <span className="text-text-dim"> · {d.action}{cachedBits}{gateBits}</span>
-                      {hasContext && <span className="text-text-dim text-[10px]"> · {isOpen ? '▾' : '▸'} ctx</span>}
+                      {hasContext && <span className="text-text-dim text-[10px]"> · {isOpen ? '▾' : '▸'} ctx{diff.length > 0 ? ` · Δ${diff.length}` : ''}</span>}
                       <p className="text-text-dim break-words">{d.reason}</p>
                     </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); copyJson(d, setCopiedId); }}
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-border text-text-dim hover:text-text hover:border-green/40 self-start"
+                      title="Copy decision JSON"
+                    >
+                      {copiedId === d.id ? '✓' : 'JSON'}
+                    </button>
                   </div>
                   {isOpen && hasContext && (
                     <div className="px-3 pb-3 pt-1 bg-surface-2/40 text-[11px] text-text-dim font-mono space-y-2">
+                      {diff.length > 0 && prev && (
+                        <div>
+                          <div className="text-[10px] uppercase font-semibold text-text-dim/70 mb-1">
+                            Δ vs prev for {d.symbol} ({timeAgo(prev.ts)})
+                          </div>
+                          <div className="space-y-0.5">
+                            {diff.map((f) => (
+                              <div key={f.label} className="break-words">
+                                <span className="text-text-dim/70">{f.label}:</span>{' '}
+                                <span className="line-through text-red/70">{f.prev}</span>{' → '}
+                                <span className="text-green">{f.curr}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {d.marketSentiment && (
                         <div>
                           <div className="text-[10px] uppercase font-semibold text-text-dim/70 mb-1">Market context (n={d.marketSentiment.sampleSize})</div>

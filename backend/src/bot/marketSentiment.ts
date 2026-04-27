@@ -16,6 +16,7 @@ export interface MarketSentimentSnapshot {
   avg6hPriceChange: number;
   avg24hPriceChange: number;
   pctPositiveNetBuyers6h: number;
+  pctPositiveNetBuyers5m?: number;
   avgOrganicScore: number;
   dayUtc: string;
   weekend: boolean;
@@ -56,9 +57,11 @@ export function computeMarketSentiment(tokens: TrendingToken[]): MarketSentiment
   let sum6h = 0, n6h = 0;
   let sum24h = 0, n24h = 0;
   let posNetBuyers6h = 0, totalNetBuyers6h = 0;
+  let posNetBuyers5m = 0, totalNetBuyers5m = 0;
   let sumOrganic = 0;
 
   for (const t of filtered) {
+    const s5 = t.stats['5m'];
     const s6 = t.stats['6h'];
     const s24 = t.stats['24h'];
     if (typeof s6?.priceChange === 'number') { sum6h += s6.priceChange; n6h++; }
@@ -66,6 +69,10 @@ export function computeMarketSentiment(tokens: TrendingToken[]): MarketSentiment
     if (typeof s6?.numNetBuyers === 'number') {
       totalNetBuyers6h++;
       if (s6.numNetBuyers > 0) posNetBuyers6h++;
+    }
+    if (typeof s5?.numNetBuyers === 'number') {
+      totalNetBuyers5m++;
+      if (s5.numNetBuyers > 0) posNetBuyers5m++;
     }
     sumOrganic += t.organicScore ?? 0;
   }
@@ -78,6 +85,7 @@ export function computeMarketSentiment(tokens: TrendingToken[]): MarketSentiment
     avg6hPriceChange: n6h > 0 ? sum6h / n6h : 0,
     avg24hPriceChange: n24h > 0 ? sum24h / n24h : 0,
     pctPositiveNetBuyers6h: totalNetBuyers6h > 0 ? (posNetBuyers6h / totalNetBuyers6h) * 100 : 0,
+    pctPositiveNetBuyers5m: totalNetBuyers5m > 0 ? (posNetBuyers5m / totalNetBuyers5m) * 100 : undefined,
     avgOrganicScore: sumOrganic / filtered.length,
     dayUtc: DAY_NAMES[dow],
     weekend: dow === 0 || dow === 6,
@@ -142,7 +150,11 @@ export function formatMarketSentimentBlock(snap: MarketSentimentSnapshot): strin
   return [
     `Market context (top ${TOP_N} trending, mcap>$${MIN_MCAP / 1000}k, organicScore≥${MIN_ORGANIC_SCORE}, age≥${MIN_TOKEN_AGE_MS / 3600_000}h, n=${snap.sampleSize}, age=${ageMin}m):`,
     `- avg 6h price: ${sign6}${snap.avg6hPriceChange.toFixed(2)}% | avg 24h price: ${sign24}${snap.avg24hPriceChange.toFixed(2)}%`,
-    `- 6h net-buyer breadth: ${snap.pctPositiveNetBuyers6h.toFixed(0)}% positive | avg organicScore: ${snap.avgOrganicScore.toFixed(0)}`,
+    `- net-buyer breadth: 6h=${snap.pctPositiveNetBuyers6h.toFixed(0)}%${
+      typeof snap.pctPositiveNetBuyers5m === 'number'
+        ? ` | 5m=${snap.pctPositiveNetBuyers5m.toFixed(0)}% (Δ ${(snap.pctPositiveNetBuyers5m - snap.pctPositiveNetBuyers6h >= 0 ? '+' : '')}${(snap.pctPositiveNetBuyers5m - snap.pctPositiveNetBuyers6h).toFixed(0)}pp — negative = leaders weakening short-term)`
+        : ''
+    } | avg organicScore: ${snap.avgOrganicScore.toFixed(0)}`,
     `- day: ${snap.dayUtc} (UTC) | weekend: ${snap.weekend ? 'yes' : 'no'}`,
   ].join('\n');
 }

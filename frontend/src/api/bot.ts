@@ -82,6 +82,7 @@ export interface MarketSentimentSnapshot {
   avg6hPriceChange: number;
   avg24hPriceChange: number;
   pctPositiveNetBuyers6h: number;
+  pctPositiveNetBuyers5m?: number;
   avgOrganicScore: number;
   dayUtc: string;
   weekend: boolean;

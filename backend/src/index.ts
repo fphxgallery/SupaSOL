@@ -81,5 +81,5 @@ app.use((err: Error, req: express.Request, res: express.Response, _next: express
 
 app.listen(config.port, () => {
   log.info(`listening on port ${config.port}`);
-  log.info(`CORS origin: ${config.frontendOrigin}`);
+  log.info(`CORS origins: ${config.frontendOrigin.join(', ')}`);
 });

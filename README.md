@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.14.0-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.14.1-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -236,6 +236,10 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.14.1
+- **Net-buyer breadth divergence (5m vs 6h)** — old `6h net-buyer breadth` was structurally pegged near 100% because the sample is pre-filtered to high-organic-score trending tokens (selection bias = leaders are by definition being accumulated). Now also computes 5m breadth over the same cohort and surfaces the delta (`5m − 6h`). Negative delta = leaders losing short-term flow → exhaustion / rotation tell. Sentiment chip score replaces centered-6h with clipped-divergence term (±30pp). System prompt explicitly tells the AI to read the delta, not the level. Backwards-compatible: 5m field optional; old persisted decision logs render fine ([marketSentiment.ts](backend/src/bot/marketSentiment.ts), [aiAdvisor.ts](backend/src/bot/aiAdvisor.ts), [MarketSentimentChip.tsx](frontend/src/components/bot/MarketSentimentChip.tsx), [AiDecisionsPanel.tsx](frontend/src/components/bot/AiDecisionsPanel.tsx))
+- **Multi-origin CORS** — `FRONTEND_ORIGIN` now accepts a comma-separated list; default covers both `http://localhost:5173` (vite dev) and `http://localhost:3000` (docker nginx) so dev + docker work without env-flipping ([backend/src/config.ts](backend/src/config.ts), [.env.example](.env.example))
 
 ### v1.14.0
 - **Dependency hygiene — drop unused `@solana/wallet-adapter-*`** — `@solana/wallet-adapter-base/react/react-ui/wallets` were declared in [frontend/package.json](frontend/package.json) but never imported (app uses its own zustand `walletStore` + raw `Keypair`). Removing them eliminates the entire particle / torus / walletconnect / reown transitive chain.

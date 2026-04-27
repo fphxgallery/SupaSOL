@@ -8,7 +8,11 @@ function clip(x: number, lim: number): number {
 export function computeSentimentScore(s: MarketSentimentSnapshot): number {
   const p6 = clip(s.avg6hPriceChange, 10);
   const p24 = clip(s.avg24hPriceChange, 10);
-  const breadth = (s.pctPositiveNetBuyers6h - 50) / 50;
+  // Breadth divergence: 5m vs 6h. Positive = leaders strengthening short-term, negative = exhausting.
+  // Falls back to centered 6h breadth if 5m unavailable.
+  const breadth = typeof s.pctPositiveNetBuyers5m === 'number'
+    ? clip(s.pctPositiveNetBuyers5m - s.pctPositiveNetBuyers6h, 30)
+    : (s.pctPositiveNetBuyers6h - 50) / 50;
   return p6 * 0.4 + p24 * 0.3 + breadth * 0.3;
 }
 
@@ -24,7 +28,10 @@ export function MarketSentimentChip({ enabled }: { enabled: boolean }) {
   if (!snap) return null;
   const score = computeSentimentScore(snap);
   const { word, cls, dot } = regimeLabel(score);
-  const tip = `avg 6h: ${snap.avg6hPriceChange.toFixed(2)}% · avg 24h: ${snap.avg24hPriceChange.toFixed(2)}% · breadth: ${snap.pctPositiveNetBuyers6h.toFixed(0)}% · n=${snap.sampleSize}`;
+  const breadthStr = typeof snap.pctPositiveNetBuyers5m === 'number'
+    ? `breadth 5m/6h: ${snap.pctPositiveNetBuyers5m.toFixed(0)}%/${snap.pctPositiveNetBuyers6h.toFixed(0)}% (Δ${snap.pctPositiveNetBuyers5m - snap.pctPositiveNetBuyers6h >= 0 ? '+' : ''}${(snap.pctPositiveNetBuyers5m - snap.pctPositiveNetBuyers6h).toFixed(0)}pp)`
+    : `breadth 6h: ${snap.pctPositiveNetBuyers6h.toFixed(0)}%`;
+  const tip = `avg 6h: ${snap.avg6hPriceChange.toFixed(2)}% · avg 24h: ${snap.avg24hPriceChange.toFixed(2)}% · ${breadthStr} · n=${snap.sampleSize}`;
   return (
     <div
       title={tip}

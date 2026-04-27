@@ -265,7 +265,16 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
                         <div>
                           <div className="text-[10px] uppercase font-semibold text-text-dim/70 mb-1">Market context (n={d.marketSentiment.sampleSize})</div>
                           <div>avg 6h: <span className={d.marketSentiment.avg6hPriceChange >= 0 ? 'text-green' : 'text-red'}>{fmtPct(d.marketSentiment.avg6hPriceChange)}</span> · avg 24h: <span className={d.marketSentiment.avg24hPriceChange >= 0 ? 'text-green' : 'text-red'}>{fmtPct(d.marketSentiment.avg24hPriceChange)}</span></div>
-                          <div>6h net-buyer breadth: {d.marketSentiment.pctPositiveNetBuyers6h.toFixed(0)}% · avg organic: {d.marketSentiment.avgOrganicScore.toFixed(0)}</div>
+                          <div>
+                            net-buyer breadth: 6h={d.marketSentiment.pctPositiveNetBuyers6h.toFixed(0)}%
+                            {typeof d.marketSentiment.pctPositiveNetBuyers5m === 'number' && (() => {
+                              const delta = d.marketSentiment!.pctPositiveNetBuyers5m! - d.marketSentiment!.pctPositiveNetBuyers6h;
+                              return (
+                                <> · 5m={d.marketSentiment!.pctPositiveNetBuyers5m!.toFixed(0)}% (<span className={delta >= 0 ? 'text-green' : 'text-red'}>Δ{delta >= 0 ? '+' : ''}{delta.toFixed(0)}pp</span>)</>
+                              );
+                            })()}
+                            <span> · avg organic: {d.marketSentiment.avgOrganicScore.toFixed(0)}</span>
+                          </div>
                           <div>day: {d.marketSentiment.dayUtc} (UTC){d.marketSentiment.weekend ? ' · weekend' : ''}</div>
                         </div>
                       )}

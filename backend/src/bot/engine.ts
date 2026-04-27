@@ -14,7 +14,7 @@ import {
   scoreInterval,
   recordDecisionLog,
 } from './aiAdvisor';
-import { computeMarketSentiment } from './marketSentiment';
+import { computeMarketSentiment, getMarketSentiment } from './marketSentiment';
 import type { BotConfig } from './types';
 import { SOL_MINT } from './types';
 import {
@@ -63,6 +63,38 @@ async function runEntryLoop() {
     const openMints = new Set(openPositions.map((p) => p.mint));
 
     const now = Date.now();
+
+    // Loss-streak circuit breaker: if last N closed positions are all losses, freeze
+    // entries until cooldown elapses OR 5m/6h breadth divergence flips non-negative
+    // (signals leaders are no longer weakening).
+    if (config.lossStreakBreakerEnabled) {
+      const closedDesc = [...botState.getState().closedPositions].sort((a, b) => b.exitTime - a.exitTime);
+      let streak = 0;
+      for (const p of closedDesc) {
+        if (p.pnlPct < 0) streak++;
+        else break;
+      }
+      if (streak >= config.lossStreakThreshold) {
+        const lastExit = closedDesc[0]?.exitTime ?? 0;
+        const cooldownEndMs = lastExit + config.lossStreakCooldownMinutes * 60_000;
+        const cooldownElapsed = now >= cooldownEndMs;
+
+        let breadthAllowsResume = false;
+        const sent = getMarketSentiment();
+        if (sent && typeof sent.pctPositiveNetBuyers5m === 'number') {
+          breadthAllowsResume = sent.pctPositiveNetBuyers5m - sent.pctPositiveNetBuyers6h >= 0;
+        }
+
+        if (!cooldownElapsed && !breadthAllowsResume) {
+          const remainingMin = Math.ceil((cooldownEndMs - now) / 60_000);
+          botState.addLog({
+            type: 'skip',
+            message: `Circuit breaker: ${streak} consecutive losses — entries frozen ${remainingMin}m or until breadth Δ ≥ 0`,
+          });
+          return;
+        }
+      }
+    }
     const cooldownMs = config.rebuyCooldownMinutes * 60_000;
     const recentlyExited = new Set(
       botState.getState().closedPositions

@@ -30,7 +30,7 @@ export interface BotPerformanceSnapshot {
   avgPnlPct: number;
   avgHeldMinutes: number;
   streak: { sign: 'win' | 'loss' | 'flat'; count: number };
-  topExitReasons: Array<{ reason: string; count: number }>;
+  topExitReasons: Array<{ reason: string; count: number; avgPnlPct: number }>;
 }
 
 let latestMarket: MarketSentimentSnapshot | null = null;
@@ -105,13 +105,16 @@ export function computeBotPerformance(closed: ClosedPosition[]): BotPerformanceS
   const recent = [...closed].sort((a, b) => b.exitTime - a.exitTime).slice(0, PERF_WINDOW);
 
   let wins = 0, losses = 0, sumPnl = 0, sumHeld = 0;
-  const reasonCounts = new Map<string, number>();
+  const reasonStats = new Map<string, { count: number; sumPnl: number }>();
   for (const p of recent) {
     if (p.pnlPct > 0) wins++;
     else if (p.pnlPct < 0) losses++;
     sumPnl += p.pnlPct;
     sumHeld += (p.exitTime - p.entryTime) / 60_000;
-    reasonCounts.set(p.exitReason, (reasonCounts.get(p.exitReason) ?? 0) + 1);
+    const cur = reasonStats.get(p.exitReason) ?? { count: 0, sumPnl: 0 };
+    cur.count++;
+    cur.sumPnl += p.pnlPct;
+    reasonStats.set(p.exitReason, cur);
   }
 
   let streakCount = 0;
@@ -126,10 +129,10 @@ export function computeBotPerformance(closed: ClosedPosition[]): BotPerformanceS
     }
   }
 
-  const topExitReasons = [...reasonCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
+  const topExitReasons = [...reasonStats.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 3)
-    .map(([reason, count]) => ({ reason, count }));
+    .map(([reason, s]) => ({ reason, count: s.count, avgPnlPct: s.sumPnl / s.count }));
 
   return {
     closedCount: recent.length,
@@ -160,7 +163,9 @@ export function formatMarketSentimentBlock(snap: MarketSentimentSnapshot): strin
 }
 
 export function formatBotPerformanceBlock(perf: BotPerformanceSnapshot): string {
-  const reasons = perf.topExitReasons.map((r) => `${r.reason} (${r.count})`).join(', ') || 'n/a';
+  const reasons = perf.topExitReasons
+    .map((r) => `${r.reason} (n=${r.count}, avg ${r.avgPnlPct >= 0 ? '+' : ''}${r.avgPnlPct.toFixed(1)}%)`)
+    .join(', ') || 'n/a';
   const streakStr = perf.streak.count >= 2 ? `${perf.streak.count} ${perf.streak.sign === 'win' ? 'wins' : perf.streak.sign === 'loss' ? 'losses' : 'flat'} in a row` : 'no streak';
   const pnlSign = perf.avgPnlPct >= 0 ? '+' : '';
   return [

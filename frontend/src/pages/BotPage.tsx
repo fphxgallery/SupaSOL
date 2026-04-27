@@ -426,6 +426,41 @@ export function BotPage() {
 
           <Card>
             <CardHeader
+              title="Risk Controls"
+              subtitle="Loss-streak circuit breaker"
+              action={
+                <Check
+                  label="Enabled"
+                  checked={activeConfig.lossStreakBreakerEnabled}
+                  onChange={(v) => handleConfigChange({ lossStreakBreakerEnabled: v })}
+                />
+              }
+            />
+            <CardBody className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Num
+                  label="Loss streak threshold"
+                  value={activeConfig.lossStreakThreshold}
+                  onChange={(v) => handleConfigChange({ lossStreakThreshold: v })}
+                  min={2} max={50} step={1} suffix="losses"
+                />
+                <Num
+                  label="Cooldown"
+                  value={activeConfig.lossStreakCooldownMinutes}
+                  onChange={(v) => handleConfigChange({ lossStreakCooldownMinutes: v })}
+                  min={1} max={1440} step={5} suffix="min"
+                />
+              </div>
+              <div className="rounded-lg bg-surface-2 border border-border p-3 text-xs text-text-dim space-y-1.5">
+                <p>• Freeze new entries after <span className="text-text font-medium">{activeConfig.lossStreakThreshold}</span> consecutive losses.</p>
+                <p>• Resumes after <span className="text-text font-medium">{activeConfig.lossStreakCooldownMinutes}m</span>, or earlier if 5m net-buyer breadth ≥ 6h breadth (leaders no longer weakening).</p>
+                <p>• Open positions still managed by exit logic; only new buys are paused.</p>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
               title="AI Advisor"
               subtitle="OpenAI-gated entry decisions"
               action={

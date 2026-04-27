@@ -286,7 +286,16 @@ export function AiDecisionsPanel({ enabled }: { enabled: boolean }) {
                             <div>streak: <span className={d.botPerformance.streak.sign === 'win' ? 'text-green' : d.botPerformance.streak.sign === 'loss' ? 'text-red' : ''}>{d.botPerformance.streak.count} {d.botPerformance.streak.sign === 'win' ? 'wins' : d.botPerformance.streak.sign === 'loss' ? 'losses' : 'flat'}</span></div>
                           )}
                           {d.botPerformance.topExitReasons.length > 0 && (
-                            <div>top exits: {d.botPerformance.topExitReasons.map((r) => `${r.reason}(${r.count})`).join(', ')}</div>
+                            <div>top exits: {d.botPerformance.topExitReasons.map((r, i) => (
+                              <span key={i}>
+                                {i > 0 ? ', ' : ''}
+                                {r.reason}(n={r.count}
+                                {typeof r.avgPnlPct === 'number' && (
+                                  <>, avg <span className={r.avgPnlPct >= 0 ? 'text-green' : 'text-red'}>{r.avgPnlPct >= 0 ? '+' : ''}{r.avgPnlPct.toFixed(1)}%</span></>
+                                )}
+                                )
+                              </span>
+                            ))}</div>
                           )}
                         </div>
                       )}

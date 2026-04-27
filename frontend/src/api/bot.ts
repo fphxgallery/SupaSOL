@@ -96,7 +96,7 @@ export interface BotPerformanceSnapshot {
   avgPnlPct: number;
   avgHeldMinutes: number;
   streak: { sign: 'win' | 'loss' | 'flat'; count: number };
-  topExitReasons: Array<{ reason: string; count: number }>;
+  topExitReasons: Array<{ reason: string; count: number; avgPnlPct?: number }>;
 }
 
 export async function getAiDecisions(): Promise<{ decisions: AiDecisionLogEntry[] }> {

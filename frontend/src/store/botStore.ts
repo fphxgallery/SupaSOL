@@ -38,6 +38,9 @@ export interface BotConfig {
   aiCacheMinutes: number;
   aiExitLossPct: number;
   aiExitGainPct: number;
+  lossStreakBreakerEnabled: boolean;
+  lossStreakThreshold: number;
+  lossStreakCooldownMinutes: number;
 }
 
 export type AiMode = 'veto' | 'confirm' | 'advisory';
@@ -126,6 +129,9 @@ const DEFAULT_CONFIG: BotConfig = {
   aiCacheMinutes: 10,
   aiExitLossPct: 10,
   aiExitGainPct: 30,
+  lossStreakBreakerEnabled: true,
+  lossStreakThreshold: 3,
+  lossStreakCooldownMinutes: 30,
 };
 
 interface BotState {

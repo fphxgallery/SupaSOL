@@ -6,7 +6,7 @@ A full-featured Solana trading terminal powered by [Jupiter](https://jup.ag), [M
 ![Jupiter](https://img.shields.io/badge/Powered_by-Jupiter-00C853?style=flat)
 ![Meteora](https://img.shields.io/badge/Powered_by-Meteora-6366f1?style=flat)
 ![Flash Trade](https://img.shields.io/badge/Powered_by-Flash_Trade-f97316?style=flat)
-![Release](https://img.shields.io/badge/release-v1.14.1-green?style=flat)
+![Release](https://img.shields.io/badge/release-v1.14.2-green?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 ---
@@ -236,6 +236,10 @@ npm run start      # Start production build
 ---
 
 ## Changelog
+
+### v1.14.2
+- **Loss-streak circuit breaker** — new "Risk Controls" card on Auto Trader. After N consecutive losses (default 3), entries freeze for a cooldown (default 30m), or earlier if 5m net-buyer breadth ≥ 6h breadth (regime no longer weakening). Open positions still managed normally; only new buys pause. Tunable via `lossStreakBreakerEnabled` / `lossStreakThreshold` / `lossStreakCooldownMinutes` ([engine.ts](backend/src/bot/engine.ts), [BotPage.tsx](frontend/src/pages/BotPage.tsx))
+- **Per-exit-reason avg pnl** — bot performance snapshot now tracks avg pnl per top exit reason, surfacing which exit type is bleeding vs cutting. AI prompt block now reads `top exits: trailing stop (n=6, avg -8.2%), AI sell @80% (n=4, avg -3.1%)`. AI Decisions panel shows the figures with green/red color. Tells you when to retune the trail or AI gate ([marketSentiment.ts](backend/src/bot/marketSentiment.ts), [AiDecisionsPanel.tsx](frontend/src/components/bot/AiDecisionsPanel.tsx))
 
 ### v1.14.1
 - **Net-buyer breadth divergence (5m vs 6h)** — old `6h net-buyer breadth` was structurally pegged near 100% because the sample is pre-filtered to high-organic-score trending tokens (selection bias = leaders are by definition being accumulated). Now also computes 5m breadth over the same cohort and surfaces the delta (`5m − 6h`). Negative delta = leaders losing short-term flow → exhaustion / rotation tell. Sentiment chip score replaces centered-6h with clipped-divergence term (±30pp). System prompt explicitly tells the AI to read the delta, not the level. Backwards-compatible: 5m field optional; old persisted decision logs render fine ([marketSentiment.ts](backend/src/bot/marketSentiment.ts), [aiAdvisor.ts](backend/src/bot/aiAdvisor.ts), [MarketSentimentChip.tsx](frontend/src/components/bot/MarketSentimentChip.tsx), [AiDecisionsPanel.tsx](frontend/src/components/bot/AiDecisionsPanel.tsx))

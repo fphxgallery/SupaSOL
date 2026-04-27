@@ -46,6 +46,9 @@ const RULES: Record<keyof BotConfig, Rule> = {
   aiCacheMinutes: { kind: 'num', min: 0, max: 1_440 },
   aiExitLossPct: { kind: 'num', min: 0, max: 100 },
   aiExitGainPct: { kind: 'num', min: 0, max: 100_000 },
+  lossStreakBreakerEnabled: { kind: 'bool' },
+  lossStreakThreshold: { kind: 'num', int: true, min: 2, max: 50 },
+  lossStreakCooldownMinutes: { kind: 'num', int: true, min: 1, max: 1_440 },
 };
 
 export type ValidationError = { field: string; message: string };
